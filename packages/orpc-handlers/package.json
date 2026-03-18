@@ -17,6 +17,7 @@
   "dependencies": {
     "@better-auth/core": "^1.4.0",
     "@orpc/server": "^1.7.0",
+    "@pi-cast/db": "workspace:*",
     "valibot": "^1.1.0"
   },
   "devDependencies": {

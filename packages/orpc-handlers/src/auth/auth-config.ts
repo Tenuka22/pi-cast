@@ -1,14 +1,18 @@
-import { betterAuth } from 'better-auth'
-import { magicLink } from 'better-auth/plugins/magic-link'
+import { betterAuth } from "better-auth"
+import { drizzleAdapter } from "@better-auth/drizzle-adapter"
+import { magicLink } from "better-auth/plugins"
+import { db } from "@pi-cast/db"
+import * as schema from "@pi-cast/db/schema"
 
 export function createAuth() {
-  const auth = betterAuth({
-    secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL,
-    database: {
-      type: 'sqlite',
-      url: process.env.DATABASE_URL ?? ':memory:',
-    },
+  return betterAuth({
+    usePlural: true,
+    secret: process.env.BETTER_AUTH_SECRET!,
+    baseURL: process.env.BETTER_AUTH_URL!,
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      schema,
+    }),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -17,17 +21,17 @@ export function createAuth() {
     },
     plugins: [
       magicLink({
-        async sendMagicLink({ email, url, token }) {
-          console.log('Magic link for', email, ':', url)
-          console.log('Token:', token)
+        async sendMagicLink(data: { email: string; url: string; token: string }) {
+          console.log("Magic link for", data.email, ":", data.url)
+          console.log("Token:", data.token)
           // TODO: Implement actual email sending
         },
       }),
     ],
     socialProviders: {
       github: {
-        clientId: process.env.GITHUB_CLIENT_ID ?? '',
-        clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       },
     },
     session: {
@@ -35,6 +39,6 @@ export function createAuth() {
       updateAge: 60 * 60 * 24,
     },
   })
-
-  return auth
 }
+
+export const auth = createAuth()

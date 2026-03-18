@@ -13,10 +13,13 @@
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "auth": "^1.5.5",
+    "drizzle-kit": "^1.0.0-beta.18-7eb39f0",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "turbo": "^2.8.17",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "varlock": "^0.5.0"
   },
   "engines": {
     "node": ">=20"
@@ -27,8 +30,12 @@
   ],
   "dependencies": {
     "@better-auth/core": "^1.5.5",
+    "@better-auth/drizzle-adapter": "^1.5.5",
     "@orpc/client": "^1.13.8",
     "@orpc/server": "^1.13.8",
-    "better-auth": "^1.5.5"
+    "@types/better-sqlite3": "^7.6.13",
+    "better-auth": "^1.5.5",
+    "better-sqlite3": "^12.8.0",
+    "drizzle-orm": "^1.0.0-beta.18-7eb39f0"
   }
 }

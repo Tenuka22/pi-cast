@@ -19,6 +19,25 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "auth:generate": {
+      "dependsOn": ["^build"]
+    },
+    "db:migrate": {
+      "dependsOn": ["^build"]
+    },
+    "db:generate": {
+      "dependsOn": ["^build"]
+    },
+    "db:push": {
+      "dependsOn": ["^build"]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "dependsOn": ["build"]
     }
   }
 }

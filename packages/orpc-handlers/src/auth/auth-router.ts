@@ -92,7 +92,7 @@ export const authRouter = os.router({
     const url = await auth.api.signInSocial({
       body: {
         provider: 'github',
-        callbackURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
+        callbackURL: process.env.BETTER_AUTH_URL,
       },
     })
 
