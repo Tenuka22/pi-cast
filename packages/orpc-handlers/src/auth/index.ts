@@ -1,2 +1,1 @@
-export { authRouter, type AuthRouter } from './auth-router'
-export { createAuth } from './auth-config'
+export { auth } from "./auth-config"

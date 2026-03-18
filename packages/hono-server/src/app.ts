@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { RPCHandler } from '@orpc/server/fetch'
-import { authRouter } from '@pi-cast/orpc-handlers/auth'
+import { auth } from '@pi-cast/orpc-handlers'
 
 export const app = new Hono()
 
@@ -13,15 +12,7 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok' })
 })
 
-const authHandler = new RPCHandler(authRouter)
-
-app.use('/api/auth/*', async (c) => {
-  const result = await authHandler.handle(c.req.raw)
-  if (result.matched) {
-    return result.response
-  }
-  return c.json({ error: 'Not found' }, 404)
-})
+app.use('/api/auth/*', (c) => auth.handler(c.req.raw))
 
 app.notFound((c) => {
   return c.json({ error: 'Not found' }, 404)
