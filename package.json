@@ -2,9 +2,10 @@
   "name": "pi-cast",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "bun@1.3.10",
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo dev",
+    "dev": "varlock run -- turbo dev",
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck"
@@ -23,5 +24,11 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@better-auth/core": "^1.5.5",
+    "@orpc/client": "^1.13.8",
+    "@orpc/server": "^1.13.8",
+    "better-auth": "^1.5.5"
+  }
 }

@@ -12,13 +12,13 @@ import tseslint from "typescript-eslint"
 export const config = [
   js.configs.recommended,
   eslintConfigPrettier,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
     plugins: {
       turbo: turboPlugin,
     },
     rules: {
-      "turbo/no-undeclared-env-vars": "warn",
+      "turbo/no-undeclared-env-vars": "off",
     },
   },
   {
@@ -28,5 +28,26 @@ export const config = [
   },
   {
     ignores: ["dist/**", ".next/**", "**/.turbo/**", "**/coverage/**"],
+  },
+  {
+    rules: {
+      "@typescript-eslint/no-use-before-define": "off",
+      "@typescript-eslint/naming-convention": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "no-shadow": "off",
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        { assertionStyle: "never" },
+      ],
+      "@typescript-eslint/no-non-null-assertion": "error",
+    },
   },
 ]
