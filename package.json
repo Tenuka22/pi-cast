@@ -5,7 +5,7 @@
   "packageManager": "bun@1.3.10",
   "scripts": {
     "build": "turbo build",
-    "dev": "varlock run -- turbo dev",
+    "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck"
