@@ -10,7 +10,7 @@
     "./auth-init": "./src/auth/init.ts"
   },
   "scripts": {
-    "auth:generate": "varlock run -- bun x auth@latest generate --y --config='./src/auth/auth-config.ts' --output='./src/auth.schema.ts'",
+    "auth:generate": "varlock run -- bun x auth@latest generate --y --config='./src/auth/index.ts' --output='./src/auth.schema.ts'",
     "db:migrate": "varlock run -- bunx drizzle-kit migrate",
     "db:generate": "varlock run -- bunx drizzle-kit generate",
     "db:push": "varlock run -- bunx drizzle-kit push",

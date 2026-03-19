@@ -2,7 +2,7 @@ import { AuthConfig, createAuth } from "./init"
 
 const authConfig: AuthConfig = {
   WEB_CLIENT_URL: "http://localhost:3000",
-  DATABASE_URL: "./sqlite.db",
+  DATABASE_URL: "file:./sqlite.db",
   BETTER_AUTH_URL: "http://localhost:3001",
   BETTER_AUTH_SECRET: "supersecretkey123",
   GITHUB_CLIENT_ID: "abc123def456ghi789",

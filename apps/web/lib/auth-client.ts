@@ -15,7 +15,7 @@ import {
 } from "@pi-cast/orpc-handlers"
 
 export const authClient = createAuthClient({
-  baseURL: ENV.NEXT_PUBLIC_BETTER_AUTH_URL,
+  baseURL: ENV.NEXT_PUBLIC_API_URL,
   plugins: [organizationClient(), adminClient(), emailOTPClient()],
 })
 
@@ -101,10 +101,16 @@ export async function safeSignInWithOTP(
   )
 }
 
-export function getAuthErrorMessage(error: unknown, fallback = "Something went wrong"): string {
+export function getAuthErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong"
+): string {
   return getErrorMessage(error, fallback)
 }
 
-export function isAuthErrorCode(error: unknown, code: keyof typeof ERROR_CODES): boolean {
+export function isAuthErrorCode(
+  error: unknown,
+  code: keyof typeof ERROR_CODES
+): boolean {
   return toApiError(error).code === ERROR_CODES[code]
 }
