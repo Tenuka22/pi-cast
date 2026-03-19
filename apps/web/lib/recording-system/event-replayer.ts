@@ -43,7 +43,8 @@ export class EventReplayer {
     const triggeredEvents: RecordingEvent[] = [];
 
     // Find events that should be triggered within the look-ahead window
-    const lookAheadEnd = currentTime + this.config.lookAheadTime!;
+    const lookAheadTime = this.config.lookAheadTime ?? 100;
+    const lookAheadEnd = currentTime + lookAheadTime;
 
     while (this.currentIndex < this.events.length) {
       const event = this.events[this.currentIndex];

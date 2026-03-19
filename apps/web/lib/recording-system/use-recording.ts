@@ -12,7 +12,6 @@ import { AudioRecorder } from './audio-recorder';
 import { EventRecorder } from './event-recorder';
 import type {
   RecordingState,
-  RecordingStatus,
   RecordingEventType,
   RecordingEventData,
   RecordingSession,
@@ -21,7 +20,6 @@ import type {
   BlockPlacedData,
   BlockMovedData,
   VariableSliderChangedData,
-  BookmarkCreatedData,
 } from './types';
 
 interface UseRecordingOptions {
@@ -330,12 +328,13 @@ export function useRecording(options: UseRecordingOptions = {}) {
   // Record block placed event
   const recordBlockPlaced = useCallback(
     (blockId: string, blockType: string, position: { x: number; y: number }, equation?: string) => {
-      addEvent('BLOCK_PLACED', {
+      const blockPlacedData: BlockPlacedData = {
         blockId,
         blockType,
         position,
         equation,
-      } as BlockPlacedData);
+      };
+      addEvent('BLOCK_PLACED', blockPlacedData);
     },
     [addEvent]
   );
@@ -347,11 +346,12 @@ export function useRecording(options: UseRecordingOptions = {}) {
       fromPosition: { x: number; y: number },
       toPosition: { x: number; y: number }
     ) => {
-      addEvent('BLOCK_MOVED', {
+      const blockMovedData: BlockMovedData = {
         blockId,
         fromPosition,
         toPosition,
-      } as BlockMovedData);
+      };
+      addEvent('BLOCK_MOVED', blockMovedData);
     },
     [addEvent]
   );
@@ -359,13 +359,14 @@ export function useRecording(options: UseRecordingOptions = {}) {
   // Record variable slider changed event
   const recordVariableChanged = useCallback(
     (blockId: string, variableName: string, oldValue: number, newValue: number, equationId?: string) => {
-      addEvent('VARIABLE_SLIDER_CHANGED', {
+      const variableChangedData: VariableSliderChangedData = {
         blockId,
         variableName,
         oldValue,
         newValue,
         equationId,
-      } as VariableSliderChangedData);
+      };
+      addEvent('VARIABLE_SLIDER_CHANGED', variableChangedData);
     },
     [addEvent]
   );

@@ -46,15 +46,17 @@ export class AudioPlaybackEngine {
       await this.initialize();
     }
 
-    this.segments = audioSegments.filter(seg => seg.audioBlob && !seg.isSilence);
+    this.segments = audioSegments.filter((seg): seg is AudioSegment => 
+      seg.audioBlob !== undefined && !seg.isSilence
+    );
     this.audioBuffers.clear();
 
     // Decode all audio segments
     for (const segment of this.segments) {
-      if (segment.audioBlob) {
+      if (segment.audioBlob && this.audioContext) {
         try {
           const arrayBuffer = await segment.audioBlob.arrayBuffer();
-          const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
           this.audioBuffers.set(segment.id, audioBuffer);
         } catch (error) {
           console.error(`Failed to decode audio segment ${segment.id}:`, error);
@@ -196,7 +198,7 @@ export class AudioPlaybackEngine {
     this.sourceNodes.forEach((source) => {
       try {
         source.stop();
-      } catch (e) {
+      } catch {
         // Already stopped
       }
     });
@@ -218,7 +220,7 @@ export class AudioPlaybackEngine {
     this.sourceNodes.forEach((source) => {
       try {
         source.stop();
-      } catch (e) {
+      } catch {
         // Already stopped
       }
     });
@@ -376,7 +378,7 @@ export class AudioPlaybackEngine {
     this.segments = [];
 
     if (this.audioContext) {
-      this.audioContext.close();
+      void this.audioContext.close();
       this.audioContext = null;
       this.gainNode = null;
     }

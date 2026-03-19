@@ -21,7 +21,6 @@ interface VariableSliderProps {
   className?: string;
 }
 
-const INFINITY_SYMBOL = '∞';
 const DEFAULT_MIN = -1000;
 const DEFAULT_MAX = 1000;
 const DEFAULT_STEP = 0.5;

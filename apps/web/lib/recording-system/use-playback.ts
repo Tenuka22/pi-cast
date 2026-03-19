@@ -12,12 +12,12 @@ import { AudioPlaybackEngine } from './audio-playback';
 import { EventReplayer } from './event-replayer';
 import type {
   PlaybackState,
-  PlaybackStatus,
   PlaybackSpeed,
   PlaybackSession,
   Bookmark,
   RecordingEvent,
   AudioSegment,
+  BookmarkCreatedData,
 } from './types';
 
 interface UsePlaybackOptions {
@@ -80,14 +80,17 @@ export function usePlayback(options: UsePlaybackOptions = {}) {
       // Extract bookmarks from events
       const extractedBookmarks: Bookmark[] = recordingSession.events
         .filter((event) => event.type === 'BOOKMARK_CREATED')
-        .map((event) => ({
-          id: (event.data as any).bookmarkId,
-          timestamp: event.timestamp,
-          title: (event.data as any).title,
-          description: (event.data as any).description,
-          type: (event.data as any).type,
-          createdAt: recordingSession.duration,
-        }));
+        .map((event) => {
+          const data = event.data as BookmarkCreatedData;
+          return {
+            id: data.bookmarkId,
+            timestamp: event.timestamp,
+            title: data.title,
+            description: data.description,
+            type: data.type,
+            createdAt: recordingSession.duration,
+          };
+        });
 
       setBookmarks(extractedBookmarks);
 
@@ -123,7 +126,7 @@ export function usePlayback(options: UsePlaybackOptions = {}) {
       });
 
       audioEngineRef.current.onTimeUpdateCallback((time) => {
-        const triggeredEvents = eventReplayerRef.current?.update(time) || [];
+        eventReplayerRef.current?.update(time);
         
         setState((prev) => ({
           ...prev,

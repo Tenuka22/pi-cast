@@ -58,24 +58,6 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
     setIsDirty(true);
   }, []);
 
-  const reorderLessons = useCallback((fromIndex: number, toIndex: number) => {
-    setCourse((prev) => {
-      const lessons = [...(prev.lessons || [])];
-      const [removed] = lessons.splice(fromIndex, 1);
-      if (removed) {
-        lessons.splice(toIndex, 0, removed);
-      }
-      
-      // Update order
-      lessons.forEach((lesson, index) => {
-        lesson.order = index;
-      });
-      
-      return { ...prev, lessons };
-    });
-    setIsDirty(true);
-  }, []);
-
   const handleSave = useCallback(() => {
     if (!course.title) return;
 
@@ -149,7 +131,7 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
               <div>
                 <label className="mb-1 block text-sm font-medium">Level</label>
                 <select
-                  value={course.level}
+                  value={course.level || 'beginner'}
                   onChange={(e) => updateCourse({ level: e.target.value as LessonLevel })}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >

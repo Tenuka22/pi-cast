@@ -26,7 +26,7 @@ interface UseLessonCreationOptions {
 }
 
 export function useLessonCreation(options: UseLessonCreationOptions = {}) {
-  const { lessonId, onAutoSave, onError } = options;
+  const { onAutoSave, onError } = options;
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -283,7 +283,7 @@ export function useLessonCreation(options: UseLessonCreationOptions = {}) {
 
     if (isDirty && lesson) {
       autoSaveTimerRef.current = window.setTimeout(() => {
-        saveLesson();
+        void saveLesson();
       }, AUTO_SAVE_DEBOUNCE);
     }
 
@@ -298,7 +298,7 @@ export function useLessonCreation(options: UseLessonCreationOptions = {}) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (isDirty && lesson && !isSaving) {
-        saveLesson();
+        void saveLesson();
       }
     }, AUTO_SAVE_INTERVAL);
 

@@ -80,13 +80,13 @@ export class EventRecorder {
       event.audioSegmentId = currentSegment.id;
     } else {
       // Find nearest segment
-      const nearestSegment = this.audioSegments.reduce((nearest, segment) => {
+      const nearestSegment = this.audioSegments.reduce<AudioSegment | null>((nearest, segment) => {
         const distanceToNearest = nearest
           ? Math.abs(event.timestamp - (nearest.startTime + nearest.endTime) / 2)
           : Infinity;
         const distanceToCurrent = Math.abs(event.timestamp - (segment.startTime + segment.endTime) / 2);
         return distanceToCurrent < distanceToNearest ? segment : nearest;
-      }, null as AudioSegment | null);
+      }, null);
 
       if (nearestSegment) {
         const timeOffset = event.timestamp - nearestSegment.startTime;

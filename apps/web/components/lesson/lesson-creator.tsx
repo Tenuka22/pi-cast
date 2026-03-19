@@ -35,7 +35,6 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
     isSaving,
     lastSavedAt,
     createLesson,
-    updateLesson,
     saveLesson,
     publishLesson,
   } = useLessonCreation({
@@ -121,14 +120,14 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
           ) : (
             <>
               <button
-                onClick={saveLesson}
+                onClick={() => { void saveLesson(); }}
                 disabled={!isDirty || isSaving}
                 className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
               <button
-                onClick={handlePublish}
+                onClick={() => { void handlePublish(); }}
                 className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
               >
                 Publish
@@ -174,7 +173,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
               <div>
                 <label className="mb-1 block text-sm font-medium">Level</label>
                 <select
-                  value={metadata.level}
+                  value={metadata.level || 'beginner'}
                   onChange={(e) => setMetadata((prev) => ({ ...prev, level: e.target.value as LessonLevel }))}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
@@ -188,7 +187,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
               <div>
                 <label className="mb-1 block text-sm font-medium">Visibility</label>
                 <select
-                  value={metadata.visibility}
+                  value={metadata.visibility || 'private'}
                   onChange={(e) => setMetadata((prev) => ({ ...prev, visibility: e.target.value as LessonVisibility }))}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
@@ -229,7 +228,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
             <div className="text-center">
               <h2 className="text-lg font-medium">Create a lesson to get started</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Enter lesson details above and click "Create Lesson"
+                Enter lesson details above and click &ldquo;Create Lesson&rdquo;
               </p>
             </div>
           </div>

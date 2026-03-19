@@ -12,13 +12,11 @@ import {
   GRID_UNIT,
   type ChartBlock,
   type EquationBlock,
-  type ChartConfig,
 } from '@/lib/block-system/types';
 import {
   renderGraph,
   type GraphConfig,
   type PlotOptions,
-  getDefaultConfigForEquation,
 } from '@/lib/visualization/graph-renderer';
 import { VariableSlider } from '@/components/visualization/variable-slider';
 
@@ -93,18 +91,11 @@ export function EnhancedChartBlock({
       equation: eq.equation,
       variables: { ...variables, x: 0 },
       options: {
-        color: DEFAULT_PLOT_COLORS[index % DEFAULT_PLOT_COLORS.length],
+        color: DEFAULT_PLOT_COLORS[index % DEFAULT_PLOT_COLORS.length] ?? '#3b82f6',
         lineWidth: 2,
         label: eq.equation,
-      } as PlotOptions,
+      },
     }));
-
-    // Apply equation-specific config
-    const firstEq = equations[0];
-    if (firstEq?.equationType) {
-      const eqConfig = getDefaultConfigForEquation(firstEq.equationType);
-      setConfig((prev) => ({ ...prev, ...eqConfig }));
-    }
 
     renderGraph(ctx, plots, config);
   }, [equations, variables, config]);
@@ -220,7 +211,7 @@ export function EnhancedChartBlock({
           </div>
           {showVariables && (
             <div className="flex flex-col gap-3">
-              {vars.map((varName, index) => (
+              {vars.map((varName) => (
                 <VariableSlider
                   key={varName}
                   name={varName}
@@ -238,11 +229,11 @@ export function EnhancedChartBlock({
       {equations.length > 0 && (
         <div className="border-t border-border bg-muted/30 px-3 py-2">
           <div className="flex flex-wrap gap-3">
-            {equations.map((eq, index) => (
+            {equations.map((eq, idx) => (
               <div key={eq.id} className="flex items-center gap-2">
                 <div
                   className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: DEFAULT_PLOT_COLORS[index % DEFAULT_PLOT_COLORS.length] }}
+                  style={{ backgroundColor: DEFAULT_PLOT_COLORS[idx % DEFAULT_PLOT_COLORS.length] }}
                 />
                 <span className="font-mono text-xs">{eq.equation}</span>
               </div>

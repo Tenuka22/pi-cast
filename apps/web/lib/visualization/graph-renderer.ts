@@ -101,11 +101,10 @@ export function evaluateFunction(equation: string, variables: Record<string, num
     // Replace mathematical constants
     expr = expr.replace(/\be\b/g, Math.E.toString());
     expr = expr.replace(/\bpi\b/g, Math.PI.toString());
-    
-    // Evaluate the expression safely
-    // eslint-disable-next-line no-new-func
-    const result = new Function('x', `return ${expr}`);
-    return result(variables.x || 0);
+
+    // Evaluate using Function constructor for mathematical expressions
+    const evalFunc = new Function('x', `return ${expr}`);
+    return evalFunc(variables.x || 0);
   } catch (error) {
     console.error('Error evaluating function:', error);
     return NaN;

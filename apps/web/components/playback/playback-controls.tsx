@@ -48,7 +48,6 @@ export function PlaybackControls({
   onStop,
   onSeek,
   onSeekRelative,
-  onSetSpeed,
   onCycleSpeed,
   onSetVolume,
   onMute,

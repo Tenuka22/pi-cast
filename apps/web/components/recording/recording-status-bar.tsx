@@ -21,7 +21,6 @@ interface RecordingStatusBarProps {
 
 export function RecordingStatusBar({
   isRecording,
-  isPaused,
   currentTime,
   events,
   audioSegments,

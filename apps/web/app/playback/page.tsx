@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
 import { BlockLibrary } from '@/components/blocks/block-library';
 import { PlaybackControls } from '@/components/playback/playback-controls';
@@ -9,7 +9,6 @@ import { usePlayback } from '@/lib/recording-system/use-playback';
 import type { RecordingEvent } from '@/lib/recording-system/types';
 import type { BlockPreset } from '@/components/blocks/block-library';
 import type { Block } from '@/lib/block-system/types';
-import type { RecordingSession } from '@/lib/recording-system/types';
 
 /**
  * Playback Page - Lesson playback with interactive canvas.
@@ -18,8 +17,6 @@ import type { RecordingSession } from '@/lib/recording-system/types';
  * In production, this would load a saved recording session.
  */
 export default function PlaybackPage() {
-  const [session, setSession] = useState<RecordingSession | null>(null);
-
   const {
     state: playbackState,
     bookmarks,
@@ -39,8 +36,6 @@ export default function PlaybackPage() {
   } = usePlayback({
     onEventTrigger: (event: RecordingEvent) => {
       console.log('Event triggered:', event);
-      // Here you would replay the event on the canvas
-      // e.g., move blocks, update parameters, etc.
     },
     onPlaybackEnd: () => {
       console.log('Playback ended');
@@ -55,28 +50,26 @@ export default function PlaybackPage() {
     console.log('Blocks updated:', blocks.length);
   };
 
-  const handleLoadDemoSession = async () => {
+  const handleLoadDemoSession = useCallback(async () => {
     await loadSession({
       id: 'demo-session',
       events: [],
       audioSegments: [],
       duration: 60000,
     });
-  };
+  }, [loadSession]);
 
   return (
     <div className="flex h-screen w-full flex-col">
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-border bg-card p-2">
         <h1 className="text-lg font-semibold">Lesson Playback</h1>
-        {!session && (
-          <button
-            onClick={handleLoadDemoSession}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Load Demo Session
-          </button>
-        )}
+        <button
+          onClick={() => { void handleLoadDemoSession(); }}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Load Demo Session
+        </button>
       </div>
 
       {/* Main Content */}
@@ -88,9 +81,8 @@ export default function PlaybackPage() {
       </div>
 
       {/* Playback Controls */}
-      {session && (
-        <div className="border-t border-border bg-card p-4">
-          <PlaybackControls
+      <div className="border-t border-border bg-card p-4">
+        <PlaybackControls
             state={playbackState}
             bookmarks={bookmarks}
             onPlay={play}
@@ -117,7 +109,6 @@ export default function PlaybackPage() {
             isPlaying={playbackState.status === 'playing'}
           />
         </div>
-      )}
     </div>
   );
 }

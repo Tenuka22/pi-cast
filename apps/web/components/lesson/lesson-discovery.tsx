@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
-import type { Lesson, LessonFilters, Category } from '@/lib/lesson-system/types';
+import type { Lesson, Category } from '@/lib/lesson-system/types';
 
 interface LessonDiscoveryProps {
   lessons?: Lesson[];
@@ -110,7 +110,7 @@ export function LessonDiscovery({ lessons, categories, onLessonClick, className 
         filtered.sort((a, b) => b.views - a.views);
         break;
       case 'newest':
-        filtered.sort((a, b) => b.publishedAt! - a.publishedAt!);
+        filtered.sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
         break;
       case 'rating':
         filtered.sort((a, b) => b.averageRating - a.averageRating);

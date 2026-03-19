@@ -204,7 +204,8 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
     setSelectedBlockId(blockWithPosition.id);
 
     // Record block placed event if recording
-    recordBlockPlaced(blockWithPosition.id, type, validPosition, (data.equation as string) || undefined);
+    const equationData = data.equation;
+    recordBlockPlaced(blockWithPosition.id, type, validPosition, typeof equationData === 'string' ? equationData : undefined);
   };
 
   const renderBlock = (block: Block) => {
@@ -278,8 +279,8 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
             isRecording={recordingState.status === 'recording' || recordingState.status === 'paused'}
             isPaused={recordingState.status === 'paused'}
             currentTime={recordingState.currentTime}
-            onStart={startRecording}
-            onStop={stopRecording}
+            onStart={() => { void startRecording(); }}
+            onStop={() => { void stopRecording(); }}
             onPause={pauseRecording}
             onResume={resumeRecording}
             onCreateBookmark={createBookmark}
