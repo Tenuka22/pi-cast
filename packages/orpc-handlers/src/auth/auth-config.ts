@@ -2,8 +2,8 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import {
   admin,
+  emailOTP,
   lastLoginMethod,
-  magicLink,
   organization,
 } from "better-auth/plugins"
 import { db } from "@pi-cast/db"
@@ -32,15 +32,12 @@ export function createAuth() {
       enabled: false,
     },
     plugins: [
-      magicLink({
-        async sendMagicLink(data: {
-          email: string
-          url: string
-          token: string
-        }) {
-          console.log("Magic link for", data.email, ":", data.url)
-          console.log("Token:", data.token)
+      emailOTP({
+        async sendVerificationOTP(data: { email: string; otp: string; type: string }) {
+          console.log("OTP for", data.email, ":", data.otp, "Type:", data.type)
         },
+        otpLength: 6,
+        expiresIn: 60 * 5, // 5 minutes
       }),
       lastLoginMethod(),
       organization({

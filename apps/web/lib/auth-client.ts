@@ -2,8 +2,7 @@ import { createAuthClient } from "better-auth/react"
 import {
   adminClient,
   organizationClient,
-  magicLinkClient,
-  twoFactorClient,
+  emailOTPClient,
 } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
@@ -11,8 +10,7 @@ export const authClient = createAuthClient({
   plugins: [
     organizationClient(),
     adminClient(),
-    magicLinkClient(),
-    twoFactorClient(),
+    emailOTPClient(),
   ],
 })
 
@@ -28,6 +26,8 @@ export const {
   listSessions,
   revokeSession,
   revokeOtherSessions,
-  twoFactor,
   organization,
 } = authClient
+
+export const sendVerificationOtp = authClient.emailOtp.sendVerificationOtp
+export const signInWithOTP = authClient.signIn.emailOtp
