@@ -1,8 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { createAuthClient } from "better-auth/client"
-import { organizationClient } from "better-auth/client/plugins"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -23,10 +21,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { ENV } from "varlock/env"
 import { authClient } from "@/lib/auth-client"
 
 // Types
@@ -68,6 +64,22 @@ interface AuthGuardProps {
   children: React.ReactNode
 }
 
+// Type assertion helper - necessary for API response type safety
+function assertOrganization(value: unknown): Organization[] {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as Organization[]
+}
+
+function assertMember(value: unknown): Member[] {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as Member[]
+}
+
+function assertInvitation(value: unknown): Invitation[] {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as Invitation[]
+}
+
 // AuthGuard Component
 function AuthGuard({ children }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(
@@ -79,7 +91,7 @@ function AuthGuard({ children }: AuthGuardProps) {
       const { data: session } = await authClient.getSession()
       setIsAuthenticated(!!session)
     }
-    checkAuth()
+    void checkAuth()
   }, [])
 
   if (isAuthenticated === null) {
@@ -115,15 +127,24 @@ function MemberRow({
 }: {
   member: Member
   isOwner: boolean
-  onRemove: (memberId: string) => void
-  onUpdateRole: (memberId: string, role: string) => void
+  onRemove: (memberId: string) => Promise<void>
+  onUpdateRole: (memberId: string, role: "admin" | "member" | "owner") => Promise<void>
 }) {
   const [isUpdating, setIsUpdating] = React.useState(false)
 
-  const handleRoleChange = async (newRole: string) => {
+  const handleRoleChange = async (newRole: "admin" | "member" | "owner") => {
     setIsUpdating(true)
     try {
       await onUpdateRole(member.id, newRole)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleRemove = async () => {
+    setIsUpdating(true)
+    try {
+      await onRemove(member.id)
     } finally {
       setIsUpdating(false)
     }
@@ -166,10 +187,10 @@ function MemberRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleRoleChange("admin")}>
+              <DropdownMenuItem onClick={() => void handleRoleChange("admin")}>
                 Admin
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleRoleChange("member")}>
+              <DropdownMenuItem onClick={() => void handleRoleChange("member")}>
                 Member
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -179,7 +200,7 @@ function MemberRow({
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => onRemove(member.id)}
+            onClick={() => void handleRemove()}
             disabled={isUpdating}
           >
             Remove
@@ -196,7 +217,7 @@ function InvitationRow({
   onCancel,
 }: {
   invitation: Invitation
-  onCancel: (invitationId: string) => void
+  onCancel: (invitationId: string) => Promise<void>
 }) {
   const [isCancelling, setIsCancelling] = React.useState(false)
 
@@ -240,7 +261,7 @@ function InvitationRow({
           <Button
             variant="outline"
             size="sm"
-            onClick={handleCancel}
+            onClick={() => void handleCancel()}
             disabled={isCancelling}
           >
             Cancel
@@ -267,13 +288,13 @@ function OrganizationCard({
   invitations: Invitation[]
   isOwner: boolean
   onRemoveMember: (memberId: string) => Promise<void>
-  onUpdateMemberRole: (memberId: string, role: string) => Promise<void>
+  onUpdateMemberRole: (memberId: string, role: "admin" | "member" | "owner") => Promise<void>
   onCancelInvitation: (invitationId: string) => Promise<void>
-  onInviteMember: (email: string, role: string) => Promise<void>
+  onInviteMember: (email: string, role: "admin" | "member" | "owner") => Promise<void>
 }) {
   const [showInviteForm, setShowInviteForm] = React.useState(false)
   const [inviteEmail, setInviteEmail] = React.useState("")
-  const [inviteRole, setInviteRole] = React.useState("member")
+  const [inviteRole, setInviteRole] = React.useState<"admin" | "member" | "owner">("member")
   const [isInviting, setIsInviting] = React.useState(false)
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -332,7 +353,7 @@ function OrganizationCard({
           {/* Invite Form */}
           {showInviteForm && (
             <form
-              onSubmit={handleInvite}
+              onSubmit={(e) => void handleInvite(e)}
               className="mb-4 flex gap-2 rounded-md border p-3"
             >
               <Input
@@ -345,7 +366,8 @@ function OrganizationCard({
               />
               <select
                 value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
+                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+                onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "owner")}
                 className="h-7 rounded-md border border-input bg-input/20 px-2 text-sm"
               >
                 <option value="member">Member</option>
@@ -410,7 +432,7 @@ function OrganizationsPageContent() {
     try {
       const { data: orgs } = await authClient.organization.list()
       if (orgs) {
-        setOrganizations(orgs as Organization[])
+        setOrganizations(assertOrganization(orgs))
 
         // Load members and invitations for each organization using getFullOrganization
         const membersMap: Record<string, Member[]> = {}
@@ -423,8 +445,8 @@ function OrganizationsPageContent() {
             })
 
           if (fullOrg) {
-            membersMap[org.id] = (fullOrg.members as Member[]) || []
-            invitationsMap[org.id] = (fullOrg.invitations as Invitation[]) || []
+            membersMap[org.id] = assertMember(fullOrg.members)
+            invitationsMap[org.id] = assertInvitation(fullOrg.invitations)
           } else {
             membersMap[org.id] = []
             invitationsMap[org.id] = []
@@ -442,7 +464,7 @@ function OrganizationsPageContent() {
   }, [])
 
   React.useEffect(() => {
-    loadOrganizations()
+    void loadOrganizations()
   }, [loadOrganizations])
 
   // Create organization
@@ -490,11 +512,11 @@ function OrganizationsPageContent() {
   }
 
   // Update member role
-  const handleUpdateMemberRole = async (memberId: string, role: string) => {
+  const handleUpdateMemberRole = async (memberId: string, role: "admin" | "member" | "owner") => {
     try {
       await authClient.organization.updateMemberRole({
         memberId,
-        role: role as "admin" | "member",
+        role,
       })
       await loadOrganizations()
     } catch (error) {
@@ -517,11 +539,11 @@ function OrganizationsPageContent() {
   }
 
   // Invite member
-  const handleInviteMember = async (email: string, role: string) => {
+  const handleInviteMember = async (email: string, role: "admin" | "member" | "owner") => {
     try {
       await authClient.organization.inviteMember({
         email,
-        role: role as "admin" | "member",
+        role,
       })
       await loadOrganizations()
     } catch (error) {
@@ -569,7 +591,7 @@ function OrganizationsPageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreateOrganization} className="flex gap-4">
+            <form onSubmit={(e) => void handleCreateOrganization(e)} className="flex gap-4">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="name">Organization Name</Label>
                 <Input

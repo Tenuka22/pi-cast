@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -25,7 +24,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
-  const router = useRouter()
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +124,7 @@ export default function LoginPage() {
           )}
 
           {step === "email" ? (
-            <form onSubmit={handleSendCode} className="space-y-4">
+            <form onSubmit={(e) => void handleSendCode(e)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -146,7 +144,7 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleSignInWithOTP} className="space-y-4">
+            <form onSubmit={(e) => void handleSignInWithOTP(e)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="otp">Verification Code</Label>
                 <Input
@@ -181,7 +179,7 @@ export default function LoginPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleBackToEmail}
+                  onClick={() => void handleBackToEmail()}
                   disabled={isLoading}
                   className="flex-1"
                 >
@@ -191,7 +189,7 @@ export default function LoginPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleResendCode}
+                  onClick={() => void handleResendCode()}
                   disabled={isLoading}
                   className="flex-1"
                 >
@@ -214,7 +212,7 @@ export default function LoginPage() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={handleGitHubSignIn}
+            onClick={() => void handleGitHubSignIn()}
             disabled={isLoading}
           >
             <HugeiconsIcon icon={GithubIcon} size={16} className="mr-2" />

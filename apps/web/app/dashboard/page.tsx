@@ -81,7 +81,7 @@ function DashboardContent() {
             <CardDescription>Manage your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="destructive" onClick={async () => { await handleSignOut() }}>
+            <Button variant="destructive" onClick={() => void handleSignOut()}>
               Sign Out
             </Button>
           </CardContent>

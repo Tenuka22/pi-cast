@@ -48,11 +48,13 @@ export async function handleAuthError<T>(
     const data = await fn()
     return { data, error: null }
   } catch (error) {
-    const apiError = toApiError(error) as AuthError
-    apiError.type = options?.type
-    console.error("[Auth Error]", apiError)
-    options?.onError?.(apiError)
-    return { data: null, error: apiError }
+    const authError: AuthError = {
+      ...toApiError(error),
+      type: options?.type,
+    }
+    console.error("[Auth Error]", authError)
+    options?.onError?.(authError)
+    return { data: null, error: authError }
   }
 }
 

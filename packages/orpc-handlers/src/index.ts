@@ -1,5 +1,4 @@
 import { os } from "@orpc/server"
-import type { AuthSession } from "./auth-middleware"
 
 /**
  * Base context interface for oRPC handlers

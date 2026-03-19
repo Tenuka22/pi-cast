@@ -1,11 +1,10 @@
 ﻿"use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserNav } from "@/components/auth/user-nav"
 import {
   useSession,
-  signOut,
   updateUser,
   changeEmail,
   deleteUser,
@@ -48,7 +47,6 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>("profile")
 
   if (!session?.user) {
@@ -122,8 +120,8 @@ function ProfileTab() {
         image: image || undefined,
       })
       setSuccess("Profile updated successfully")
-      refetch()
-    } catch (err) {
+      void refetch()
+    } catch {
       setError("Failed to update profile")
     } finally {
       setIsLoading(false)
@@ -157,7 +155,7 @@ function ProfileTab() {
         <Separator />
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -221,7 +219,7 @@ function AccountTab() {
     try {
       await changeEmail({ newEmail: email })
       setSuccess("Email change initiated. Please check your inbox to verify the new email.")
-    } catch (err) {
+    } catch {
       setError("Failed to change email. Please try again.")
     } finally {
       setIsLoading(false)
@@ -240,7 +238,7 @@ function AccountTab() {
     try {
       await deleteUser()
       router.push("/")
-    } catch (err) {
+    } catch {
       setError("Failed to delete account. Please try again.")
       setIsDeleting(false)
     }
@@ -255,7 +253,7 @@ function AccountTab() {
           <CardDescription>Update your email address</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleEmailChange} className="space-y-4">
+          <form onSubmit={(e) => void handleEmailChange(e)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">New Email</Label>
               <Input
@@ -317,7 +315,7 @@ function AccountTab() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-delete">
-                  Type "{session?.user?.email}" to confirm
+                  Type &quot;{session?.user?.email}&quot; to confirm
                 </Label>
                 <Input
                   id="confirm-delete"
@@ -348,7 +346,7 @@ function AccountTab() {
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={handleDeleteAccount}
+                  onClick={() => void handleDeleteAccount()}
                   disabled={isDeleting || deleteConfirmText !== session?.user?.email}
                   className="gap-2"
                 >
@@ -366,30 +364,37 @@ function AccountTab() {
 
 function SessionsTab() {
   const { data: session } = useSession()
-  const [sessions, setSessions] = useState<any[] | null>(null)
+  interface SessionItem {
+    id: string
+    userAgent?: string
+    lastActiveAt?: string | number | Date
+    ipAddress?: string
+  }
+  const [sessions, setSessions] = useState<SessionItem[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const response = await listSessions()
-      setSessions(response.data)
-    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      setSessions(response.data as SessionItem[])
+    } catch {
       setError("Failed to load sessions")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const handleRevokeSession = async (sessionId: string) => {
     setRevokingId(sessionId)
     try {
       await revokeSession({ token: sessionId })
       await fetchSessions()
-    } catch (err) {
+    } catch {
       setError("Failed to revoke session")
     } finally {
       setRevokingId(null)
@@ -403,7 +408,7 @@ function SessionsTab() {
     for (const sessionToRevoke of sessionsToRevoke) {
       try {
         await revokeSession({ token: sessionToRevoke.id })
-      } catch (err) {
+      } catch {
         // Continue revoking other sessions even if one fails
       }
     }
@@ -412,7 +417,7 @@ function SessionsTab() {
 
   useEffect(() => {
     void fetchSessions()
-  }, [])
+  }, [fetchSessions])
 
   const getDeviceIcon = (userAgent: string) => {
     const ua = userAgent.toLowerCase()
@@ -470,7 +475,7 @@ function SessionsTab() {
             {sessions && sessions.length > 1 && (
               <Button
                 variant="outline"
-                onClick={handleRevokeAllOtherSessions}
+                onClick={() => void handleRevokeAllOtherSessions()}
                 className="gap-2"
               >
                 Sign Out All Others
@@ -519,7 +524,7 @@ function SessionsTab() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Last active: {formatDate(sessionItem.lastActiveAt)}
+                          Last active: {sessionItem.lastActiveAt ? formatDate(sessionItem.lastActiveAt) : "N/A"}
                         </p>
                         {sessionItem.ipAddress && (
                           <p className="text-xs text-muted-foreground">
@@ -533,7 +538,7 @@ function SessionsTab() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleRevokeSession(sessionItem.id)}
+                        onClick={() => void handleRevokeSession(sessionItem.id)}
                         disabled={revokingId === sessionItem.id}
                         className="gap-2"
                       >

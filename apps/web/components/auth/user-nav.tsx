@@ -68,7 +68,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={async () => { await handleSignOut() }}>
+        <DropdownMenuItem onClick={() => void handleSignOut()}>
           Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
