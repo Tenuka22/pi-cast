@@ -16,7 +16,6 @@ import {
 import {
   renderGraph,
   type GraphConfig,
-  type PlotOptions,
 } from '@/lib/visualization/graph-renderer';
 import { VariableSlider } from '@/components/visualization/variable-slider';
 

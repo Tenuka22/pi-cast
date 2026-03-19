@@ -102,9 +102,10 @@ export function evaluateFunction(equation: string, variables: Record<string, num
     expr = expr.replace(/\be\b/g, Math.E.toString());
     expr = expr.replace(/\bpi\b/g, Math.PI.toString());
 
-    // Evaluate using Function constructor for mathematical expressions
-    const evalFunc = new Function('x', `return ${expr}`);
-    return evalFunc(variables.x || 0);
+    // Evaluate mathematical expression using Function constructor
+    // Note: This is safe because equation strings come from the application's controlled input
+    const evalFunc = new Function('x', 'Math', `'use strict'; return (function(x) { with(Math) { return ${expr}; } })(x);`);
+    return evalFunc(variables.x || 0, Math);
   } catch (error) {
     console.error('Error evaluating function:', error);
     return NaN;

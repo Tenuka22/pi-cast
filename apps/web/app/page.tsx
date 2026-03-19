@@ -30,7 +30,9 @@ export default async function Page() {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted p-4">
                 <p className="font-medium">You are signed in as:</p>
-                <p className="text-muted-foreground">{session.data?.user?.email}</p>
+                <p className="text-muted-foreground">
+                  {session.data?.user?.email}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Link href="/dashboard">
@@ -40,14 +42,16 @@ export default async function Page() {
             </div>
           ) : (
             <div className="space-y-4">
-              <p>Sign in to access your dashboard and manage your organizations.</p>
+              <p>
+                Sign in to access your dashboard and manage your organizations.
+              </p>
               <Link href="/login">
                 <Button>Sign In</Button>
               </Link>
             </div>
           )}
 
-          <div className="text-muted-foreground font-mono text-xs">
+          <div className="font-mono text-xs text-muted-foreground">
             (Press <kbd>d</kbd> to toggle dark mode)
           </div>
         </div>

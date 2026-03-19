@@ -111,14 +111,14 @@ export class AudioRecorder {
   private getCurrentAmplitude(): number {
     if (!this.analyser || !this.dataArray) return -100;
 
-    this.analyser.getFloatTimeDomainData(this.dataArray as Float32Array<ArrayBuffer>);
+    const dataArray = this.dataArray;
+    this.analyser.getFloatTimeDomainData(dataArray);
     let sum = 0;
-    for (let i = 0; i < this.dataArray.length; i++) {
-      const sample = this.dataArray[i] || 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const sample = dataArray[i] || 0;
       sum += sample * sample;
     }
-    const rms = Math.sqrt(sum / this.dataArray.length);
-    // Convert to dB (with floor to avoid -Infinity)
+    const rms = Math.sqrt(sum / dataArray.length);
     return 20 * Math.log10(Math.max(rms, 0.00001));
   }
 

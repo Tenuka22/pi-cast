@@ -225,7 +225,12 @@ export function LessonDiscovery({ lessons, categories, onLessonClick, className 
               {/* Sort */}
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (['popular', 'newest', 'rating'].includes(value)) {
+                    setSortBy(value);
+                  }
+                }}
                 className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="popular">Most Popular</option>

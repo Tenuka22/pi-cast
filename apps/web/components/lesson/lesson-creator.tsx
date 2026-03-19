@@ -11,7 +11,7 @@ import React, { useState, useCallback } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import { useLessonCreation } from '@/lib/lesson-system/use-lesson-creation';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
-import type { LessonCreationData, LessonLevel, LessonVisibility } from '@/lib/lesson-system/types';
+import type { LessonCreationData } from '@/lib/lesson-system/types';
 
 interface LessonCreatorProps {
   lessonId?: string;
@@ -174,7 +174,12 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                 <label className="mb-1 block text-sm font-medium">Level</label>
                 <select
                   value={metadata.level || 'beginner'}
-                  onChange={(e) => setMetadata((prev) => ({ ...prev, level: e.target.value as LessonLevel }))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (['beginner', 'intermediate', 'advanced', 'all'].includes(value)) {
+                      setMetadata((prev) => ({ ...prev, level: value }));
+                    }
+                  }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="beginner">Beginner</option>
@@ -188,7 +193,12 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                 <label className="mb-1 block text-sm font-medium">Visibility</label>
                 <select
                   value={metadata.visibility || 'private'}
-                  onChange={(e) => setMetadata((prev) => ({ ...prev, visibility: e.target.value as LessonVisibility }))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (['private', 'unlisted', 'organization', 'public'].includes(value)) {
+                      setMetadata((prev) => ({ ...prev, visibility: value }));
+                    }
+                  }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="private">Private</option>

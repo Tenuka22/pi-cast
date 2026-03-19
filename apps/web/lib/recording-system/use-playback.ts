@@ -17,7 +17,6 @@ import type {
   Bookmark,
   RecordingEvent,
   AudioSegment,
-  BookmarkCreatedData,
 } from './types';
 
 interface UsePlaybackOptions {
@@ -81,15 +80,19 @@ export function usePlayback(options: UsePlaybackOptions = {}) {
       const extractedBookmarks: Bookmark[] = recordingSession.events
         .filter((event) => event.type === 'BOOKMARK_CREATED')
         .map((event) => {
-          const data = event.data as BookmarkCreatedData;
+          const data = event.data as Record<string, unknown>;
+          const bookmarkId = typeof data.bookmarkId === 'string' ? data.bookmarkId : '';
+          const title = typeof data.title === 'string' ? data.title : '';
+          const description = typeof data.description === 'string' ? data.description : undefined;
+          const type = data.type === 'student' ? 'student' : 'teacher';
           return {
-            id: data.bookmarkId,
+            id: bookmarkId,
             timestamp: event.timestamp,
-            title: data.title,
-            description: data.description,
-            type: data.type,
+            title,
+            description,
+            type,
             createdAt: recordingSession.duration,
-          };
+          } satisfies Bookmark;
         });
 
       setBookmarks(extractedBookmarks);

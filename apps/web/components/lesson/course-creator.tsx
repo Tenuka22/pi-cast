@@ -8,7 +8,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
-import type { Course, CourseLesson, LessonLevel } from '@/lib/lesson-system/types';
+import type { Course, CourseLesson } from '@/lib/lesson-system/types';
 
 interface CourseCreatorProps {
   courseId?: string;
@@ -132,7 +132,12 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
                 <label className="mb-1 block text-sm font-medium">Level</label>
                 <select
                   value={course.level || 'beginner'}
-                  onChange={(e) => updateCourse({ level: e.target.value as LessonLevel })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (['beginner', 'intermediate', 'advanced', 'all'].includes(value)) {
+                      updateCourse({ level: value });
+                    }
+                  }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="beginner">Beginner</option>
