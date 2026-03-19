@@ -3,6 +3,8 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { AuthConfig, createAuth } from "@pi-cast/db/auth-init"
 import { ENV } from "varlock/env"
+import { RPCHandler } from "@orpc/server/fetch"
+import { getProfile, getVerifiedProfile, getAdminData, getPublicData } from "@pi-cast/orpc-handlers/routes"
 import {
   createLogger,
   requestLogger,
@@ -60,6 +62,28 @@ const auth = createAuth(authConfig)
 // Auth routes - let Better Auth handle errors
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
   return auth.handler(c.req.raw)
+})
+
+// Create oRPC handler with individual procedures
+const rpcHandler = new RPCHandler({
+  getProfile,
+  getVerifiedProfile,
+  getAdminData,
+  getPublicData,
+})
+
+// oRPC routes with headers passed to context
+app.use("/api/trpc/*", async (c) => {
+  const { matched, response } = await rpcHandler.handle(c.req.raw, {
+    prefix: "/api/trpc",
+    context: {
+      headers: c.req.raw.headers,
+    },
+  })
+
+  if (matched) {
+    return c.newResponse(response.body, response)
+  }
 })
 
 // 404 handler

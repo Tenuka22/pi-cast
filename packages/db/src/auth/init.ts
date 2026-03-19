@@ -6,12 +6,12 @@ import {
   lastLoginMethod,
   organization,
 } from "better-auth/plugins"
-import { db } from "@pi-cast/db"
-import * as schema from "@pi-cast/db/schema"
+import { createDb } from "../index"
+import * as schema from "../schema"
 
 export interface AuthConfig {
-  DATABASE_URL: string
   WEB_CLIENT_URL: string
+  DATABASE_URL: string
   BETTER_AUTH_URL: string
   BETTER_AUTH_SECRET: string
   GITHUB_CLIENT_ID: string
@@ -24,10 +24,14 @@ export interface AuthConfig {
   RATE_LIMIT_MAX_REQUESTS?: number
 }
 
+export type Auth = ReturnType<typeof createAuth>
+
 /**
  * Create Better Auth instance with comprehensive logging and security
  */
 export function createAuth(config: AuthConfig) {
+  const db = createDb(config.DATABASE_URL)
+
   const {
     WEB_CLIENT_URL,
     BETTER_AUTH_URL,

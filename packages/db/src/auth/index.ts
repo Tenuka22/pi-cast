@@ -1,9 +1,8 @@
-import { ENV } from "varlock/env"
 import { AuthConfig, createAuth } from "./init"
 
 const authConfig: AuthConfig = {
-  DATABASE_URL: ENV.DATABASE_URL,
   WEB_CLIENT_URL: "http://localhost:3000",
+  DATABASE_URL: "./sqlite.db",
   BETTER_AUTH_URL: "http://localhost:3001",
   BETTER_AUTH_SECRET: "supersecretkey123",
   GITHUB_CLIENT_ID: "abc123def456ghi789",
