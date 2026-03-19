@@ -68,7 +68,6 @@ export class AppError extends ORPCError<ErrorCode, undefined> {
     super(options.code, {
       message: options.message,
       status: options.status,
-      data: options.details as undefined,
     })
 
     this.code = options.code

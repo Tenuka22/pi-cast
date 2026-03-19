@@ -150,12 +150,37 @@ export const requestLogger = (logger?: Logger): MiddlewareHandler => {
 }
 
 /**
+ * Get error message safely
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === "object" && error !== null) {
+    const entries = Object.entries(error)
+    const messageEntry = entries.find(([key]) => key === "message")
+    if (messageEntry && typeof messageEntry[1] === "string") {
+      return messageEntry[1]
+    }
+  }
+  return String(error)
+}
+
+/**
+ * Check if value is a valid HTTP status code
+ */
+function isValidStatusCode(status: number): status is ContentfulStatusCode {
+  return status >= 100 && status < 600
+}
+
+/**
  * Convert ORPCError to HTTPException
  */
-function convertORPCError(error: ORPCError<string, unknown>): HTTPException {
-  return new AppHTTPException(error.status as ContentfulStatusCode, {
-    message: (error as unknown as { message?: string }).message || "",
-    code: error.code,
+function convertORPCError<T extends string, U>(error: ORPCError<T, U>): HTTPException {
+  const status = isValidStatusCode(error.status) ? error.status : 500
+  return new AppHTTPException(status, {
+    message: getErrorMessage(error),
+    code: String(error.code),
     cause: error.cause,
   })
 }
@@ -169,12 +194,12 @@ export const errorHandler = (logger?: Logger): MiddlewareHandler => {
   return async (c: Context, next: Next) => {
     try {
       await next()
-    } catch (error) {
+    } catch (error: unknown) {
       // Handle ORPC errors
       if (error instanceof ORPCError) {
-        const httpError = convertORPCError(error as ORPCError<string, unknown>)
+        const httpError = convertORPCError(error)
         log.error(`ORPC Error: ${httpError.message}`, {
-          code: error.code,
+          code: String(error.code),
           status: httpError.status,
         })
         throw httpError

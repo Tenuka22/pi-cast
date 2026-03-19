@@ -44,6 +44,16 @@ function redactSensitiveData(data: Record<string, unknown>): Record<string, unkn
 }
 
 /**
+ * Parse sameSite cookie attribute value
+ */
+function parseSameSite(value: string): "lax" | "strict" | "none" {
+  const lower = value.toLowerCase()
+  if (lower === "strict") return "strict"
+  if (lower === "none") return "none"
+  return "lax"
+}
+
+/**
  * Create Better Auth instance with comprehensive logging and security
  */
 export function createAuth() {
@@ -73,8 +83,8 @@ export function createAuth() {
         session_token: {
           name: "session_token",
           attributes: {
-            secure: ENV.COOKIE_SECURE,
-            sameSite: ENV.COOKIE_SAME_SITE as "lax" | "strict" | "none",
+            secure: Boolean(ENV.COOKIE_SECURE),
+            sameSite: parseSameSite(ENV.COOKIE_SAME_SITE),
             httpOnly: true,
             path: "/",
           },
@@ -109,7 +119,7 @@ export function createAuth() {
             console.log("[Auth Hook] User update started", {
               timestamp: getTimestamp(),
               userId: user.id,
-              fields: Object.keys(redactSensitiveData(user as Record<string, unknown>)),
+              fields: Object.keys(redactSensitiveData(user)),
             })
             return {
               data: user,

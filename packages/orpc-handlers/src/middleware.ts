@@ -1,6 +1,5 @@
-import { ORPCError, type Router } from "@orpc/server"
-import type { ErrorCode } from "./errors"
-import { toAppError, ERROR_CODES } from "./errors"
+import { ORPCError } from "@orpc/server"
+import { toAppError } from "./errors"
 
 /**
  * Log levels
@@ -40,25 +39,26 @@ export const consoleLogger: Logger = {
  */
 export interface ErrorLoggingOptions {
   logger?: Logger
-  logLevel?: LogLevel
   includeStackTrace?: boolean
   includeCause?: boolean
-  sensitiveFields?: string[]
 }
 
 /**
- * Default sensitive fields to redact
+ * Get error message safely
  */
-const DEFAULT_SENSITIVE_FIELDS = [
-  "password",
-  "secret",
-  "token",
-  "accessToken",
-  "refreshToken",
-  "authorization",
-  "cookie",
-  "session",
-]
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === "object" && error !== null) {
+    const entries = Object.entries(error)
+    const messageEntry = entries.find(([key]) => key === "message")
+    if (messageEntry && typeof messageEntry[1] === "string") {
+      return messageEntry[1]
+    }
+  }
+  return String(error)
+}
 
 /**
  * Format error for logging
@@ -67,13 +67,13 @@ function formatError(
   error: unknown,
   options: ErrorLoggingOptions
 ): Record<string, unknown> {
-  const { includeStackTrace, includeCause, sensitiveFields } = options
+  const { includeStackTrace, includeCause } = options
 
   if (error instanceof ORPCError) {
     const formatted: Record<string, unknown> = {
       type: error.constructor.name,
-      code: (error as ORPCError<ErrorCode, undefined>).code || "UNKNOWN",
-      message: (error as unknown as { message?: string }).message || "",
+      code: String(error.code),
+      message: getErrorMessage(error),
       status: error.status,
     }
 
@@ -122,10 +122,8 @@ export interface MiddlewareContext {
 export function createErrorMiddleware(options: ErrorLoggingOptions = {}) {
   const {
     logger = consoleLogger,
-    logLevel = "error",
     includeStackTrace = false,
     includeCause = true,
-    sensitiveFields = DEFAULT_SENSITIVE_FIELDS,
   } = options
 
   return async function errorMiddleware(ctx: MiddlewareContext): Promise<unknown> {
@@ -150,7 +148,6 @@ export function createErrorMiddleware(options: ErrorLoggingOptions = {}) {
       const errorDetails = formatError(error, {
         includeStackTrace,
         includeCause,
-        sensitiveFields,
       })
 
       logger.debug(`[oRPC Error Details] ${path}`, errorDetails)
