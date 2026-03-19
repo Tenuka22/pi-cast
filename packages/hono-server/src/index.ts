@@ -1,14 +1,16 @@
 import { serve } from "@hono/node-server"
 import { app } from "./app"
 import { ENV } from "varlock/env"
+import { createLogger } from "./middleware"
 
+const logger = createLogger({ prefix: "[Server]" })
 const port = ENV.PORT
 
-console.log("=== Hono Server Starting ===")
-console.log(`Port: ${port}`)
-console.log(`URL: http://localhost:${port}`)
-console.log(`Health check: http://localhost:${port}/health`)
-console.log("============================")
+logger.info("=== Hono Server Starting ===")
+logger.info(`Port: ${port}`)
+logger.info(`URL: http://localhost:${port}`)
+logger.info(`Health check: http://localhost:${port}/health`)
+logger.info("============================")
 
 try {
   serve(
@@ -17,10 +19,12 @@ try {
       port,
     },
     (info) => {
-      console.log(`✅ Server running on http://localhost:${info.port}`)
+      logger.info(`✅ Server running on http://localhost:${info.port}`)
     }
   )
 } catch (error) {
-  console.error("❌ Failed to start server:", error)
+  logger.error("❌ Failed to start server", {
+    error: error instanceof Error ? error.message : String(error),
+  })
   process.exit(1)
 }
