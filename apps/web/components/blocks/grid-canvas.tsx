@@ -24,6 +24,9 @@ import {
   ControlBlockComponent,
   DescriptionBlockComponent,
 } from './block-components';
+import { useRecording } from '@/lib/recording-system/use-recording';
+import { RecordingControls } from '@/components/recording/recording-controls';
+import { RecordingStatusBar } from '@/components/recording/recording-status-bar';
 
 interface GridCanvasProps {
   className?: string;
@@ -38,6 +41,22 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
   const [gridVisible, setGridVisible] = useState(true);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const isDraggingRef = useRef(false);
+
+  // Recording system integration
+  const {
+    state: recordingState,
+    start: startRecording,
+    stop: stopRecording,
+    pause: pauseRecording,
+    resume: resumeRecording,
+    createBookmark,
+    recordBlockPlaced,
+    recordBlockMoved,
+  } = useRecording({
+    metadata: {
+      lessonTitle: 'Untitled Lesson',
+    },
+  });
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -92,11 +111,16 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
       return b;
     });
 
+    // Record block moved event if recording
+    if (dragState.startPosition.x !== validPosition.x || dragState.startPosition.y !== validPosition.y) {
+      recordBlockMoved(block.id, dragState.startPosition, validPosition);
+    }
+
     setBlocks(newBlocks);
     onBlocksChange?.(newBlocks);
     setDragState(null);
     isDraggingRef.current = false;
-  }, [dragState, blocks, onBlocksChange]);
+  }, [dragState, blocks, onBlocksChange, recordBlockMoved]);
 
   const createEquationBlock = (position: GridPosition, equation?: string): EquationBlock => {
     const parsed = equation ? parseEquation(equation) : undefined;
@@ -178,6 +202,9 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
     setBlocks(newBlocks);
     onBlocksChange?.(newBlocks);
     setSelectedBlockId(blockWithPosition.id);
+
+    // Record block placed event if recording
+    recordBlockPlaced(blockWithPosition.id, type, validPosition, (data.equation as string) || undefined);
   };
 
   const renderBlock = (block: Block) => {
@@ -208,33 +235,35 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
 
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
-      {/* Toolbar */}
-      <div className="z-20 flex items-center gap-2 border-b border-border bg-card p-2 shadow-sm">
-        <button
-          onClick={() => addBlock('equation', { equation: 'y = mx + c' })}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          + Equation
-        </button>
-        <button
-          onClick={() => addBlock('control', { layout: 'vertical' })}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
-        >
-          + Controls
-        </button>
-        <button
-          onClick={() => addBlock('chart', {})}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
-        >
-          + Chart
-        </button>
-        <button
-          onClick={() => addBlock('description', {})}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
-        >
-          + Description
-        </button>
-        <div className="ml-auto flex items-center gap-2">
+      {/* Top Toolbar */}
+      <div className="z-20 flex items-center justify-between border-b border-border bg-card p-2 shadow-sm">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => addBlock('equation', { equation: 'y = mx + c' })}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            + Equation
+          </button>
+          <button
+            onClick={() => addBlock('control', { layout: 'vertical' })}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            + Controls
+          </button>
+          <button
+            onClick={() => addBlock('chart', {})}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            + Chart
+          </button>
+          <button
+            onClick={() => addBlock('description', {})}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            + Description
+          </button>
+        </div>
+        <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
@@ -244,6 +273,17 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
             />
             Show Grid
           </label>
+          {/* Recording Controls */}
+          <RecordingControls
+            isRecording={recordingState.status === 'recording' || recordingState.status === 'paused'}
+            isPaused={recordingState.status === 'paused'}
+            currentTime={recordingState.currentTime}
+            onStart={startRecording}
+            onStop={stopRecording}
+            onPause={pauseRecording}
+            onResume={resumeRecording}
+            onCreateBookmark={createBookmark}
+          />
         </div>
       </div>
 
@@ -278,6 +318,17 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
           </div>
         )}
       </div>
+
+      {/* Recording Status Bar */}
+      {(recordingState.status === 'recording' || recordingState.status === 'paused' || recordingState.audioSegments.length > 0) && (
+        <RecordingStatusBar
+          isRecording={recordingState.status === 'recording'}
+          isPaused={recordingState.status === 'paused'}
+          currentTime={recordingState.currentTime}
+          events={recordingState.events}
+          audioSegments={recordingState.audioSegments}
+        />
+      )}
     </div>
   );
 }

@@ -9,21 +9,21 @@ Complete launch checklist and deployment guide for pi-cast.
 ### Phase 1: Core Functionality ✅
 
 #### Block System
-- [ ] Equation block creation (y = mx + c, etc.)
-- [ ] Block tokenizer with syntax highlighting
-- [ ] 32x32 grid canvas implementation
-- [ ] Drag-and-drop functionality
-- [ ] Auto-arrangement of neighboring blocks
-- [ ] Block height calculation (32px multiples)
-- [ ] Initial fixed width with expansion on drop
+- [x] Equation block creation (y = mx + c, etc.)
+- [x] Block tokenizer with syntax highlighting
+- [x] 32x32 grid canvas implementation
+- [x] Drag-and-drop functionality
+- [x] Auto-arrangement of neighboring blocks
+- [x] Block height calculation (32px multiples)
+- [x] Initial fixed width with expansion on drop
 
 #### Recording System
-- [ ] Event-driven action capture
-- [ ] Audio recording with silence detection
-- [ ] Audio segmentation (___ / ____ pattern)
-- [ ] Event-audio synchronization
-- [ ] Recording start/stop controls
-- [ ] Pause/resume functionality during recording
+- [x] Event-driven action capture
+- [x] Audio recording with silence detection
+- [x] Audio segmentation (___ / ____ pattern)
+- [x] Event-audio synchronization
+- [x] Recording start/stop controls
+- [x] Pause/resume functionality during recording
 
 #### Playback System
 - [ ] Standard player controls (play, pause, rewind, forward)
