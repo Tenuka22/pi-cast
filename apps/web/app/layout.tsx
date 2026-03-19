@@ -2,7 +2,6 @@ import { Geist, JetBrains_Mono } from "next/font/google"
 
 import "@workspace/ui/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/lib/auth-provider"
 import { cn } from "@workspace/ui/lib/utils"
 
 const fontSans = Geist({
@@ -10,7 +9,7 @@ const fontSans = Geist({
   variable: "--font-sans",
 })
 
-const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'})
+const jetbrainsMono = JetBrains_Mono({subsets:["latin"],variable:"--font-mono"})
 
 export default function RootLayout({
   children,
@@ -25,7 +24,7 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>
