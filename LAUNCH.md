@@ -26,12 +26,12 @@ Complete launch checklist and deployment guide for pi-cast.
 - [x] Pause/resume functionality during recording
 
 #### Playback System
-- [ ] Standard player controls (play, pause, rewind, forward)
-- [ ] Event replay system
-- [ ] Audio playback synchronization
-- [ ] Bookmark creation and navigation
-- [ ] Speed control (0.5x, 1x, 1.5x, 2x)
-- [ ] Progress bar with event markers
+- [x] Standard player controls (play, pause, rewind, forward)
+- [x] Event replay system
+- [x] Audio playback synchronization
+- [x] Bookmark creation and navigation
+- [x] Speed control (0.5x, 1x, 1.5x, 2x)
+- [x] Progress bar with event markers
 
 #### Visualization
 - [ ] Chart block generation from equations

@@ -195,16 +195,29 @@ export interface RecordingSession {
 }
 
 // ============================================================================
-// PLAYBACK TYPES (for future implementation)
+// PLAYBACK TYPES
 // ============================================================================
 
+export type PlaybackStatus = 'idle' | 'playing' | 'paused' | 'stopped' | 'seeking' | 'error';
+
 export interface PlaybackState {
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  speed: number;
+  status: PlaybackStatus;
+  currentTime: number; // Current playback time in milliseconds
+  duration: number; // Total duration in milliseconds
+  speed: PlaybackSpeed;
   currentEventIndex: number;
   currentSegmentIndex: number;
+  isMuted: boolean;
+  volume: number; // 0.0 to 1.0
+  error: PlaybackError | null;
+}
+
+export type PlaybackSpeed = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2;
+
+export interface PlaybackError {
+  code: 'AUDIO_NOT_AVAILABLE' | 'PLAYBACK_FAILED' | 'SEEK_FAILED' | 'UNKNOWN';
+  message: string;
+  details?: unknown;
 }
 
 export interface PlaybackControls {
@@ -212,9 +225,32 @@ export interface PlaybackControls {
   pause: () => void;
   stop: () => void;
   seek: (time: number) => void;
-  setSpeed: (speed: number) => void;
+  seekRelative: (delta: number) => void; // Seek forward/backward by delta ms
+  setSpeed: (speed: PlaybackSpeed) => void;
+  setVolume: (volume: number) => void;
+  mute: () => void;
+  unmute: () => void;
   jumpToEvent: (eventId: string) => void;
   jumpToBookmark: (bookmarkId: string) => void;
+  jumpToSegment: (segmentIndex: number) => void;
+}
+
+export interface Bookmark {
+  id: string;
+  timestamp: number;
+  title: string;
+  description?: string;
+  type: 'teacher' | 'student';
+  color?: string;
+  createdAt: number;
+}
+
+export interface PlaybackSession {
+  recordingId: string;
+  events: RecordingEvent[];
+  audioSegments: AudioSegment[];
+  bookmarks: Bookmark[];
+  duration: number;
 }
 
 // ============================================================================
