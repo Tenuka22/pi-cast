@@ -176,8 +176,7 @@ export function ChartBlockComponent({
           <span className="text-xs text-muted-foreground">{block.equations.length} equation{block.equations.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="flex items-center gap-1">
-          <button className="rounded p-1 text-muted-foreground hover:bg-accent"><span className="text-sm">+</span></button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-accent"><span className="text-sm">−</span></button>
+          <span className="text-xs text-muted-foreground">Use EnhancedChartBlock for interactive graphs</span>
         </div>
       </div>
       <div className="relative flex-1 overflow-hidden">

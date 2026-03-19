@@ -34,12 +34,12 @@ Complete launch checklist and deployment guide for pi-cast.
 - [x] Progress bar with event markers
 
 #### Visualization
-- [ ] Chart block generation from equations
-- [ ] Linear graph rendering (single/multiple)
-- [ ] Variable sliders (-∞ to +∞ range)
-- [ ] Number input fields for variables
-- [ ] Real-time graph updates on parameter change
-- [ ] Equation grouping functionality
+- [x] Chart block generation from equations
+- [x] Linear graph rendering (single/multiple)
+- [x] Variable sliders (-∞ to +∞ range)
+- [x] Number input fields for variables
+- [x] Real-time graph updates on parameter change
+- [x] Equation grouping functionality
 
 ### Phase 2: User Management 🔐
 
