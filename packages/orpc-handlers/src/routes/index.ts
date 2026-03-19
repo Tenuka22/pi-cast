@@ -1,1 +1,6 @@
-export { authRouter } from '../auth/index'
+export {
+  getProfile,
+  getVerifiedProfile,
+  getAdminData,
+  getPublicData,
+} from "./protected"
