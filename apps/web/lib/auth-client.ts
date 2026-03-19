@@ -3,6 +3,7 @@ import {
   adminClient,
   organizationClient,
   magicLinkClient,
+  twoFactorClient,
 } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
@@ -11,6 +12,7 @@ export const authClient = createAuthClient({
     organizationClient(),
     adminClient(),
     magicLinkClient(),
+    twoFactorClient(),
   ],
 })
 
@@ -20,4 +22,12 @@ export const {
   signUp,
   useSession,
   getSession,
+  updateUser,
+  changeEmail,
+  deleteUser,
+  listSessions,
+  revokeSession,
+  revokeOtherSessions,
+  twoFactor,
+  organization,
 } = authClient

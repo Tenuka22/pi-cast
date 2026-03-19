@@ -57,6 +57,15 @@ export function UserNav() {
           <DropdownMenuItem onClick={() => router.push("/dashboard")}>
             Dashboard
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/dashboard/security")}>
+            Security
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/dashboard/organizations")}>
+            Organizations
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={async () => { await handleSignOut() }}>
