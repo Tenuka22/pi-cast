@@ -84,7 +84,7 @@ export function createAuth() {
           name: "session_token",
           attributes: {
             secure: Boolean(ENV.COOKIE_SECURE),
-            sameSite: parseSameSite(ENV.COOKIE_SAME_SITE),
+            sameSite: parseSameSite(ENV.COOKIE_SAME_SITE ?? "lax"),
             httpOnly: true,
             path: "/",
           },
