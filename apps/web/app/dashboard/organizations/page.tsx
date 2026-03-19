@@ -5,10 +5,20 @@ import { createAuthClient } from "better-auth/client"
 import { organizationClient } from "better-auth/client/plugins"
 
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,12 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-
-// Auth client with organization plugin
-const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  plugins: [organizationClient()],
-})
+import { ENV } from "varlock/env"
+import { authClient } from "@/lib/auth-client"
 
 // Types
 interface Organization {
@@ -64,7 +70,9 @@ interface AuthGuardProps {
 
 // AuthGuard Component
 function AuthGuard({ children }: AuthGuardProps) {
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(
+    null
+  )
 
   React.useEffect(() => {
     const checkAuth = async () => {
@@ -87,7 +95,9 @@ function AuthGuard({ children }: AuthGuardProps) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h2 className="text-lg font-semibold">Authentication Required</h2>
-          <p className="text-sm text-muted-foreground">Please sign in to access this page.</p>
+          <p className="text-sm text-muted-foreground">
+            Please sign in to access this page.
+          </p>
         </div>
       </div>
     )
@@ -120,7 +130,8 @@ function MemberRow({
   }
 
   const roleColors: Record<string, string> = {
-    owner: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    owner:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     admin: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     member: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
   }
@@ -136,7 +147,9 @@ function MemberRow({
         </Avatar>
         <div>
           <div className="text-sm font-medium">{member.user.name}</div>
-          <div className="text-xs text-muted-foreground">{member.user.email}</div>
+          <div className="text-xs text-muted-foreground">
+            {member.user.email}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -207,9 +220,7 @@ function InvitationRow({
           {isExpired ? (
             <span className="text-red-500">Expired</span>
           ) : (
-            <>
-              Expires: {new Date(invitation.expiresAt).toLocaleDateString()}
-            </>
+            <>Expires: {new Date(invitation.expiresAt).toLocaleDateString()}</>
           )}
         </div>
       </div>
@@ -287,13 +298,17 @@ function OrganizationCard({
             <CardDescription className="flex items-center gap-2">
               <span className="font-mono text-xs">/{organization.slug}</span>
               <span className="text-muted-foreground">•</span>
-              <span>{members.length} member{members.length !== 1 ? "s" : ""}</span>
+              <span>
+                {members.length} member{members.length !== 1 ? "s" : ""}
+              </span>
             </CardDescription>
           </div>
           {organization.logo && (
             <Avatar>
               <AvatarImage src={organization.logo} />
-              <AvatarFallback>{organization.name.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>
+                {organization.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
           )}
         </div>
@@ -316,7 +331,10 @@ function OrganizationCard({
 
           {/* Invite Form */}
           {showInviteForm && (
-            <form onSubmit={handleInvite} className="mb-4 flex gap-2 rounded-md border p-3">
+            <form
+              onSubmit={handleInvite}
+              className="mb-4 flex gap-2 rounded-md border p-3"
+            >
               <Input
                 type="email"
                 placeholder="email@example.com"
@@ -375,8 +393,12 @@ function OrganizationCard({
 // Main Organizations Page Component
 function OrganizationsPageContent() {
   const [organizations, setOrganizations] = React.useState<Organization[]>([])
-  const [membersByOrg, setMembersByOrg] = React.useState<Record<string, Member[]>>({})
-  const [invitationsByOrg, setInvitationsByOrg] = React.useState<Record<string, Invitation[]>>({})
+  const [membersByOrg, setMembersByOrg] = React.useState<
+    Record<string, Member[]>
+  >({})
+  const [invitationsByOrg, setInvitationsByOrg] = React.useState<
+    Record<string, Invitation[]>
+  >({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [isCreating, setIsCreating] = React.useState(false)
   const [showCreateForm, setShowCreateForm] = React.useState(false)
@@ -395,7 +417,10 @@ function OrganizationsPageContent() {
         const invitationsMap: Record<string, Invitation[]> = {}
 
         for (const org of orgs) {
-          const { data: fullOrg } = await authClient.organization.getFullOrganization({ query: { organizationId: org.id } })
+          const { data: fullOrg } =
+            await authClient.organization.getFullOrganization({
+              query: { organizationId: org.id },
+            })
 
           if (fullOrg) {
             membersMap[org.id] = (fullOrg.members as Member[]) || []
@@ -567,7 +592,10 @@ function OrganizationsPageContent() {
                 />
               </div>
               <div className="flex items-end">
-                <Button type="submit" disabled={isCreating || !newOrgName.trim()}>
+                <Button
+                  type="submit"
+                  disabled={isCreating || !newOrgName.trim()}
+                >
                   {isCreating ? "Creating..." : "Create"}
                 </Button>
               </div>
@@ -626,6 +654,3 @@ export default function OrganizationsPage() {
     </AuthGuard>
   )
 }
-
-
-

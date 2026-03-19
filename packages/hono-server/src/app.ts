@@ -1,19 +1,29 @@
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { auth } from '@pi-cast/orpc-handlers'
+import { Hono } from "hono"
+import { cors } from "hono/cors"
+import { logger } from "hono/logger"
+import { auth } from "@pi-cast/orpc-handlers"
+import { ENV } from "varlock/env"
 
 export const app = new Hono()
 
-app.use('*', logger())
-app.use('*', cors())
+app.use("*", logger())
 
-app.get('/health', (c) => {
-  return c.json({ status: 'ok' })
+app.use(
+  "*",
+  cors({
+    origin: ENV.WEB_CLIENT_URL,
+    credentials: true,
+  })
+)
+
+app.get("/health", (c) => {
+  return c.json({ status: "ok" })
 })
 
-app.use('/api/auth/*', (c) => auth.handler(c.req.raw))
+app.on(["POST", "GET"], "/auth/*", (c) => {
+  return auth.handler(c.req.raw)
+})
 
 app.notFound((c) => {
-  return c.json({ error: 'Not found' }, 404)
+  return c.json({ error: "Not found" }, 404)
 })

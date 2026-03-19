@@ -4,14 +4,11 @@ import {
   organizationClient,
   emailOTPClient,
 } from "better-auth/client/plugins"
+import { ENV } from "varlock/env"
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
-  plugins: [
-    organizationClient(),
-    adminClient(),
-    emailOTPClient(),
-  ],
+  baseURL: ENV.NEXT_PUBLIC_BETTER_AUTH_URL,
+  plugins: [organizationClient(), adminClient(), emailOTPClient()],
 })
 
 export const {

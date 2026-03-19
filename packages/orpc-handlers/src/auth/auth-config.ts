@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
+import { ENV } from "varlock/env"
 import {
   admin,
   emailOTP,
@@ -12,8 +13,8 @@ import * as schema from "@pi-cast/db/schema"
 export function createAuth() {
   return betterAuth({
     usePlural: true,
-    secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL,
+    secret: ENV.BETTER_AUTH_SECRET,
+    baseURL: ENV.BETTER_AUTH_URL,
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema,
@@ -47,8 +48,8 @@ export function createAuth() {
     ],
     socialProviders: {
       github: {
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        clientId: ENV.GITHUB_CLIENT_ID,
+        clientSecret: ENV.GITHUB_CLIENT_SECRET,
       },
     },
     session: {

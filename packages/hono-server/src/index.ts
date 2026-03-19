@@ -1,13 +1,14 @@
-import { serve } from '@hono/node-server'
-import { app } from './app'
+import { serve } from "@hono/node-server"
+import { app } from "./app"
+import { ENV } from "varlock/env"
 
-const port = Number(process.env.PORT) || 3001
+const port = ENV.PORT
 
-console.log('=== Hono Server Starting ===')
+console.log("=== Hono Server Starting ===")
 console.log(`Port: ${port}`)
 console.log(`URL: http://localhost:${port}`)
 console.log(`Health check: http://localhost:${port}/health`)
-console.log('============================')
+console.log("============================")
 
 try {
   serve(
@@ -20,6 +21,6 @@ try {
     }
   )
 } catch (error) {
-  console.error('❌ Failed to start server:', error)
+  console.error("❌ Failed to start server:", error)
   process.exit(1)
 }
