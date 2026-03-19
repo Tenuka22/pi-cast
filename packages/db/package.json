@@ -5,14 +5,17 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./auth": "./src/auth/index.ts",
+    "./auth-init": "./src/auth/init.ts"
   },
   "scripts": {
-    "auth:generate": "varlock run -- bun x auth@latest generate --y --config='../orpc-handlers/src/auth/auth-config.ts' --output='./src/auth.schema.ts'",
+    "auth:generate": "varlock run -- bun x auth@latest generate --y --config='./src/auth/auth-config.ts' --output='./src/auth.schema.ts'",
     "db:migrate": "varlock run -- bunx drizzle-kit migrate",
     "db:generate": "varlock run -- bunx drizzle-kit generate",
     "db:push": "varlock run -- bunx drizzle-kit push",
-    "db:studio": "varlock run -- bunx drizzle-kit studio"
+    "db:studio": "varlock run -- bunx drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
@@ -24,6 +27,7 @@
     "@workspace/typescript-config": "workspace:*",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "varlock": "^0.5.0"
   }
 }

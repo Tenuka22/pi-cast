@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
-import { auth } from "@pi-cast/orpc-handlers"
+import { AuthConfig, createAuth } from "@pi-cast/db/auth-init"
 import { ENV } from "varlock/env"
 import {
   createLogger,
@@ -41,6 +41,22 @@ app.get("/health", (c) => {
   })
 })
 
+const authConfig: AuthConfig = {
+  DATABASE_URL: ENV.DATABASE_URL,
+  WEB_CLIENT_URL: ENV.WEB_CLIENT_URL,
+  BETTER_AUTH_URL: ENV.BETTER_AUTH_URL,
+  BETTER_AUTH_SECRET: ENV.BETTER_AUTH_SECRET,
+  GITHUB_CLIENT_ID: ENV.GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET: ENV.GITHUB_CLIENT_SECRET,
+  TRUSTED_ORIGINS: ENV.TRUSTED_ORIGINS,
+  COOKIE_SECURE: ENV.COOKIE_SECURE,
+  COOKIE_SAME_SITE: ENV.COOKIE_SAME_SITE,
+  RATE_LIMIT_ENABLED: ENV.RATE_LIMIT_ENABLED,
+  RATE_LIMIT_WINDOW_MS: ENV.RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_REQUESTS: ENV.RATE_LIMIT_MAX_REQUESTS,
+}
+
+const auth = createAuth(authConfig)
 // Auth routes - let Better Auth handle errors
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
   return auth.handler(c.req.raw)

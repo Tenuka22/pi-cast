@@ -40,6 +40,11 @@ export const ERROR_CODES = {
   OTP_INVALID: "OTP_INVALID",
   OTP_NOT_FOUND: "OTP_NOT_FOUND",
   EMAIL_NOT_VERIFIED: "EMAIL_NOT_VERIFIED",
+
+  // Client errors
+  NETWORK_ERROR: "NETWORK_ERROR",
+  TIMEOUT_ERROR: "TIMEOUT_ERROR",
+  UNKNOWN_ERROR: "UNKNOWN_ERROR",
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
@@ -53,6 +58,17 @@ export interface ErrorOptions {
   status?: number
   details?: Record<string, unknown>
   cause?: unknown
+}
+
+/**
+ * API error interface for consistent error responses
+ */
+export interface ApiError {
+  code: ErrorCode
+  message: string
+  status: number
+  details?: Record<string, unknown>
+  timestamp: string
 }
 
 /**
@@ -263,10 +279,129 @@ export function toAppError(error: unknown): AppError {
   if (error instanceof AppError) {
     return error
   }
-  
+
   if (error instanceof Error) {
     return new InternalError(error.message)
   }
-  
+
   return new InternalError("An unexpected error occurred")
+}
+
+/**
+ * Auth error interface extending ApiError with type information
+ */
+export interface AuthError extends ApiError {
+  type?: "sign_in" | "sign_up" | "sign_out" | "session" | "otp"
+}
+
+/**
+ * Error response body from API
+ */
+export interface ErrorResponse {
+  success: false
+  error: ApiError
+}
+
+/**
+ * Type guard for ErrorResponse
+ */
+export function isErrorResponse(response: unknown): response is ErrorResponse {
+  return (
+    typeof response === "object" &&
+    response !== null &&
+    "success" in response &&
+    response.success === false &&
+    "error" in response
+  )
+}
+
+/**
+ * Type guard for ApiError
+ */
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    "message" in error &&
+    "status" in error
+  )
+}
+
+/**
+ * Convert unknown error to ApiError (alias for toAppError for frontend compatibility)
+ */
+export function toApiError(error: unknown): ApiError {
+  return toAppError(error)
+}
+
+/**
+ * Get user-friendly error message
+ */
+export function getErrorMessage(error: unknown, fallback = "Something went wrong"): string {
+  const apiError = toApiError(error)
+  const friendlyMessages: Partial<Record<ErrorCode, string>> = {
+    [ERROR_CODES.UNAUTHORIZED]: "Please sign in to continue",
+    [ERROR_CODES.INVALID_CREDENTIALS]: "Invalid email or password",
+    [ERROR_CODES.SESSION_EXPIRED]: "Your session has expired. Please sign in again",
+    [ERROR_CODES.FORBIDDEN]: "You don't have permission to do this",
+    [ERROR_CODES.VALIDATION_ERROR]: "Please check your input and try again",
+    [ERROR_CODES.NOT_FOUND]: "The requested resource was not found",
+    [ERROR_CODES.RATE_LIMITED]: "Too many attempts. Please wait a moment",
+    [ERROR_CODES.OTP_EXPIRED]: "The verification code has expired",
+    [ERROR_CODES.OTP_INVALID]: "Invalid verification code",
+    [ERROR_CODES.NETWORK_ERROR]: "Network error. Please check your connection",
+    [ERROR_CODES.TIMEOUT_ERROR]: "Request timed out. Please try again",
+  }
+  return friendlyMessages[apiError.code] || apiError.message || fallback
+}
+
+/**
+ * Check if error is a specific error code
+ */
+export function isErrorCode(error: unknown, code: ErrorCode): boolean {
+  return toApiError(error).code === code
+}
+
+/**
+ * Check if error is authentication related
+ */
+export function isAuthError(error: unknown): boolean {
+  const apiError = toApiError(error)
+  const authCodes: ErrorCode[] = [
+    ERROR_CODES.UNAUTHORIZED,
+    ERROR_CODES.INVALID_CREDENTIALS,
+    ERROR_CODES.SESSION_EXPIRED,
+    ERROR_CODES.INVALID_TOKEN,
+  ]
+  return authCodes.includes(apiError.code)
+}
+
+/**
+ * Check if error is validation related
+ */
+export function isValidationError(error: unknown): boolean {
+  const apiError = toApiError(error)
+  const validationCodes: ErrorCode[] = [
+    ERROR_CODES.VALIDATION_ERROR,
+    ERROR_CODES.INVALID_INPUT,
+    ERROR_CODES.MISSING_FIELD,
+  ]
+  return validationCodes.includes(apiError.code)
+}
+
+/**
+ * Check if error is retryable
+ */
+export function isRetryableError(error: unknown): boolean {
+  const apiError = toApiError(error)
+  const retryableCodes: ErrorCode[] = [
+    ERROR_CODES.NETWORK_ERROR,
+    ERROR_CODES.TIMEOUT_ERROR,
+    ERROR_CODES.RATE_LIMITED,
+    ERROR_CODES.INTERNAL_ERROR,
+    ERROR_CODES.DATABASE_ERROR,
+    ERROR_CODES.EXTERNAL_SERVICE_ERROR,
+  ]
+  return retryableCodes.includes(apiError.code)
 }
