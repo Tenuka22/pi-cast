@@ -14,7 +14,7 @@ export function createAuth() {
   return betterAuth({
     usePlural: true,
     secret: ENV.BETTER_AUTH_SECRET,
-    baseURL: ENV.BETTER_AUTH_URL,
+    baseURL: ENV.WEB_CLIENT_URL,
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema,
