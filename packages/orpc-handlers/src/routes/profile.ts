@@ -1,14 +1,12 @@
 /**
  * Profile oRPC Handlers
- * 
+ *
  * User profile management procedures.
  */
 
+import { auth } from "@pi-cast/db"
 import { base } from "../index"
 import * as v from "valibot"
-import { auth } from "@pi-cast/db"
-import { user } from "@pi-cast/db/schema"
-import { eq } from "drizzle-orm"
 import { createGetAuthSession } from "../auth-middleware"
 
 // Create auth session helper

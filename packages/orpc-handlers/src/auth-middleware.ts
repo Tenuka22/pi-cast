@@ -55,6 +55,15 @@ export interface AuthHelperOptions {
 }
 
 /**
+ * Minimal auth interface for session retrieval
+ */
+interface AuthWithSession {
+  api: {
+    getSession: (options: { headers: Headers }) => Promise<AuthSession | null>
+  }
+}
+
+/**
  * Create an auth helper function that fetches session from headers
  *
  * @param auth - Better Auth instance
@@ -77,8 +86,8 @@ export interface AuthHelperOptions {
  * })
  * ```
  */
-export function createGetAuthSession(
-  auth: Auth,
+export function createGetAuthSession<T extends AuthWithSession = Auth>(
+  auth: T,
   options: AuthHelperOptions = {}
 ) {
   const {
@@ -138,7 +147,9 @@ export function createGetAuthSession(
 /**
  * Create an optional auth helper - returns null if not authenticated
  */
-export function createGetOptionalAuthSession(auth: Auth) {
+export function createGetOptionalAuthSession<T extends AuthWithSession = Auth>(
+  auth: T
+) {
   return async function getOptionalAuthSession(
     headers: Headers
   ): Promise<AuthSession | null> {

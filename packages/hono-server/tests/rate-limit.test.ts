@@ -51,8 +51,13 @@ async function makeRequest(requestNumber: number): Promise<TestResult> {
     };
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      result.error = errorData.message || response.statusText;
+      const errorData = await response.json().catch((): { message?: string } => ({ message: undefined }));
+      if (typeof errorData === 'object' && errorData !== null && 'message' in errorData) {
+        const message = errorData.message;
+        result.error = typeof message === 'string' ? message : response.statusText;
+      } else {
+        result.error = response.statusText;
+      }
     }
 
     return result;
@@ -208,7 +213,7 @@ async function checkServer() {
 }
 
 // Run tests
-(async () => {
+void (async () => {
   const serverRunning = await checkServer();
   if (serverRunning) {
     await runRateLimitTest();
