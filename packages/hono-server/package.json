@@ -15,7 +15,8 @@
     "build": "varlock run -- tsc",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "varlock run -- tsc --noEmit"
+    "typecheck": "varlock run -- tsc --noEmit",
+    "test:rate-limit": "tsx tests/rate-limit.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

@@ -15,6 +15,7 @@
     "db:generate": "varlock run -- bunx drizzle-kit generate",
     "db:push": "varlock run -- bunx drizzle-kit push",
     "db:studio": "varlock run -- bunx drizzle-kit studio",
+    "db:index": "varlock run -- tsx src/scripts/add-indexes.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "@workspace/typescript-config": "workspace:*",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "varlock": "^0.5.0"
   }
