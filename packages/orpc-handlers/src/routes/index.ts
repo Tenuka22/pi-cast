@@ -13,3 +13,20 @@ export {
   adminUpdateLessonStatus,
   adminGetPlatformStats,
 } from "./admin"
+
+export {
+  studentGetEnrolledLessons,
+  studentGetLessonProgress,
+  studentUpdateProgress,
+  studentGetBookmarks,
+  studentCreateBookmark,
+  studentUpdateBookmark,
+  studentDeleteBookmark,
+  studentGetNotes,
+  studentCreateNote,
+  studentUpdateNote,
+  studentDeleteNote,
+  studentGetWatchHistory,
+  studentRecordView,
+  studentGetDashboardStats,
+} from "./student"
