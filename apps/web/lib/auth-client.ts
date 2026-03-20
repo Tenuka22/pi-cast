@@ -1,6 +1,6 @@
 /**
  * Web App Auth Client
- * 
+ *
  * This file re-exports the auth client from @pi-cast/auth-client
  * and adds app-specific auth error handling utilities.
  */
@@ -8,27 +8,34 @@
 "use client"
 
 import type { AuthError } from "@pi-cast/orpc-handlers"
-import { toApiError, getErrorMessage, ERROR_CODES } from "@pi-cast/orpc-handlers"
 import {
-  authClient,
-  signIn,
-  signOut,
-  signUp,
-  useSession,
-  getSession,
-  updateUser,
-  changeEmail,
-  deleteUser,
-  listSessions,
-  revokeSession,
-  revokeOtherSessions,
-  organization,
-  sendVerificationOtp,
-  signInWithOTP,
-} from "@pi-cast/auth-client"
+  toApiError,
+  getErrorMessage,
+  ERROR_CODES,
+} from "@pi-cast/orpc-handlers"
+import { createAuthClient } from "better-auth/react"
+import { ENV } from "varlock/env"
+import {
+  adminClient,
+  organizationClient,
+  emailOTPClient,
+} from "better-auth/client/plugins"
 
-export {
-  authClient,
+import { BETTER_AUTH_BASE_PATH } from "@pi-cast/auth-client"
+
+export const authClient = createAuthClient({
+  baseURL: ENV.NEXT_PUBLIC_API_URL,
+  basePath: BETTER_AUTH_BASE_PATH,
+  plugins: [organizationClient(), adminClient(), emailOTPClient()],
+  fetchOptions: {
+    baseURL: ENV.NEXT_PUBLIC_API_URL + BETTER_AUTH_BASE_PATH,
+  },
+})
+
+export const sendVerificationOtp = authClient.emailOtp.sendVerificationOtp
+export const signInWithOTP = authClient.signIn.emailOtp
+
+export const {
   signIn,
   signOut,
   signUp,
@@ -41,9 +48,7 @@ export {
   revokeSession,
   revokeOtherSessions,
   organization,
-  sendVerificationOtp,
-  signInWithOTP,
-}
+} = authClient
 
 export async function handleAuthError<T>(
   fn: () => Promise<T>,

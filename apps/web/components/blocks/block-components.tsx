@@ -1,7 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
 import {
   GRID_UNIT,
   type Block,
@@ -11,59 +14,83 @@ import {
   type ControlBlock,
   type ControlVariable,
   type DescriptionBlock,
+  type LimitBlock,
+  type ConnectionHandleType,
   getTokenClassName,
 } from '@/lib/block-system/types';
+import { ConnectionHandles } from '@/components/connections/connection-handles';
+import { GraphConfig, renderGraph, DEFAULT_GRAPH_CONFIG } from '@/lib/visualization/graph-renderer';
 
 // ============================================================================
-// SHARED BLOCK WRAPPER
+// BLOCK WRAPPER
 // ============================================================================
 
 interface BlockWrapperProps {
   block: Block;
   isSelected?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
-  children: React.ReactNode;
   className?: string;
+  children: React.ReactNode;
 }
 
-function BlockWrapper({
+export function BlockWrapper({
   block,
   isSelected,
+  isDragging = false,
   onClick,
   onMouseDown,
-  children,
   className,
+  children,
 }: BlockWrapperProps) {
   const pos = { x: block.position.x * GRID_UNIT, y: block.position.y * GRID_UNIT };
   const width = block.dimensions.width * GRID_UNIT;
   const height = block.dimensions.height * GRID_UNIT;
 
+  const handleBodyClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    if (target?.closest('[data-connection-handle]')) {
+      return;
+    }
+    onClick?.();
+  };
+
+  const handleBodyMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    if (target?.closest('[data-connection-handle]')) {
+      return;
+    }
+    onMouseDown?.(e);
+  };
+
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
+      onClick={handleBodyClick}
+      onMouseDown={handleBodyMouseDown}
       style={{ left: pos.x, top: pos.y, minWidth: width, minHeight: height }}
       className={cn(
-        'group absolute flex cursor-grab flex-col rounded-lg border-2 transition-all duration-200 hover:border-primary/50 hover:shadow-md',
+        'group absolute flex flex-col rounded-lg border-2 transition-all duration-200 hover:border-primary/50 hover:shadow-md',
         'bg-card',
+        isDragging ? 'z-50 cursor-grabbing shadow-2xl' : 'z-10 cursor-grab',
         isSelected
-          ? 'border-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-background'
+          ? 'border-primary shadow-lg ring-2 ring-primary/20'
           : 'border-border',
         className
       )}
     >
-      {children}
-      {/* Resize handle */}
-      <div className="absolute bottom-1 right-1 hidden h-3 w-3 cursor-se-resize items-end justify-end group-hover:flex">
-        <div className="h-1.5 w-1.5 border-b-2 border-r-2 border-muted-foreground/50" />
+      {/* Drag Handle Indicator */}
+      <div className="absolute -top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex items-center gap-0.5 rounded-full border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground shadow-sm">
+          <span className="text-[10px] leading-none">⋮⋮</span>
+          <span className="text-[9px]">Drag</span>
+        </div>
       </div>
-      {/* Selection indicator */}
-      {isSelected && (
-        <div className="absolute -inset-0.5 rounded-lg border-2 border-primary pointer-events-none" />
-      )}
+      {children}
     </div>
   );
 }
@@ -75,44 +102,275 @@ function BlockWrapper({
 interface EquationBlockComponentProps {
   block: EquationBlock;
   isSelected?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onVariableChange?: (variableName: string, value: number) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
 }
+
+// Special variables that can have limits set
+const SPECIAL_VARS = ['y', 'x', 'e', 'pi'];
+// Editable constants (parameters)
+const EDITABLE_CONSTANTS = ['m', 'c', 'a', 'b', 'd', 'A', 'B', 'k', 'n', 'p', 'q', 'r', 'h', 't'];
 
 export function EquationBlockComponent({
   block,
   isSelected,
+  isDragging = false,
   onClick,
   onMouseDown,
+  onConnectionStart,
+  onConnectionEnd,
+  onVariableChange,
+  isConnecting,
+  connectingFromType,
 }: EquationBlockComponentProps) {
-  const { equation, tokens } = block;
+  const { equation, tokens, variables } = block;
   const gridWidth = Math.max(8, Math.ceil(equation.length * 0.5));
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  // Get all editable variables from the equation
+  const editableVars = useMemo(() => {
+    const vars: Array<{ name: string; value: number; isSpecial: boolean }> = [];
+    const seen = new Set<string>();
+
+    // Add variables from parsed variables array
+    variables?.forEach((v) => {
+      const isSpecial = SPECIAL_VARS.includes(v.name);
+      const isConstant = EDITABLE_CONSTANTS.includes(v.name);
+      if ((isSpecial || isConstant) && !seen.has(v.name)) {
+        vars.push({ name: v.name, value: v.value, isSpecial });
+        seen.add(v.name);
+      }
+    });
+
+    // Also check tokens for any missed variables
+    tokens?.forEach((token) => {
+      if (token.type === 'variable' && !seen.has(token.value)) {
+        const isSpecial = SPECIAL_VARS.includes(token.value);
+        const isConstant = EDITABLE_CONSTANTS.includes(token.value);
+        if (isSpecial || isConstant) {
+          vars.push({
+            name: token.value,
+            value: variables?.find((v) => v.name === token.value)?.value || 0,
+            isSpecial,
+          });
+          seen.add(token.value);
+        }
+      }
+    });
+
+    return vars;
+  }, [variables, tokens]);
+
+  const handleVariableChange = useCallback(
+    (varName: string, newValue: number) => {
+      onVariableChange?.(varName, newValue);
+    },
+    [onVariableChange]
+  );
 
   return (
     <BlockWrapper
       block={block}
       isSelected={isSelected}
+      isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
       className="px-4"
     >
-      <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
-        <span className="font-mono">ƒ</span>
+      <div className="absolute -top-3 left-3 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs shadow-sm">
+        <span className="font-mono text-sm">ƒ</span>
+        <div className="h-3 w-px bg-border" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 w-5 p-0 hover:bg-primary/20 hover:text-primary"
+          title="Edit variables (double-click equation)"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditorOpen(!isEditorOpen);
+          }}
+        >
+          <span className="text-base">⚙️</span>
+        </Button>
       </div>
+      
+      {/* Variable Editor Panel */}
+      {isEditorOpen && (
+        <div className="absolute top-10 left-0 z-50 w-80 rounded-lg border border-primary/50 bg-card p-4 shadow-xl">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div>
+                <h4 className="text-sm font-medium">Edit Variables</h4>
+                <p className="text-xs text-muted-foreground">
+                  Adjust parameters or set limits
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setIsEditorOpen(false)}
+              >
+                ✕
+              </Button>
+            </div>
+
+            {editableVars.length > 0 ? (
+              <div className="max-h-64 space-y-4 overflow-y-auto pr-2">
+                {editableVars.map((variable) => (
+                  <VariableEditor
+                    key={variable.name}
+                    name={variable.name}
+                    value={variable.value}
+                    isSpecial={variable.isSpecial}
+                    onChange={handleVariableChange}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No editable variables found
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      
       <div className="w-full overflow-x-auto py-2" style={{ minWidth: gridWidth * GRID_UNIT }}>
         <div className="flex items-center gap-1 font-mono text-lg">
           {tokens && tokens.length > 0 ? (
-            tokens.map((token, index) => (
-              <span key={`${token.startIndex}-${index}`} className={cn(getTokenClassName(token.type), 'whitespace-pre')}>
-                {token.value}
-              </span>
-            ))
+            tokens.map((token, index) => {
+              const isEditableConstant = EDITABLE_CONSTANTS.includes(token.value);
+              const isSpecialVar = SPECIAL_VARS.includes(token.value);
+              const isEditable = isEditableConstant || isSpecialVar;
+
+              return (
+                <span
+                  key={`${token.startIndex}-${index}`}
+                  className={cn(
+                    getTokenClassName(token.type),
+                    'whitespace-pre',
+                    isEditableConstant &&
+                      'cursor-pointer hover:bg-primary/10 rounded px-0.5',
+                    isSpecialVar &&
+                      'cursor-pointer hover:bg-secondary/20 rounded px-0.5 underline decoration-dotted'
+                  )}
+                  onDoubleClick={(e) => {
+                    if (isEditable) {
+                      e.stopPropagation();
+                      setIsEditorOpen(true);
+                    }
+                  }}
+                  title={
+                    isEditable
+                      ? `Double-click to edit ${token.value}`
+                      : undefined
+                  }
+                >
+                  {token.value}
+                </span>
+              );
+            })
           ) : (
             <span className="text-muted-foreground">{equation}</span>
           )}
         </div>
       </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={new Set([
+          ...(block.connectedChartIds || []).map(
+            (id) => `${block.id}-output-chart-${id}`
+          ),
+          ...(block.connectedControlIds || []).map(
+            (id) => `${block.id}-output-control-${id}`
+          ),
+          ...(block.connectedEquationIds || []).map(
+            (id) => `${block.id}-output-equation-${id}`
+          ),
+          ...(block.connectedLimitIds || []).map(
+            (id) => `${block.id}-output-limit-${id}`
+          ),
+        ])}
+      />
     </BlockWrapper>
+  );
+}
+
+// Variable Editor Component
+interface VariableEditorProps {
+  name: string;
+  value: number;
+  isSpecial: boolean;
+  onChange: (name: string, value: number) => void;
+}
+
+function VariableEditor({ name, value, isSpecial, onChange }: VariableEditorProps) {
+  const [step, setStep] = useState(isSpecial ? 1 : 0.1);
+  const [min] = useState(-1000);
+  const [max] = useState(1000);
+
+  const handleValueChange = (newValue: number) => {
+    onChange(name, newValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label htmlFor={`var-${name}`} className="text-sm font-mono">
+          {name}{' '}
+          {isSpecial && (
+            <span className="text-xs text-muted-foreground">(limit-capable)</span>
+          )}
+        </Label>
+        <Input
+          id={`var-${name}`}
+          type="number"
+          value={value}
+          onChange={(e) => handleValueChange(parseFloat(e.target.value) || 0)}
+          className="h-7 w-24 text-right font-mono"
+          step={step}
+        />
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => handleValueChange(parseFloat(e.target.value))}
+        className="w-full"
+      />
+      <div className="flex items-center gap-2">
+        <Label htmlFor={`step-${name}`} className="text-xs">
+          Step:
+        </Label>
+        <Input
+          id={`step-${name}`}
+          type="number"
+          value={step}
+          onChange={(e) => setStep(parseFloat(e.target.value) || 0.1)}
+          className="h-6 w-16 text-xs"
+          step="any"
+        />
+        {isSpecial && (
+          <span className="text-xs text-muted-foreground ml-auto">
+            Connect Limit block to set bounds
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -123,86 +381,138 @@ export function EquationBlockComponent({
 interface ChartBlockComponentProps {
   block: ChartBlock;
   isSelected?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
+  connectedEquations?: EquationBlock[];
 }
 
-function getDefaultChartConfig(): ChartConfig {
-  return {
-    xAxis: { min: -10, max: 10, showLabels: true },
-    yAxis: { min: -10, max: 10, showLabels: true },
-    showGrid: true,
-    showAxes: true,
-    zoom: 1,
-    pan: { x: 0, y: 0 },
-  };
-}
-
-function generateGridLines(width: number, height: number): { x1: number; y1: number; x2: number; y2: number }[] {
-  const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  const gridSize = 32;
-  for (let x = 0; x <= width; x += gridSize) lines.push({ x1: x, y1: 0, x2: x, y2: height });
-  for (let y = 0; y <= height; y += gridSize) lines.push({ x1: 0, y1: y, x2: width, y2: y });
-  return lines;
-}
+const PLOT_COLORS = [
+  '#c084fc',
+  '#ec4899',
+  '#22d3ee',
+  '#facc15',
+  '#4ade80',
+  '#f87171',
+  '#60a5fa',
+  '#a78bfa',
+];
 
 export function ChartBlockComponent({
   block,
   isSelected,
+  isDragging = false,
   onClick,
   onMouseDown,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+  connectedEquations = [],
 }: ChartBlockComponentProps) {
-  const config = block.chartConfig || getDefaultChartConfig();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const width = block.dimensions.width * GRID_UNIT;
   const height = block.dimensions.height * GRID_UNIT;
+  const config = useMemo<GraphConfig>(() => {
+    const base = block.chartConfig;
+    return {
+      width,
+      height,
+      xAxis: {
+        ...DEFAULT_GRAPH_CONFIG.xAxis,
+        ...(base?.xAxis ?? {}),
+      },
+      yAxis: {
+        ...DEFAULT_GRAPH_CONFIG.yAxis,
+        ...(base?.yAxis ?? {}),
+      },
+      zoom: base?.zoom ?? DEFAULT_GRAPH_CONFIG.zoom,
+      pan: {
+        ...DEFAULT_GRAPH_CONFIG.pan,
+        ...(base?.pan ?? {}),
+      },
+      showAxes: base?.showAxes ?? DEFAULT_GRAPH_CONFIG.showAxes,
+      showGrid: base?.showGrid ?? DEFAULT_GRAPH_CONFIG.showGrid,
+      backgroundColor: 'transparent',
+    };
+  }, [block.chartConfig, height, width]);
 
-  // Sample graph data (y = x)
-  const points: { x: number; y: number }[] = [];
-  for (let x = -10; x <= 10; x += 0.5) points.push({ x, y: x });
+  const plots = useMemo(
+    () =>
+      connectedEquations.map((equationBlock, index) => {
+        const variables: Record<string, number> = {};
+        (equationBlock.variables ?? []).forEach((variable) => {
+          variables[variable.name] = variable.value;
+        });
+        if (variables.x === undefined) variables.x = 0;
+        if (variables.y === undefined) variables.y = 0;
 
-  const xScale = width / 20;
-  const yScale = height / 20;
-  const pathData = points.map((point, i) => {
-    const svgX = width / 2 + point.x * xScale;
-    const svgY = height / 2 - point.y * yScale;
-    return `${i === 0 ? 'M' : 'L'} ${svgX} ${svgY}`;
-  }).join(' ');
+        return {
+          equation: equationBlock.equation,
+          variables,
+          options: {
+            color: PLOT_COLORS[index % PLOT_COLORS.length] || '#c084fc',
+            lineWidth: 2,
+            label: equationBlock.equation,
+          },
+        };
+      }),
+    [connectedEquations]
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    renderGraph(ctx, plots, config);
+  }, [config, plots, width, height]);
+
+  const hasEquations = connectedEquations.length > 0;
+  const connectedHandleIds = new Set(
+    (block.sourceEquationIds || []).map((id) => `${block.id}-input-equation-${id}`)
+  );
 
   return (
-    <BlockWrapper block={block} isSelected={isSelected} onClick={onClick} onMouseDown={onMouseDown}>
+    <BlockWrapper block={block} isSelected={isSelected} isDragging={isDragging} onClick={onClick} onMouseDown={onMouseDown}>
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-semibold">📈</span>
-          <span className="text-xs text-muted-foreground">{block.equations.length} equation{block.equations.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-muted-foreground">
+            {connectedEquations.length || 0} equation{connectedEquations.length !== 1 ? 's' : ''} connected
+          </span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Use EnhancedChartBlock for interactive graphs</span>
+          <span className="text-xs text-muted-foreground">Drop equation connections here</span>
         </div>
       </div>
-      <div className="relative flex-1 overflow-hidden">
-        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="absolute inset-0">
-          {config.showGrid && (
-            <g className="text-muted-foreground/20">
-              {generateGridLines(width, height).map((line, i) => (
-                <line key={i} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="currentColor" strokeWidth="1" />
-              ))}
-            </g>
-          )}
-          {config.showAxes && (
-            <g className="text-muted-foreground">
-              <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="currentColor" strokeWidth="2" />
-              <line x1={width / 2} y1={0} x2={width / 2} y2={height} stroke="currentColor" strokeWidth="2" />
-            </g>
-          )}
-          <path d={pathData} fill="none" stroke="oklch(0.518 0.253 323.949)" strokeWidth="2" />
-        </svg>
-        {config.xAxis.showLabels && (
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">{config.xAxis.label || 'x'}</div>
-        )}
-        {config.yAxis.showLabels && (
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-muted-foreground">{config.yAxis.label || 'y'}</div>
+      <div className="relative flex-1 overflow-hidden rounded-lg border border-border bg-muted/50">
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full"
+          aria-hidden={!hasEquations}
+        />
+        {!hasEquations && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+            Connected equations will render here
+          </div>
         )}
       </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={connectedHandleIds}
+      />
     </BlockWrapper>
   );
 }
@@ -214,99 +524,112 @@ export function ChartBlockComponent({
 interface ControlBlockComponentProps {
   block: ControlBlock;
   isSelected?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
-  onVariableChange?: (variableName: string, value: number) => void;
-}
-
-function ControlVariableComponent({
-  variable,
-  onSliderChange,
-  onInputChange,
-}: {
-  variable: ControlVariable;
-  onSliderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
-  const { name, value, min, max, step, showSlider, showInput } = variable;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <label className="font-mono text-sm font-medium text-muted-foreground">{name}</label>
-        {showInput && (
-          <input
-            type="number"
-            value={value}
-            onChange={onInputChange}
-            step={step}
-            min={min}
-            max={max}
-            className="h-7 w-20 rounded-md border border-input bg-background px-2 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        )}
-      </div>
-      {showSlider && (
-        <input
-          type="range"
-          value={value}
-          onChange={onSliderChange}
-          min={min}
-          max={max}
-          step={step}
-          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary hover:accent-primary/80"
-          style={{
-            background: `linear-gradient(to right, oklch(0.518 0.253 323.949) 0%, oklch(0.518 0.253 323.949) ${((value - min) / (max - min)) * 100}%, oklch(0.542 0.034 322.5) ${((value - min) / (max - min)) * 100}%, oklch(0.542 0.034 322.5) 100%)`,
-          }}
-        />
-      )}
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{min === -1000 ? '-∞' : min}</span>
-        <span>{max === 1000 ? '+∞' : max}</span>
-      </div>
-    </div>
-  );
+  onVariableChange?: (name: string, value: number | string) => void;
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
 }
 
 export function ControlBlockComponent({
   block,
   isSelected,
+  isDragging = false,
   onClick,
   onMouseDown,
   onVariableChange,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
 }: ControlBlockComponentProps) {
-  const handleSliderChange = (variable: ControlVariable, e: React.ChangeEvent<HTMLInputElement>) => {
-    onVariableChange?.(variable.name, parseFloat(e.target.value));
+  const { variables = [], layout } = block;
+
+  return (
+    <BlockWrapper block={block} isSelected={isSelected} isDragging={isDragging} onClick={onClick} onMouseDown={onMouseDown}>
+      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-semibold">🎛️</span>
+          <span className="text-xs text-muted-foreground">
+            {variables.length} variable{variables.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 p-4">
+        {variables.length > 0 ? (
+          <div className={cn('space-y-4', layout === 'horizontal' ? 'flex gap-4' : '')}>
+            {variables.map((variable) => (
+              <ControlVariableInput
+                key={variable.name}
+                variable={variable}
+                onChange={(value) => onVariableChange?.(variable.name, value)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Connect an equation to control variables</p>
+        )}
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={new Set(
+          (block.sourceEquationIds || []).map((id) => `${block.id}-input-equation-${id}`)
+        )}
+      />
+    </BlockWrapper>
+  );
+}
+
+interface ControlVariableInputProps {
+  variable: ControlVariable;
+  onChange?: (value: number) => void;
+}
+
+function ControlVariableInput({ variable, onChange }: ControlVariableInputProps) {
+  const [value, setValue] = useState(variable.value);
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = parseFloat(e.target.value);
+    setValue(newValue);
+    onChange?.(newValue);
   };
 
-  const handleInputChange = (variable: ControlVariable, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value);
-    if (!isNaN(newValue)) onVariableChange?.(variable.name, newValue);
+    setValue(newValue);
+    onChange?.(newValue);
   };
 
   return (
-    <BlockWrapper
-      block={block}
-      isSelected={isSelected}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
-      className="gap-3 p-4"
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-sm font-semibold">🎛️</span>
-        <span className="text-xs text-muted-foreground">Controls</span>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-mono">{variable.name}</Label>
+        <Input
+          type="number"
+          value={value}
+          onChange={handleInputChange}
+          className="h-7 w-20 text-right font-mono"
+          step={variable.step || 1}
+        />
       </div>
-      <div className={cn('flex gap-4', block.layout === 'vertical' ? 'flex-col' : 'flex-row flex-wrap')}>
-        {block.variables.map((variable) => (
-          <ControlVariableComponent
-            key={variable.name}
-            variable={variable}
-            onSliderChange={(e) => handleSliderChange(variable, e)}
-            onInputChange={(e) => handleInputChange(variable, e)}
-          />
-        ))}
-      </div>
-    </BlockWrapper>
+      <input
+        type="range"
+        value={value}
+        min={variable.min || -100}
+        max={variable.max || 100}
+        step={variable.step || 1}
+        onChange={handleSliderChange}
+        className="w-full"
+      />
+    </div>
   );
 }
 
@@ -317,6 +640,7 @@ export function ControlBlockComponent({
 interface DescriptionBlockComponentProps {
   block: DescriptionBlock;
   isSelected?: boolean;
+  isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
 }
@@ -324,15 +648,43 @@ interface DescriptionBlockComponentProps {
 export function DescriptionBlockComponent({
   block,
   isSelected,
+  isDragging = false,
   onClick,
   onMouseDown,
 }: DescriptionBlockComponentProps) {
   const { content, format, title } = block;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+    setEditContent(content);
+  }, [content]);
+
+  const handleBlur = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setEditContent(content);
+      setIsEditing(false);
+    }
+  }, [content]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isEditing]);
 
   return (
     <BlockWrapper
       block={block}
       isSelected={isSelected}
+      isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
       className="p-4"
@@ -344,10 +696,29 @@ export function DescriptionBlockComponent({
         </div>
       )}
       <div className="flex-1 overflow-auto">
-        {format === 'latex' ? (
-          <div className="font-mono text-sm"><code className="rounded bg-muted px-2 py-1">{content}</code></div>
+        {isEditing ? (
+          <textarea
+            ref={textareaRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="h-full w-full resize-none rounded border border-primary bg-card p-2 text-sm leading-relaxed focus:outline-none"
+          />
+        ) : format === 'latex' ? (
+          <div
+            onDoubleClick={handleDoubleClick}
+            className="cursor-text font-mono text-sm hover:bg-muted/50 rounded p-1"
+          >
+            <code className="rounded bg-muted px-2 py-1">{content}</code>
+          </div>
         ) : (
-          <p className="text-sm leading-relaxed text-card-foreground whitespace-pre-wrap">{content}</p>
+          <p
+            onDoubleClick={handleDoubleClick}
+            className="cursor-text text-sm leading-relaxed text-card-foreground hover:bg-muted/50 rounded p-1 whitespace-pre-wrap"
+          >
+            {content}
+          </p>
         )}
       </div>
       <div className="absolute top-2 right-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
@@ -356,3 +727,332 @@ export function DescriptionBlockComponent({
     </BlockWrapper>
   );
 }
+
+// ============================================================================
+// LIMIT BLOCK
+// ============================================================================
+
+interface LimitBlockComponentProps {
+  block: LimitBlock;
+  isSelected?: boolean;
+  isDragging?: boolean;
+  onClick?: () => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onVariableChange?: (variableName: string, value: number | string) => void;
+  onApproachChange?: (approach: 'left' | 'right' | 'both') => void;
+  variableOptions?: string[];
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
+}
+
+export function LimitBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onVariableChange,
+  onApproachChange,
+  variableOptions = [],
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+}: LimitBlockComponentProps) {
+  const { variableName, limitValue, approach } = block;
+
+  return (
+    <BlockWrapper block={block} isSelected={isSelected} isDragging={isDragging} onClick={onClick} onMouseDown={onMouseDown}>
+      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-semibold">lim</span>
+          <span className="text-xs text-muted-foreground">Limit</span>
+        </div>
+      </div>
+      <div className="flex-1 p-4 space-y-4">
+        <div className="space-y-2">
+          <Label className="text-xs">Variable</Label>
+          <select
+            value={variableName}
+            onChange={(e) => onVariableChange?.('variableName', e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+          >
+            {variableOptions.length > 0 ? (
+              variableOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))
+            ) : (
+              <option value={variableName}>{variableName}</option>
+            )}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Approaches</Label>
+          <Input
+            type="number"
+            value={limitValue}
+            onChange={(e) => onVariableChange?.('limitValue', parseFloat(e.target.value) || 0)}
+            className="h-8"
+            step="any"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Direction</Label>
+          <div className="flex gap-2">
+            {(['left', 'right', 'both'] as const).map((dir) => (
+              <Button
+                key={dir}
+                variant={approach === dir ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => onApproachChange?.(dir)}
+              >
+                {dir === 'left' ? '⁻' : dir === 'right' ? '⁺' : '↔'}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={new Set([
+          ...(block.targetEquationId ? [`${block.id}-input-equation-${block.targetEquationId}`] : []),
+        ])}
+      />
+    </BlockWrapper>
+  );
+}
+
+// ============================================================================
+// LOGIC BLOCK
+// ============================================================================
+
+interface LogicBlockComponentProps {
+  block: import('@/lib/block-system/types').LogicBlock;
+  isSelected?: boolean;
+  isDragging?: boolean;
+  onClick?: () => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
+}
+
+const LOGIC_GATE_SYMBOLS: Record<import('@/lib/block-system/types').LogicGateType, string> = {
+  and: '∧',
+  or: '∨',
+  xor: '⊕',
+  eq: '=',
+};
+
+const LOGIC_GATE_COLORS: Record<import('@/lib/block-system/types').LogicGateType, string> = {
+  and: 'text-blue-500',
+  or: 'text-green-500',
+  xor: 'text-purple-500',
+  eq: 'text-orange-500',
+};
+
+export function LogicBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+}: LogicBlockComponentProps) {
+  const { logicType, inputs, result } = block;
+
+  return (
+    <BlockWrapper
+      block={block}
+      isSelected={isSelected}
+      isDragging={isDragging}
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      className="p-4"
+    >
+      <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
+        <span className="font-mono">🔌</span>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className={cn('text-4xl font-bold', LOGIC_GATE_COLORS[logicType])}>
+          {LOGIC_GATE_SYMBOLS[logicType]}
+        </div>
+        <div className="text-xs font-medium uppercase text-muted-foreground">{logicType}</div>
+        {result !== undefined && (
+          <div className="mt-2 rounded bg-primary/10 px-3 py-1 text-sm font-mono">
+            = {typeof result === 'boolean' ? (result ? 'true' : 'false') : result}
+          </div>
+        )}
+        <div className="text-xs text-muted-foreground">
+          {inputs.length} input{inputs.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={new Set([
+          ...(inputs || []).map((id, index) => `${block.id}-input-${index}`),
+          ...(block.output ? [`${block.id}-output`] : []),
+        ])}
+      />
+    </BlockWrapper>
+  );
+}
+
+// ============================================================================
+// SHAPE BLOCK
+// ============================================================================
+
+interface ShapeBlockComponentProps {
+  block: import('@/lib/block-system/types').ShapeBlock;
+  isSelected?: boolean;
+  isDragging?: boolean;
+  onClick?: () => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onFillValueChange?: (value: number) => void;
+  onFillColorChange?: (color: string) => void;
+  onFillModeChange?: (mode: 'solid' | 'fraction' | 'decimal' | 'percentage') => void;
+  onShapeTypeChange?: (shapeType: 'square' | 'circle' | 'rectangle') => void;
+  onGridToggle?: () => void;
+  onConnectionStart?: (handleId: string, handleType: ConnectionHandleType) => void;
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
+  isConnecting?: boolean;
+  connectingFromType?: string;
+}
+
+export function ShapeBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onFillValueChange,
+  onFillColorChange,
+  onFillModeChange,
+  onShapeTypeChange,
+  onGridToggle,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+}: ShapeBlockComponentProps) {
+  const { shapeType, fillColor, fillValue, fillMode, showGrid, rows = 10, cols = 10 } = block;
+
+  const renderShape = () => {
+    const size = 160;
+    const center = size / 2;
+
+    switch (shapeType) {
+      case 'circle':
+        return (
+          <svg width={size} height={size} className="mx-auto">
+            <circle cx={center} cy={center} r={center - 10} fill="none" stroke={fillColor} strokeWidth="2" />
+            <circle cx={center} cy={center} r={(center - 10) * (fillValue / 100)} fill={fillColor} opacity="0.5" />
+          </svg>
+        );
+      case 'rectangle':
+        return (
+          <svg width={size} height={size} className="mx-auto">
+            <rect x="20" y="40" width={size - 40} height={size - 80} fill="none" stroke={fillColor} strokeWidth="2" />
+            <rect x="20" y="40" width={size - 40} height={(size - 80) * (fillValue / 100)} fill={fillColor} opacity="0.5" />
+          </svg>
+        );
+      case 'square':
+      default:
+        return (
+          <svg width={size} height={size} className="mx-auto">
+            <rect x="10" y="10" width={size - 20} height={size - 20} fill="none" stroke={fillColor} strokeWidth="2" />
+            <rect x="10" y="10" width={(size - 20) * (fillValue / 100)} height={size - 20} fill={fillColor} opacity="0.5" />
+          </svg>
+        );
+    }
+  };
+
+  return (
+    <BlockWrapper block={block} isSelected={isSelected} isDragging={isDragging} onClick={onClick} onMouseDown={onMouseDown}>
+      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-semibold">◻️</span>
+          <span className="text-xs text-muted-foreground capitalize">{shapeType}</span>
+        </div>
+      </div>
+      <div className="flex-1 p-4 space-y-4">
+        <div className="flex justify-center">{renderShape()}</div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Fill Value ({fillMode})</Label>
+          <input
+            type="range"
+            value={fillValue}
+            min={0}
+            max={fillMode === 'percentage' ? 100 : fillMode === 'decimal' ? 1 : 1}
+            step={fillMode === 'percentage' ? 1 : 0.01}
+            onChange={(e) => onFillValueChange?.(parseFloat(e.target.value))}
+            className="w-full"
+          />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>0</span>
+            <span className="font-mono">{fillValue}</span>
+            <span>{fillMode === 'percentage' ? 100 : fillMode === 'decimal' ? 1 : '1/1'}</span>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Color</Label>
+          <div className="flex gap-2">
+            {['#7c3aed', '#ec4899', '#22d3ee', '#4ade80', '#facc15', '#f87171'].map((color) => (
+              <button
+                key={color}
+                className={cn(
+                  'h-6 w-6 rounded border-2',
+                  fillColor === color ? 'border-primary' : 'border-transparent'
+                )}
+                style={{ backgroundColor: color }}
+                onClick={() => onFillColorChange?.(color)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Show Grid</Label>
+          <Button variant="outline" size="sm" onClick={onGridToggle}>
+            {showGrid ? 'On' : 'Off'}
+          </Button>
+        </div>
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={new Set([
+          ...(block.sourceValueId ? [`${block.id}-input-value-${block.sourceValueId}`] : []),
+          ...(block.sourceControlId ? [`${block.id}-input-control-${block.sourceControlId}`] : []),
+        ])}
+      />
+    </BlockWrapper>
+  );
+}
+
+export default BlockWrapper;

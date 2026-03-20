@@ -118,8 +118,9 @@ describe('Block System Types', () => {
     });
 
     it('should return default dimensions for unknown block type', () => {
-      const dims = getDefaultBlockDimensions('unknown' as any);
-      
+      // @ts-expect-error - testing invalid input
+      const dims = getDefaultBlockDimensions('unknown');
+
       // Returns default dimensions instead of throwing
       expect(dims.width).toBe(4);
       expect(dims.height).toBe(1);

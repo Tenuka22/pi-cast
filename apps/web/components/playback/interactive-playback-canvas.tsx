@@ -234,7 +234,16 @@ export function InteractivePlaybackCanvas({
 }
 
 // Helper function to format action descriptions
-function formatActionDescription(action: any): string {
+interface ManipulationAction {
+  type: 'BLOCK_MODIFIED' | 'VARIABLE_CHANGED' | 'BLOCK_ADDED' | 'BLOCK_DELETED';
+  data: {
+    blockId?: string;
+    variableName?: string;
+    value?: number;
+  };
+}
+
+function formatActionDescription(action: ManipulationAction): string {
   switch (action.type) {
     case 'BLOCK_MODIFIED':
       return `Modified block ${action.data.blockId}`;

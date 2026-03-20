@@ -16,7 +16,7 @@ import {
   organization,
   sendVerificationOtp,
   signInWithOTP,
-} from "@pi-cast/auth-client"
+} from "../auth-client"
 
 export {
   authClient,

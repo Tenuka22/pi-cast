@@ -8,8 +8,16 @@ import {
   WEB_CLIENT_URL,
 } from "./constants"
 
+function getEnvVar(name: string): string {
+  const value = process.env[name]
+  if (value === undefined) {
+    throw new Error(`Environment variable ${name} is required`)
+  }
+  return value
+}
+
 const authConfig: AuthConfig = {
-  DATABASE_URL: process.env.DATABASE_URL!,
+  DATABASE_URL: getEnvVar("DATABASE_URL"),
   WEB_CLIENT_URL,
   BETTER_AUTH_URL,
   BETTER_AUTH_SECRET,

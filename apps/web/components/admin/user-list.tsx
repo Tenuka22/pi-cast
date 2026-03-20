@@ -334,7 +334,7 @@ function UserRow({ user, onView, onRoleChange, onBan, getRoleBadgeVariant, forma
         </div>
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger onClick={(e: any) => e.stopPropagation()}>
+        <DropdownMenuTrigger onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <Button variant="ghost" size="sm">
             Actions
           </Button>

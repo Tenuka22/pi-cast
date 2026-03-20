@@ -1,6 +1,7 @@
 import "server-only"
 import { headers } from "next/headers"
 import { createAuthClient } from "better-auth/client"
+import type { RequestContext } from "better-auth/client"
 import {
   BETTER_AUTH_BASE_PATH,
   BETTER_AUTH_COOKIE_PREFIX,
@@ -9,7 +10,7 @@ import {
 
 /**
  * Better Auth client for Server-side
- * 
+ *
  * This client is designed to run on the server-side (Next.js Server Components).
  * It proxies authentication-related cookies from incoming requests to the auth server.
  */
@@ -18,7 +19,7 @@ export const authServerClient = createAuthClient({
   basePath: BETTER_AUTH_BASE_PATH,
   fetchOptions: {
     baseURL: BETTER_AUTH_URL + BETTER_AUTH_BASE_PATH,
-    onRequest: async (context) => {
+    onRequest: async (context: RequestContext) => {
       const headersList = await headers()
       const cookie = headersList.get("Cookie")
 
@@ -34,7 +35,7 @@ export const authServerClient = createAuthClient({
           )
           .join("; ")
 
-        if (authCookies) {
+        if (authCookies && context.headers) {
           context.headers.set("Cookie", authCookies)
         }
       }

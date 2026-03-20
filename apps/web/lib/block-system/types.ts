@@ -11,11 +11,19 @@ export const GRID_UNIT = 32; // Base grid unit in pixels
 // TYPES
 // ============================================================================
 
-export type BlockType = 'equation' | 'chart' | 'control' | 'description';
+export type BlockType = 'equation' | 'chart' | 'control' | 'description' | 'limit' | 'shape' | 'logic';
 
 export type EquationType = 'linear' | 'quadratic' | 'cubic' | 'exponential' | 'trigonometric' | 'custom';
 
 export type TokenType = 'variable' | 'number' | 'operator' | 'equals' | 'function' | 'parenthesis' | 'whitespace';
+
+export type LimitApproach = 'left' | 'right' | 'both';
+
+export type ShapeType = 'square' | 'circle' | 'rectangle';
+
+export type ShapeFillMode = 'solid' | 'fraction' | 'decimal' | 'percentage';
+
+export type LogicGateType = 'and' | 'or' | 'xor' | 'eq';
 
 export interface GridPosition {
   x: number;
@@ -60,6 +68,11 @@ export interface EquationBlock extends BaseBlock {
   tokens?: EquationToken[];
   variables?: Variable[];
   equationType?: EquationType;
+  // Connection tracking
+  connectedChartIds?: string[];
+  connectedControlIds?: string[];
+  connectedEquationIds?: string[];
+  connectedLimitIds?: string[];
 }
 
 export interface ChartConfig {
@@ -73,7 +86,7 @@ export interface ChartConfig {
 
 export interface ChartBlock extends BaseBlock {
   type: 'chart';
-  sourceEquationId?: string;
+  sourceEquationIds?: string[];
   equations: string[];
   chartConfig?: ChartConfig;
 }
@@ -86,13 +99,21 @@ export interface ControlVariable {
   step: number;
   showSlider: boolean;
   showInput: boolean;
+  // Auto-animation settings
+  autoAnimate?: boolean;
+  animationSpeed?: number; // ms per cycle
+  animationDirection?: 'oscillate' | 'loop'; // oscillate: back-and-forth, loop: min to max
 }
 
 export interface ControlBlock extends BaseBlock {
   type: 'control';
   sourceEquationId?: string;
+  sourceEquationIds?: string[];
   variables: ControlVariable[];
   layout: 'horizontal' | 'vertical';
+  // Global auto-animation settings
+  autoAnimateAll?: boolean;
+  globalSpeed?: number;
 }
 
 export interface DescriptionBlock extends BaseBlock {
@@ -102,7 +123,74 @@ export interface DescriptionBlock extends BaseBlock {
   title?: string;
 }
 
-export type Block = EquationBlock | ChartBlock | ControlBlock | DescriptionBlock;
+export interface LimitBlock extends BaseBlock {
+  type: 'limit';
+  targetEquationId?: string;
+  variableName: string;
+  limitValue: number;
+  approach: LimitApproach;
+  result?: string;
+}
+
+export interface ShapeBlock extends BaseBlock {
+  type: 'shape';
+  shapeType: ShapeType;
+  fillColor: string;
+  fillValue: number; // 0-1 for fraction/decimal, 0-100 for percentage
+  fillMode: ShapeFillMode;
+  showGrid: boolean;
+  rows?: number; // for grid subdivision
+  cols?: number;
+  // Connection tracking
+  sourceValueId?: string; // Can connect to equation/control for dynamic values
+  sourceControlId?: string; // Can connect to control for value sync
+}
+
+export interface LogicBlock extends BaseBlock {
+  type: 'logic';
+  logicType: LogicGateType;
+  inputs: string[]; // Array of connected block IDs
+  output: string | null; // Connected output block ID
+  result?: number | boolean; // Computed result
+}
+
+export type Block = EquationBlock | ChartBlock | ControlBlock | DescriptionBlock | LimitBlock | ShapeBlock | LogicBlock;
+
+// ============================================================================
+// CONNECTION TYPES
+// ============================================================================
+
+export type ConnectionHandleType = 'input' | 'output';
+
+export interface ConnectionHandle {
+  id: string;
+  type: ConnectionHandleType;
+  label?: string;
+  position: 'top' | 'bottom' | 'left' | 'right';
+  index?: number;
+}
+
+export interface BlockConnection {
+  id: string;
+  sourceBlockId: string;
+  sourceHandleId: string;
+  targetBlockId: string;
+  targetHandleId: string;
+  type: 
+    | 'equation-to-chart' 
+    | 'equation-to-control' 
+    | 'equation-to-equation' 
+    | 'equation-to-limit' 
+    | 'limit-to-chart' 
+    | 'equation-to-shape' 
+    | 'control-to-shape' 
+    | 'control-to-limit'
+    | 'equation-to-logic'
+    | 'logic-to-logic'
+    | 'logic-to-chart'
+    | 'logic-to-shape';
+  createdAt: number;
+}
 
 export interface Viewport {
   x: number;
@@ -240,6 +328,9 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
     case 'chart': return { width: 16, height: 12 };
     case 'control': return { width: 6, height: 2 };
     case 'description': return { width: 10, height: 2 };
+    case 'limit': return { width: 8, height: 2 };
+    case 'shape': return { width: 6, height: 6 };
+    case 'logic': return { width: 4, height: 3 };
     default: return { width: 4, height: 1 };
   }
 }
@@ -366,4 +457,31 @@ export function parseEquation(equation: string): { tokens: EquationToken[]; vari
   else if (/y=/.test(normalized) || /=.*x/.test(normalized)) equationType = 'linear';
 
   return { tokens, variables, equationType };
+}
+
+// ============================================================================
+// CONNECTION UTILITIES
+// ============================================================================
+
+export function getConnectionType(
+  sourceBlockType: BlockType,
+  targetBlockType: BlockType
+): BlockConnection['type'] | null {
+  if (sourceBlockType === 'equation' && targetBlockType === 'chart') return 'equation-to-chart';
+  if (sourceBlockType === 'equation' && targetBlockType === 'control') return 'equation-to-control';
+  if (sourceBlockType === 'equation' && targetBlockType === 'equation') return 'equation-to-equation';
+  if (sourceBlockType === 'equation' && targetBlockType === 'limit') return 'equation-to-limit';
+  if (sourceBlockType === 'equation' && targetBlockType === 'shape') return 'equation-to-shape';
+  if (sourceBlockType === 'limit' && targetBlockType === 'chart') return 'limit-to-chart';
+  if (sourceBlockType === 'control' && targetBlockType === 'shape') return 'control-to-shape';
+  if (sourceBlockType === 'control' && targetBlockType === 'limit') return 'control-to-limit';
+  return null;
+}
+
+export function isValidConnection(
+  sourceBlock: Block,
+  targetBlock: Block
+): boolean {
+  const connectionType = getConnectionType(sourceBlock.type, targetBlock.type);
+  return connectionType !== null;
 }

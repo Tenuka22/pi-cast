@@ -31,9 +31,9 @@ describe('EventReplayer', () => {
   describe('Event Loading', () => {
     it('should load events sorted by timestamp', () => {
       const events: RecordingEvent[] = [
-        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
+        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-2', blockType: 'chart', position: { x: 1, y: 1 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
       ];
 
       replayer.loadEvents(events);
@@ -55,8 +55,8 @@ describe('EventReplayer', () => {
   describe('Event Update', () => {
     it('should trigger events within look ahead window', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 50, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 150, type: 'BLOCK_MOVED', data: {} as any },
+        { id: '1', timestamp: 50, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 150, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
       ];
 
       replayer.loadEvents(events);
@@ -68,7 +68,7 @@ describe('EventReplayer', () => {
 
     it('should not trigger future events beyond look ahead', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 500, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 500, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -80,7 +80,7 @@ describe('EventReplayer', () => {
 
     it('should skip already processed events', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 50, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 50, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -94,7 +94,7 @@ describe('EventReplayer', () => {
   describe('Seek Operations', () => {
     it('should reset to beginning on seek(0)', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -107,9 +107,9 @@ describe('EventReplayer', () => {
 
     it('should process all events up to seek time', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
-        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
+        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: { blockId: 'block-2', blockType: 'chart', position: { x: 1, y: 1 } } },
       ];
 
       replayer.loadEvents(events);
@@ -124,9 +124,9 @@ describe('EventReplayer', () => {
   describe('Event Navigation', () => {
     it('should jump to event by ID', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
-        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
+        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: { blockId: 'block-2', blockType: 'chart', position: { x: 1, y: 1 } } },
       ];
 
       replayer.loadEvents(events);
@@ -137,7 +137,7 @@ describe('EventReplayer', () => {
 
     it('should return -1 for non-existent event', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -148,8 +148,8 @@ describe('EventReplayer', () => {
 
     it('should find nearest event at time', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
       ];
 
       replayer.loadEvents(events);
@@ -162,9 +162,9 @@ describe('EventReplayer', () => {
   describe('Event Filtering', () => {
     it('should get events by type', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
-        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
+        { id: '3', timestamp: 3000, type: 'BLOCK_PLACED', data: { blockId: 'block-2', blockType: 'chart', position: { x: 1, y: 1 } } },
       ];
 
       replayer.loadEvents(events);
@@ -175,9 +175,9 @@ describe('EventReplayer', () => {
 
     it('should get bookmark events', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BOOKMARK_CREATED', data: {} as any },
-        { id: '3', timestamp: 3000, type: 'BOOKMARK_CREATED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BOOKMARK_CREATED', data: { bookmarkId: 'bookmark-1', title: 'Key Concept', description: 'Important', type: 'teacher' } },
+        { id: '3', timestamp: 3000, type: 'BOOKMARK_CREATED', data: { bookmarkId: 'bookmark-2', title: 'Summary', type: 'student' } },
       ];
 
       replayer.loadEvents(events);
@@ -190,8 +190,8 @@ describe('EventReplayer', () => {
   describe('State Queries', () => {
     it('should return total event count', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
-        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
+        { id: '2', timestamp: 2000, type: 'BLOCK_MOVED', data: { blockId: 'block-1', fromPosition: { x: 0, y: 0 }, toPosition: { x: 2, y: 2 } } },
       ];
 
       replayer.loadEvents(events);
@@ -202,7 +202,7 @@ describe('EventReplayer', () => {
 
     it('should return current event index', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -214,7 +214,7 @@ describe('EventReplayer', () => {
 
     it('should get current event', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);
@@ -228,7 +228,7 @@ describe('EventReplayer', () => {
   describe('Reset', () => {
     it('should reset to initial state', () => {
       const events: RecordingEvent[] = [
-        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: {} as any },
+        { id: '1', timestamp: 1000, type: 'BLOCK_PLACED', data: { blockId: 'block-1', blockType: 'equation', position: { x: 0, y: 0 } } },
       ];
 
       replayer.loadEvents(events);

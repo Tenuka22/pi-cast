@@ -312,7 +312,7 @@ function NoteItem({ note, formatTime, onJump, onEdit, onDelete }: NoteItemProps)
         </p>
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger onClick={(e: any) => e.stopPropagation()}>
+        <DropdownMenuTrigger onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
             <span className="sr-only">Open menu</span>
             <svg

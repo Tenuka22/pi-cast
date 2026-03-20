@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -87,6 +87,7 @@ const MOCK_HISTORY: WatchHistoryItem[] = [
 
 export default function HistoryPage() {
   const [history] = useState<WatchHistoryItem[]>(MOCK_HISTORY);
+  const [currentTime] = useState(() => Date.now());
 
   const handleResume = (item: WatchHistoryItem) => {
     console.log('Resume lesson:', item.lessonId, 'at', item.watchPosition);
@@ -104,7 +105,7 @@ export default function HistoryPage() {
   };
 
   const formatLastWatched = (timestamp: number) => {
-    const diff = Date.now() - timestamp;
+    const diff = currentTime - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -128,13 +129,13 @@ export default function HistoryPage() {
     return `${minutes}m`;
   };
 
-  const groupedHistory = {
-    today: history.filter((h) => Date.now() - h.lastWatchedAt < 86400000),
+  const groupedHistory = useMemo(() => ({
+    today: history.filter((h) => currentTime - h.lastWatchedAt < 86400000),
     thisWeek: history.filter(
-      (h) => Date.now() - h.lastWatchedAt >= 86400000 && Date.now() - h.lastWatchedAt < 864000000 * 7
+      (h) => currentTime - h.lastWatchedAt >= 86400000 && currentTime - h.lastWatchedAt < 864000000 * 7
     ),
-    older: history.filter((h) => Date.now() - h.lastWatchedAt >= 864000000 * 7),
-  };
+    older: history.filter((h) => currentTime - h.lastWatchedAt >= 864000000 * 7),
+  }), [history, currentTime]);
 
   return (
     <div className="container mx-auto py-8 space-y-6">

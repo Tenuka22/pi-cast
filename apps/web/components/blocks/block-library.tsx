@@ -6,19 +6,25 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   LibraryIcon,
   Flag01Icon,
-  SlideIcon,
   ChartIcon,
   FileCheck,
   ArrowUpIcon,
   ArrowDownIcon,
+  CalculatorIcon,
+  SquareIcon,
+  PuzzleIcon,
 } from '@hugeicons/core-free-icons';
-import type { EquationBlock, ChartBlock, ControlBlock, DescriptionBlock } from '@/lib/block-system/types';
+import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock } from '@/lib/block-system/types';
 
-export type BlockPreset = 
+export type LogicType = 'and' | 'or' | 'xor' | 'eq';
+
+export type BlockPreset =
   | { type: 'equation'; data: Partial<EquationBlock> }
   | { type: 'chart'; data: Partial<ChartBlock> }
-  | { type: 'control'; data: Partial<ControlBlock> }
-  | { type: 'description'; data: Partial<DescriptionBlock> };
+  | { type: 'description'; data: Partial<DescriptionBlock> }
+  | { type: 'limit'; data: Partial<LimitBlock> }
+  | { type: 'shape'; data: Partial<ShapeBlock> }
+  | { type: 'logic'; data: { logicType: LogicType } };
 
 interface BlockLibraryProps {
   onBlockSelect?: (preset: BlockPreset) => void;
@@ -29,6 +35,11 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>('equations');
 
   const handleBlockClick = (preset: BlockPreset) => onBlockSelect?.(preset);
+
+  const handleDragStart = (e: React.DragEvent, preset: BlockPreset) => {
+    e.dataTransfer.setData('application/json', JSON.stringify(preset));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
   return (
     <div className={cn('flex h-full w-64 flex-col border-r border-border bg-card', className)}>
@@ -43,23 +54,24 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           isExpanded={expandedCategory === 'equations'}
           onToggle={() => setExpandedCategory(expandedCategory === 'equations' ? null : 'equations')}
         >
-          <BlockItem title="Linear" equation="y = mx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = mx + c' } })} />
-          <BlockItem title="Quadratic" equation="y = ax² + bx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^2 + bx + c' } })} />
-          <BlockItem title="Cubic" equation="y = ax³ + bx² + cx + d" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^3 + bx^2 + cx + d' } })} />
-          <BlockItem title="Exponential" equation="y = a^x" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = a^x' } })} />
-          <BlockItem title="Sine Wave" equation="y = A·sin(x)" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = A * sin(x)' } })} />
-          <BlockItem title="Custom" equation="Add your own..." onClick={() => handleBlockClick({ type: 'equation', data: { equation: '' } })} />
+          <BlockItem title="Linear" equation="y = mx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = mx + c' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = mx + c' } })} />
+          <BlockItem title="Quadratic" equation="y = ax² + bx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^2 + bx + c' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = ax^2 + bx + c' } })} />
+          <BlockItem title="Cubic" equation="y = ax³ + bx² + cx + d" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^3 + bx^2 + cx + d' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = ax^3 + bx^2 + cx + d' } })} />
+          <BlockItem title="Exponential" equation="y = a^x" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = a^x' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = a^x' } })} />
+          <BlockItem title="Sine Wave" equation="y = A·sin(x)" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = A * sin(x)' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = A * sin(x)' } })} />
+          <BlockItem title="Custom" equation="Add your own..." onClick={() => handleBlockClick({ type: 'equation', data: { equation: '' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: '' } })} />
         </CategorySection>
 
         <CategorySection
-          title="Controls"
-          icon={SlideIcon}
-          isExpanded={expandedCategory === 'controls'}
-          onToggle={() => setExpandedCategory(expandedCategory === 'controls' ? null : 'controls')}
+          title="Logic Gates"
+          icon={PuzzleIcon}
+          isExpanded={expandedCategory === 'logic'}
+          onToggle={() => setExpandedCategory(expandedCategory === 'logic' ? null : 'logic')}
         >
-          <BlockItem title="Variable Slider" equation="Slider for m" onClick={() => handleBlockClick({ type: 'control', data: { layout: 'vertical' } })} />
-          <BlockItem title="Number Input" equation="Input for c" onClick={() => handleBlockClick({ type: 'control', data: { layout: 'horizontal' } })} />
-          <BlockItem title="Multi-Variable" equation="m, c, x" onClick={() => handleBlockClick({ type: 'control', data: { layout: 'vertical' } })} />
+          <BlockItem title="AND Gate" equation="A ∧ B" onClick={() => handleBlockClick({ type: 'logic', data: { logicType: 'and' } })} onDragStart={(e) => handleDragStart(e, { type: 'logic', data: { logicType: 'and' } })} />
+          <BlockItem title="OR Gate" equation="A ∨ B" onClick={() => handleBlockClick({ type: 'logic', data: { logicType: 'or' } })} onDragStart={(e) => handleDragStart(e, { type: 'logic', data: { logicType: 'or' } })} />
+          <BlockItem title="XOR Gate" equation="A ⊕ B" onClick={() => handleBlockClick({ type: 'logic', data: { logicType: 'xor' } })} onDragStart={(e) => handleDragStart(e, { type: 'logic', data: { logicType: 'xor' } })} />
+          <BlockItem title="Equality" equation="A = B" onClick={() => handleBlockClick({ type: 'logic', data: { logicType: 'eq' } })} onDragStart={(e) => handleDragStart(e, { type: 'logic', data: { logicType: 'eq' } })} />
         </CategorySection>
 
         <CategorySection
@@ -68,9 +80,9 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           isExpanded={expandedCategory === 'charts'}
           onToggle={() => setExpandedCategory(expandedCategory === 'charts' ? null : 'charts')}
         >
-          <BlockItem title="Single Graph" equation="1 equation" onClick={() => handleBlockClick({ type: 'chart', data: {} })} />
-          <BlockItem title="Comparison" equation="Multiple equations" onClick={() => handleBlockClick({ type: 'chart', data: {} })} />
-          <BlockItem title="Large Canvas" equation="512x384px" onClick={() => handleBlockClick({ type: 'chart', data: {} })} />
+          <BlockItem title="Single Graph" equation="1 equation" onClick={() => handleBlockClick({ type: 'chart', data: {} })} onDragStart={(e) => handleDragStart(e, { type: 'chart', data: {} })} />
+          <BlockItem title="Comparison" equation="Multiple equations" onClick={() => handleBlockClick({ type: 'chart', data: {} })} onDragStart={(e) => handleDragStart(e, { type: 'chart', data: {} })} />
+          <BlockItem title="Large Canvas" equation="512x384px" onClick={() => handleBlockClick({ type: 'chart', data: {} })} onDragStart={(e) => handleDragStart(e, { type: 'chart', data: {} })} />
         </CategorySection>
 
         <CategorySection
@@ -79,14 +91,38 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           isExpanded={expandedCategory === 'descriptions'}
           onToggle={() => setExpandedCategory(expandedCategory === 'descriptions' ? null : 'descriptions')}
         >
-          <BlockItem title="Text Block" equation="Plain text" onClick={() => handleBlockClick({ type: 'description', data: { format: 'plain' } })} />
-          <BlockItem title="Markdown" equation="Formatted text" onClick={() => handleBlockClick({ type: 'description', data: { format: 'markdown' } })} />
-          <BlockItem title="LaTeX" equation="Math notation" onClick={() => handleBlockClick({ type: 'description', data: { format: 'latex' } })} />
-          <BlockItem title="Title Block" equation="With header" onClick={() => handleBlockClick({ type: 'description', data: { format: 'plain', title: 'Title' } })} />
+          <BlockItem title="Text Block" equation="Plain text" onClick={() => handleBlockClick({ type: 'description', data: { format: 'plain' } })} onDragStart={(e) => handleDragStart(e, { type: 'description', data: { format: 'plain' } })} />
+          <BlockItem title="Markdown" equation="Formatted text" onClick={() => handleBlockClick({ type: 'description', data: { format: 'markdown' } })} onDragStart={(e) => handleDragStart(e, { type: 'description', data: { format: 'markdown' } })} />
+          <BlockItem title="LaTeX" equation="Math notation" onClick={() => handleBlockClick({ type: 'description', data: { format: 'latex' } })} onDragStart={(e) => handleDragStart(e, { type: 'description', data: { format: 'latex' } })} />
+          <BlockItem title="Title Block" equation="With header" onClick={() => handleBlockClick({ type: 'description', data: { format: 'plain', title: 'Title' } })} onDragStart={(e) => handleDragStart(e, { type: 'description', data: { format: 'plain', title: 'Title' } })} />
+        </CategorySection>
+
+        <CategorySection
+          title="Limits"
+          icon={CalculatorIcon}
+          isExpanded={expandedCategory === 'limits'}
+          onToggle={() => setExpandedCategory(expandedCategory === 'limits' ? null : 'limits')}
+        >
+          <BlockItem title="Limit" equation="lim x→a f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both' } })} />
+          <BlockItem title="Left Limit" equation="lim x→a⁻ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left' } })} />
+          <BlockItem title="Right Limit" equation="lim x→a⁺ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right' } })} />
+        </CategorySection>
+
+        <CategorySection
+          title="Shapes"
+          icon={SquareIcon}
+          isExpanded={expandedCategory === 'shapes'}
+          onToggle={() => setExpandedCategory(expandedCategory === 'shapes' ? null : 'shapes')}
+        >
+          <BlockItem title="Square" equation="50% filled" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'square', fillValue: 50, fillMode: 'percentage' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'square', fillValue: 50, fillMode: 'percentage' } })} />
+          <BlockItem title="Circle" equation="Fraction" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'circle', fillValue: 50, fillMode: 'fraction' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'circle', fillValue: 50, fillMode: 'fraction' } })} />
+          <BlockItem title="Rectangle" equation="Decimal" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'rectangle', fillValue: 25, fillMode: 'decimal' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'rectangle', fillValue: 25, fillMode: 'decimal' } })} />
+          <BlockItem title="Empty Square" equation="0% filled" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'square', fillValue: 0, fillMode: 'percentage' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'square', fillValue: 0, fillMode: 'percentage' } })} />
         </CategorySection>
       </div>
       <div className="border-t border-border p-3 text-xs text-muted-foreground">
         <p>Drag blocks to canvas or click to add</p>
+        <p className="mt-1">Double-click equations to edit constants</p>
       </div>
     </div>
   );
@@ -129,14 +165,18 @@ function BlockItem({
   title,
   equation,
   onClick,
+  onDragStart,
 }: {
   title: string;
   equation: string;
   onClick: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }) {
   return (
     <button
       onClick={onClick}
+      onDragStart={onDragStart}
+      draggable
       className="flex w-full flex-col gap-1 rounded-md border border-border p-2 text-left transition-colors hover:bg-accent hover:border-primary/50"
     >
       <span className="text-sm font-medium">{title}</span>

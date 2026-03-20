@@ -1,12 +1,13 @@
 /**
  * Recording Flow Integration Tests
- * 
+ *
  * Tests the complete recording flow from start to save.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useRecording } from '@/lib/recording-system/use-recording';
 import { renderHook, act } from '@testing-library/react';
+import type { RecordingSession } from '@/lib/recording-system/types';
 
 // Mock browser APIs
 const mockMediaDevices = {
@@ -21,7 +22,7 @@ const mockAudioContext = vi.fn().mockImplementation(() => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  
+
   // Mock navigator.mediaDevices
   Object.defineProperty(navigator, 'mediaDevices', {
     value: mockMediaDevices,
@@ -29,7 +30,7 @@ beforeEach(() => {
   });
 
   // Mock AudioContext
-  global.AudioContext = mockAudioContext as any;
+  global.AudioContext = mockAudioContext();
 });
 
 describe('Recording Flow Integration', () => {
@@ -45,7 +46,7 @@ describe('Recording Flow Integration', () => {
       // Mock successful permission
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -59,7 +60,7 @@ describe('Recording Flow Integration', () => {
     it('should pause and resume recording', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -88,7 +89,7 @@ describe('Recording Flow Integration', () => {
     it('should stop and return session', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -98,9 +99,9 @@ describe('Recording Flow Integration', () => {
       });
 
       // Stop recording
-      let session: any;
+      let session: RecordingSession | undefined;
       await act(async () => {
-        session = await result.current.stop();
+        session = await result.current.stop() ?? undefined;
       });
 
       expect(result.current.state.status).toBe('stopped');
@@ -112,7 +113,7 @@ describe('Recording Flow Integration', () => {
     it('should capture block placed event', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -133,8 +134,9 @@ describe('Recording Flow Integration', () => {
 
       const events = result.current.getEvents();
       expect(events).toHaveLength(1);
-      expect(events[0]?.type).toBe('BLOCK_PLACED');
-      expect(events[0]?.data).toMatchObject({
+      const firstEvent = events[0];
+      expect(firstEvent?.type).toBe('BLOCK_PLACED');
+      expect(firstEvent?.data).toMatchObject({
         blockId: 'block-1',
         blockType: 'equation',
         position: { x: 4, y: 2 },
@@ -144,7 +146,7 @@ describe('Recording Flow Integration', () => {
     it('should capture block moved event', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -169,7 +171,7 @@ describe('Recording Flow Integration', () => {
     it('should capture bookmark creation', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -192,7 +194,7 @@ describe('Recording Flow Integration', () => {
     it('should create audio segments during recording', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording());
 
@@ -222,7 +224,7 @@ describe('Recording Flow Integration', () => {
       await act(async () => {
         try {
           await result.current.start();
-        } catch (error) {
+        } catch {
           // Expected error
         }
       });
@@ -241,7 +243,7 @@ describe('Recording Flow Integration', () => {
       await act(async () => {
         try {
           await result.current.start();
-        } catch (error) {
+        } catch {
           // Expected error
         }
       });
@@ -254,7 +256,7 @@ describe('Recording Flow Integration', () => {
     it('should include metadata in session', async () => {
       mockMediaDevices.getUserMedia.mockResolvedValueOnce({
         getTracks: () => [],
-      } as any);
+      });
 
       const { result } = renderHook(() => useRecording({
         metadata: {
@@ -267,9 +269,9 @@ describe('Recording Flow Integration', () => {
         await result.current.start();
       });
 
-      let session: any;
+      let session: RecordingSession | undefined;
       await act(async () => {
-        session = await result.current.stop();
+        session = await result.current.stop() ?? undefined;
       });
 
       expect(session?.metadata.lessonId).toBe('lesson-1');

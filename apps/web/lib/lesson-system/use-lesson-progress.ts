@@ -47,7 +47,7 @@ export function useLessonProgress({
   onProgressUpdate,
   onCompletion,
 }: UseLessonProgressOptions) {
-  const [progress, setProgress] = useState<LessonProgress>({
+  const [progress, setProgress] = useState<LessonProgress>(() => ({
     lessonId,
     userId,
     progress: 0,
@@ -56,11 +56,16 @@ export function useLessonProgress({
     enrolledAt: Date.now(),
     lastAccessedAt: Date.now(),
     totalWatchTime: 0,
-  });
+  }));
 
   const [currentBookmarkId, setCurrentBookmarkId] = useState<string | undefined>();
   const watchTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastProgressUpdateRef = useRef<number>(Date.now());
+  const lastProgressUpdateRef = useRef<number>(0);
+
+  // Initialize lastProgressUpdateRef on mount
+  useEffect(() => {
+    lastProgressUpdateRef.current = Date.now();
+  }, []);
 
   // Calculate progress based on completed bookmarks
   const calculateProgress = useCallback(

@@ -1,6 +1,6 @@
 /**
  * Test Setup File
- * 
+ *
  * Configures testing environment with necessary globals and matchers.
  */
 
@@ -37,9 +37,15 @@ vi.mock('next-themes', () => ({
 
 // Mock @workspace/ui components if needed
 vi.mock('@workspace/ui/components/button', () => ({
-  Button: ({ children, onClick, type = 'button', variant = 'default', size = 'default' }: any) => {
+  Button: ({ children, onClick, type = 'button', variant = 'default', size = 'default' }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    type?: string;
+    variant?: string;
+    size?: string;
+  }) => {
     const button = document.createElement('button');
-    button.type = type;
+    if (type) button.type = type as 'button' | 'submit' | 'reset';
     button.setAttribute('data-variant', variant);
     button.setAttribute('data-size', size);
     if (onClick) button.onclick = onClick;
@@ -49,12 +55,36 @@ vi.mock('@workspace/ui/components/button', () => ({
 }));
 
 // Global test utilities
-(Object as any).defineProperty(globalThis, 'testId', {
-  value: (id: string) => document.querySelector(`[data-testid="${id}"]`),
+interface TestIdFunction {
+  (id: string): Element | null;
+}
+
+// Declare global types first
+declare global {
+  // eslint-disable-next-line no-var
+  var testId: TestIdFunction;
+  // eslint-disable-next-line no-var
+  var getByTestId: TestIdFunction;
+}
+
+// Define the functions
+const testIdFunction: TestIdFunction = (id: string) => {
+  return document.querySelector(`[data-testid="${id}"]`);
+};
+
+const getByTestIdFunction: TestIdFunction = (id: string) => {
+  return document.querySelector(`[data-testid="${id}"]`);
+};
+
+// Assign to globalThis
+Object.defineProperty(globalThis, 'testId', {
+  value: testIdFunction,
   writable: true,
+  configurable: true,
 });
 
-(Object as any).defineProperty(globalThis, 'getByTestId', {
-  value: (id: string) => document.querySelector(`[data-testid="${id}"]`),
+Object.defineProperty(globalThis, 'getByTestId', {
+  value: getByTestIdFunction,
   writable: true,
+  configurable: true,
 });
