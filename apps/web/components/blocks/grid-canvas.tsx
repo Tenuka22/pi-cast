@@ -31,11 +31,29 @@ import { RecordingStatusBar } from '@/components/recording/recording-status-bar'
 interface GridCanvasProps {
   className?: string;
   onBlocksChange?: (blocks: Block[]) => void;
+  
+  // Playback mode props
+  blocks?: Block[];
+  isPlaybackMode?: boolean;
+  onBlockInteract?: () => void;
+  onBlockModification?: (blockId: string, modifications: Partial<Block>) => void;
+  onVariableChange?: (blockId: string, variableName: string, value: number) => void;
+  readOnly?: boolean;
 }
 
-export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
+export function GridCanvas({ 
+  className, 
+  onBlocksChange,
+  blocks: externalBlocks,
+  isPlaybackMode = false,
+  onBlockInteract,
+  onBlockModification,
+  onVariableChange,
+  readOnly = false,
+}: GridCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [internalBlocks, setInternalBlocks] = useState<Block[]>([]);
+  const blocks = externalBlocks ?? internalBlocks;
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>();
   const [gridVisible, setGridVisible] = useState(true);
@@ -65,7 +83,13 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
     }
   }, []);
 
-  const handleBlockClick = useCallback((blockId: string) => setSelectedBlockId(blockId), []);
+  const handleBlockClick = useCallback((blockId: string) => {
+    setSelectedBlockId(blockId);
+    // Trigger interaction callback for playback mode
+    if (isPlaybackMode) {
+      onBlockInteract?.();
+    }
+  }, [isPlaybackMode, onBlockInteract]);
 
   const handleDragStart = useCallback((e: React.MouseEvent, block: Block) => {
     e.stopPropagation();
@@ -116,11 +140,13 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
       recordBlockMoved(block.id, dragState.startPosition, validPosition);
     }
 
-    setBlocks(newBlocks);
+    if (!isPlaybackMode) {
+      setInternalBlocks(newBlocks);
+    }
     onBlocksChange?.(newBlocks);
     setDragState(null);
     isDraggingRef.current = false;
-  }, [dragState, blocks, onBlocksChange, recordBlockMoved]);
+  }, [dragState, blocks, onBlocksChange, recordBlockMoved, isPlaybackMode]);
 
   const createEquationBlock = (position: GridPosition, equation?: string): EquationBlock => {
     const parsed = equation ? parseEquation(equation) : undefined;
@@ -199,7 +225,9 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
     const blockWithPosition = { ...newBlock, position: validPosition };
 
     const newBlocks = [...blocks, blockWithPosition];
-    setBlocks(newBlocks);
+    if (!isPlaybackMode) {
+      setInternalBlocks(newBlocks);
+    }
     onBlocksChange?.(newBlocks);
     setSelectedBlockId(blockWithPosition.id);
 
@@ -220,6 +248,7 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
       onMouseDown: (e: React.MouseEvent) => handleDragStart(e, block),
       className: cn('transition-shadow', isDragging ? 'z-50 cursor-grabbing shadow-2xl' : 'z-10'),
       style: { left: pos.x, top: pos.y },
+      readOnly: readOnly || isPlaybackMode,
     };
 
     switch (block.type) {
@@ -228,7 +257,13 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
       case 'chart':
         return <ChartBlockComponent block={block} {...commonProps} />;
       case 'control':
-        return <ControlBlockComponent block={block} {...commonProps} />;
+        return (
+          <ControlBlockComponent
+            block={block}
+            {...commonProps}
+            onVariableChange={onVariableChange ? (name, value) => onVariableChange(block.id, name, value) : undefined}
+          />
+        );
       case 'description':
         return <DescriptionBlockComponent block={block} {...commonProps} />;
     }
@@ -236,8 +271,9 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
 
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
-      {/* Top Toolbar */}
-      <div className="z-20 flex items-center justify-between border-b border-border bg-card p-2 shadow-sm">
+      {/* Top Toolbar - Hidden in playback mode */}
+      {!isPlaybackMode && (
+        <div className="z-20 flex items-center justify-between border-b border-border bg-card p-2 shadow-sm">
         <div className="flex items-center gap-2">
           <button
             onClick={() => addBlock('equation', { equation: 'y = mx + c' })}
@@ -286,7 +322,8 @@ export function GridCanvas({ className, onBlocksChange }: GridCanvasProps) {
             onCreateBookmark={createBookmark}
           />
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Canvas */}
       <div
