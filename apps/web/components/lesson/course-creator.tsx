@@ -10,6 +10,10 @@ import React, { useState, useCallback } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import type { Course, CourseLesson } from '@/lib/lesson-system/types';
 
+function isValidLessonLevel(value: string): value is 'beginner' | 'intermediate' | 'advanced' {
+  return ['beginner', 'intermediate', 'advanced'].includes(value);
+}
+
 interface CourseCreatorProps {
   courseId?: string;
   onSave?: (course: Course) => void;
@@ -134,7 +138,7 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
                   value={course.level || 'beginner'}
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (['beginner', 'intermediate', 'advanced', 'all'].includes(value)) {
+                    if (isValidLessonLevel(value)) {
                       updateCourse({ level: value });
                     }
                   }}

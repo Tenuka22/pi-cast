@@ -366,9 +366,9 @@ function SessionsTab() {
   const { data: session } = useSession()
   interface SessionItem {
     id: string
-    userAgent?: string
+    userAgent?: string | null
     lastActiveAt?: string | number | Date
-    ipAddress?: string
+    ipAddress?: string | null
   }
   const [sessions, setSessions] = useState<SessionItem[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -380,8 +380,9 @@ function SessionsTab() {
     setError(null)
     try {
       const response = await listSessions()
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      setSessions(response.data as SessionItem[])
+      if (response.data && Array.isArray(response.data)) {
+        setSessions(response.data)
+      }
     } catch {
       setError("Failed to load sessions")
     } finally {

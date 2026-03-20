@@ -13,6 +13,14 @@ import { useLessonCreation } from '@/lib/lesson-system/use-lesson-creation';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
 import type { LessonCreationData } from '@/lib/lesson-system/types';
 
+function isValidLessonLevel(value: string): value is 'beginner' | 'intermediate' | 'advanced' | 'all' {
+  return ['beginner', 'intermediate', 'advanced', 'all'].includes(value);
+}
+
+function isValidLessonVisibility(value: string): value is 'private' | 'unlisted' | 'organization' | 'public' {
+  return ['private', 'unlisted', 'organization', 'public'].includes(value);
+}
+
 interface LessonCreatorProps {
   lessonId?: string;
   onSave?: (lessonId: string) => void;
@@ -176,7 +184,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                   value={metadata.level || 'beginner'}
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (['beginner', 'intermediate', 'advanced', 'all'].includes(value)) {
+                    if (isValidLessonLevel(value)) {
                       setMetadata((prev) => ({ ...prev, level: value }));
                     }
                   }}
@@ -195,7 +203,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                   value={metadata.visibility || 'private'}
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (['private', 'unlisted', 'organization', 'public'].includes(value)) {
+                    if (isValidLessonVisibility(value)) {
                       setMetadata((prev) => ({ ...prev, visibility: value }));
                     }
                   }}

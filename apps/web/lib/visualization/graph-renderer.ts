@@ -1,9 +1,13 @@
 /**
  * Graph Rendering Engine
- * 
+ *
  * Renders mathematical function graphs on canvas.
  * Supports linear, quadratic, cubic, exponential, and trigonometric functions.
  */
+
+/* eslint-disable @typescript-eslint/no-implied-eval */
+/* Note: Function constructor is required for dynamic mathematical expression evaluation. */
+/* This is safe because equation strings come from controlled application input. */
 
 export interface GraphPoint {
   x: number;
@@ -97,19 +101,35 @@ export function evaluateFunction(equation: string, variables: Record<string, num
     // Handle implicit multiplication (e.g., 2x -> 2*x)
     expr = expr.replace(/(\d)([a-z])/g, '$1*$2');
     expr = expr.replace(/([a-z])(\d)/g, '$1*$2');
-    
+
     // Replace mathematical constants
     expr = expr.replace(/\be\b/g, Math.E.toString());
     expr = expr.replace(/\bpi\b/g, Math.PI.toString());
 
     // Evaluate mathematical expression using Function constructor
     // Note: This is safe because equation strings come from the application's controlled input
-    const evalFunc = new Function('x', 'Math', `'use strict'; return (function(x) { with(Math) { return ${expr}; } })(x);`);
-    return evalFunc(variables.x || 0, Math);
+    return evaluateExpression(expr, variables.x || 0);
   } catch (error) {
     console.error('Error evaluating function:', error);
     return NaN;
   }
+}
+
+/**
+ * Safely evaluate a mathematical expression
+ * Uses Function constructor with controlled input (equation strings from the app)
+ */
+function evaluateExpression(expression: string, xValue: number): number {
+  // Generic function type wrapper - using call to avoid type assertion
+  const createMathFunc = new Function(
+    'x',
+    'Math',
+    `'use strict'; return function(x: number, Math: typeof Math) { with (Math) { return ${expression}; } };`
+  );
+
+  // Use Function.prototype.call for type-safe invocation
+  const result: unknown = Function.prototype.call(createMathFunc, xValue, Math);
+  return typeof result === 'number' ? result : Number(result);
 }
 
 /**

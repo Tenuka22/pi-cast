@@ -10,6 +10,10 @@ import React, { useState, useMemo } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import type { Lesson, Category } from '@/lib/lesson-system/types';
 
+function isValidSortBy(value: string): value is 'popular' | 'newest' | 'rating' {
+  return ['popular', 'newest', 'rating'].includes(value);
+}
+
 interface LessonDiscoveryProps {
   lessons?: Lesson[];
   categories?: Category[];
@@ -227,7 +231,7 @@ export function LessonDiscovery({ lessons, categories, onLessonClick, className 
                 value={sortBy}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (['popular', 'newest', 'rating'].includes(value)) {
+                  if (isValidSortBy(value)) {
                     setSortBy(value);
                   }
                 }}

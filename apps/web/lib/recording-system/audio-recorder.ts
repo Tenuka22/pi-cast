@@ -16,7 +16,7 @@ export class AudioRecorder {
   private mediaStream: MediaStream | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private analyser: AnalyserNode | null = null;
-  private dataArray: Float32Array | null = null;
+  private dataArray: Float32Array<ArrayBuffer> | null = null;
 
   private config: SilenceDetectionConfig;
   private segments: AudioSegment[] = [];
@@ -111,14 +111,21 @@ export class AudioRecorder {
   private getCurrentAmplitude(): number {
     if (!this.analyser || !this.dataArray) return -100;
 
-    const dataArray = this.dataArray;
-    this.analyser.getFloatTimeDomainData(dataArray);
+    // Use a local variable with proper type for getFloatTimeDomainData
+    const buffer = this.dataArray;
+    // Narrow the type to ensure ArrayBuffer compatibility
+    const floatBuffer = buffer.buffer instanceof ArrayBuffer ? buffer : new Float32Array(buffer.length);
+    if (floatBuffer !== buffer) {
+      floatBuffer.set(buffer);
+    }
+    
+    this.analyser.getFloatTimeDomainData(floatBuffer);
     let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const sample = dataArray[i] || 0;
+    for (let i = 0; i < floatBuffer.length; i++) {
+      const sample = floatBuffer[i] ?? 0;
       sum += sample * sample;
     }
-    const rms = Math.sqrt(sum / dataArray.length);
+    const rms = Math.sqrt(sum / floatBuffer.length);
     return 20 * Math.log10(Math.max(rms, 0.00001));
   }
 

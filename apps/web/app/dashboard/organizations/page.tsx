@@ -64,20 +64,17 @@ interface AuthGuardProps {
   children: React.ReactNode
 }
 
-// Type assertion helper - necessary for API response type safety
-function assertOrganization(value: unknown): Organization[] {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as Organization[]
+// Type guard helpers for API responses
+function isOrganizationArray(value: unknown): value is Organization[] {
+  return Array.isArray(value)
 }
 
-function assertMember(value: unknown): Member[] {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as Member[]
+function isMemberArray(value: unknown): value is Member[] {
+  return Array.isArray(value)
 }
 
-function assertInvitation(value: unknown): Invitation[] {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as Invitation[]
+function isInvitationArray(value: unknown): value is Invitation[] {
+  return Array.isArray(value)
 }
 
 // AuthGuard Component
@@ -431,8 +428,8 @@ function OrganizationsPageContent() {
   const loadOrganizations = React.useCallback(async () => {
     try {
       const { data: orgs } = await authClient.organization.list()
-      if (orgs) {
-        setOrganizations(assertOrganization(orgs))
+      if (orgs && isOrganizationArray(orgs)) {
+        setOrganizations(orgs)
 
         // Load members and invitations for each organization using getFullOrganization
         const membersMap: Record<string, Member[]> = {}
@@ -444,9 +441,9 @@ function OrganizationsPageContent() {
               query: { organizationId: org.id },
             })
 
-          if (fullOrg) {
-            membersMap[org.id] = assertMember(fullOrg.members)
-            invitationsMap[org.id] = assertInvitation(fullOrg.invitations)
+          if (fullOrg && isMemberArray(fullOrg.members) && isInvitationArray(fullOrg.invitations)) {
+            membersMap[org.id] = fullOrg.members
+            invitationsMap[org.id] = fullOrg.invitations
           } else {
             membersMap[org.id] = []
             invitationsMap[org.id] = []

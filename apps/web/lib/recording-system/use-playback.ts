@@ -17,7 +17,19 @@ import type {
   Bookmark,
   RecordingEvent,
   AudioSegment,
+  BookmarkCreatedData,
 } from './types';
+
+// Type guard for bookmark events
+function isBookmarkEventData(data: unknown): data is BookmarkCreatedData {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'bookmarkId' in data &&
+    'title' in data &&
+    'type' in data
+  );
+}
 
 interface UsePlaybackOptions {
   onEventTrigger?: (event: RecordingEvent) => void;
@@ -80,17 +92,16 @@ export function usePlayback(options: UsePlaybackOptions = {}) {
       const extractedBookmarks: Bookmark[] = recordingSession.events
         .filter((event) => event.type === 'BOOKMARK_CREATED')
         .map((event) => {
-          const data = event.data as Record<string, unknown>;
-          const bookmarkId = typeof data.bookmarkId === 'string' ? data.bookmarkId : '';
-          const title = typeof data.title === 'string' ? data.title : '';
-          const description = typeof data.description === 'string' ? data.description : undefined;
-          const type = data.type === 'student' ? 'student' : 'teacher';
+          if (!isBookmarkEventData(event.data)) {
+            throw new Error('Invalid bookmark event data');
+          }
+          const data = event.data;
           return {
-            id: bookmarkId,
+            id: data.bookmarkId,
             timestamp: event.timestamp,
-            title,
-            description,
-            type,
+            title: data.title,
+            description: data.description,
+            type: data.type,
             createdAt: recordingSession.duration,
           } satisfies Bookmark;
         });
