@@ -52,7 +52,10 @@ describe('AudioRecorder', () => {
       const samples = new Float32Array([0.1, 0.2, 0.3, 0.2, 0.1]);
       let sum = 0;
       for (let i = 0; i < samples.length; i++) {
-        sum += samples[i] * samples[i];
+        const sample = samples[i];
+        if (sample !== undefined) {
+          sum += sample * sample;
+        }
       }
       const rms = Math.sqrt(sum / samples.length);
       

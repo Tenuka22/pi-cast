@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createGetAuthSession, createGetOptionalAuthSession } from '../../src/auth-middleware';
-import { ERROR_CODES } from '../../src/errors';
+import { createGetAuthSession, createGetOptionalAuthSession } from './auth-middleware';
+import { ERROR_CODES } from './errors';
 import { ORPCError } from '@orpc/server';
 
 // Mock auth object

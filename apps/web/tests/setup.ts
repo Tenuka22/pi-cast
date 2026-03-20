@@ -37,13 +37,24 @@ vi.mock('next-themes', () => ({
 
 // Mock @workspace/ui components if needed
 vi.mock('@workspace/ui/components/button', () => ({
-  Button: ({ children, onClick, type = 'button', variant = 'default', size = 'default' }: any) => (
-    <button type={type} onClick={onClick} data-variant={variant} data-size={size}>
-      {children}
-    </button>
-  ),
+  Button: ({ children, onClick, type = 'button', variant = 'default', size = 'default' }: any) => {
+    const button = document.createElement('button');
+    button.type = type;
+    button.setAttribute('data-variant', variant);
+    button.setAttribute('data-size', size);
+    if (onClick) button.onclick = onClick;
+    button.textContent = typeof children === 'string' ? children : '';
+    return button;
+  },
 }));
 
 // Global test utilities
-global.testId = (id: string) => document.querySelector(`[data-testid="${id}"]`);
-global.getByTestId = (id: string) => document.querySelector(`[data-testid="${id}"]`);
+(Object as any).defineProperty(globalThis, 'testId', {
+  value: (id: string) => document.querySelector(`[data-testid="${id}"]`),
+  writable: true,
+});
+
+(Object as any).defineProperty(globalThis, 'getByTestId', {
+  value: (id: string) => document.querySelector(`[data-testid="${id}"]`),
+  writable: true,
+});

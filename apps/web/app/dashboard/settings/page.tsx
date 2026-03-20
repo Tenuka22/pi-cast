@@ -34,6 +34,7 @@ import {
   FingerPrintIcon,
 } from "@hugeicons/core-free-icons"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { ProfileEditor } from "@/components/profile/profile-editor"
 
 type Tab = "profile" | "account" | "sessions"
 
@@ -102,100 +103,48 @@ function SettingsContent() {
 
 function ProfileTab() {
   const { data: session, refetch } = useSession()
-  const [name, setName] = useState(session?.user?.name || "")
-  const [image, setImage] = useState(session?.user?.image || "")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveProfile = async (data: { bio?: string; location?: string; website?: string; image?: string }) => {
     setIsLoading(true)
     setError(null)
-    setSuccess(null)
 
     try {
+      // Update name and image via updateUser
       await updateUser({
-        name,
-        image: image || undefined,
+        name: session?.user?.name,
+        image: data.image || undefined,
       })
-      setSuccess("Profile updated successfully")
-      void refetch()
-    } catch {
-      setError("Failed to update profile")
+      
+      // TODO: Call profile update API for bio, location, website
+      // await profileUpdateMyProfile({ bio: data.bio, location: data.location, website: data.website })
+      
+      await refetch()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile')
+      throw err
     } finally {
       setIsLoading(false)
     }
   }
 
-  const userInitial = session?.user?.name?.charAt(0) || session?.user?.email?.charAt(0) || "U"
+  if (!session?.user) {
+    return <LoadingSpinner />
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profile Information</CardTitle>
-        <CardDescription>Update your profile details and profile picture</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Profile Picture Preview */}
-        <div className="flex items-center gap-4">
-          <Avatar size="lg">
-            {image ? (
-              <AvatarImage src={image} alt={session?.user?.name || ""} />
-            ) : (
-              <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
-            )}
-          </Avatar>
-          <div>
-            <p className="font-medium">{session?.user?.name || "User"}</p>
-            <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Form */}
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="image">Profile Image URL</Label>
-            <Input
-              id="image"
-              type="url"
-              placeholder="https://example.com/avatar.jpg"
-              value={image}
-              onChange={(e) => setImage(e.target.value)}
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-600">
-              {success}
-            </div>
-          )}
-
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Saving..." : "Save Changes"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <ProfileEditor
+      initialData={{
+        name: session.user.name || '',
+        email: session.user.email,
+        bio: null, // TODO: Get from profile
+        location: null,
+        website: null,
+        image: session.user.image,
+      }}
+      onSave={handleSaveProfile}
+    />
   )
 }
 

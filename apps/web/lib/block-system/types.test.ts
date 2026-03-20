@@ -143,6 +143,7 @@ describe('Block System Types', () => {
         type: 'equation' as const,
         position: { x: 4, y: 2 },
         dimensions: { width: 4, height: 1 },
+        equation: 'y = mx + c',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -166,6 +167,7 @@ describe('Block System Types', () => {
         type: 'equation' as const,
         position: { x: 4, y: 2 },
         dimensions: { width: 4, height: 1 },
+        equation: 'y = mx + c',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -193,6 +195,7 @@ describe('Block System Types', () => {
         type: 'equation' as const,
         position: { x: 4, y: 2 },
         dimensions: { width: 4, height: 1 },
+        equation: 'y = mx + c',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -208,6 +211,7 @@ describe('Block System Types', () => {
         type: 'equation' as const,
         position: { x: 4, y: 2 },
         dimensions: { width: 4, height: 1 },
+        equation: 'y = mx + c',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -217,6 +221,7 @@ describe('Block System Types', () => {
         type: 'equation' as const,
         position: { x: 5, y: 2 }, // Overlaps with moved block
         dimensions: { width: 4, height: 1 },
+        equation: 'y = 2x + 3',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

@@ -30,3 +30,11 @@ export {
   studentRecordView,
   studentGetDashboardStats,
 } from "./student"
+
+export {
+  profileGetMyProfile,
+  profileUpdateMyProfile,
+  profileGetPublicProfile,
+  profileGetUserLessons,
+  profileToggleFollow,
+} from "./profile"
