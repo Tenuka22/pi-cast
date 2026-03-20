@@ -97,7 +97,15 @@ export function evaluateFunction(
     expr = expr.replace(/ceil/g, "Math.ceil")
 
     // Handle power notation
+    // Fix: Add parentheses for negative bases and exponents (e.g., -2^2 -> (-2)**2, 2^-3 -> 2**(-3))
     expr = expr.replace(/\^/g, "**")
+    
+    // Fix unary minus before ** as base (e.g., "(2*-3**2" -> "(2*(-3)**2")
+    expr = expr.replace(/([(+\-,])(-?\d+\.?\d*)\*\*/g, '$1($2)**')
+    expr = expr.replace(/^(-?\d+\.?\d*)\*\*/g, '($1)**')
+    
+    // Fix unary minus after ** as exponent (e.g., "2**-3" -> "2**(-3)")
+    expr = expr.replace(/\*\*(-\d+\.?\d*)/g, '**($1)')
 
     // Replace variables (but not 'e' or 'pi')
     for (const [name, value] of Object.entries(variables)) {

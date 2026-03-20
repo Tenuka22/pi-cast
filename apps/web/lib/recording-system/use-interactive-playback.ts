@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { RecordingEvent, BlockPlacedData, BlockMovedData, VariableSliderChangedData } from '@/lib/recording-system/types';
-import type { Block, GridPosition, BlockDimensions } from '@/lib/block-system/types';
+import type { Block, GridPosition, BlockDimensions, EquationBlock, ChartBlock, ControlBlock, DescriptionBlock, LimitBlock } from '@/lib/block-system/types';
 
 // Type guard functions
 function isValidBlockType(type: string): type is Block['type'] {
@@ -17,39 +17,40 @@ function isValidBlockType(type: string): type is Block['type'] {
 }
 
 function isBlockPlacedData(data: unknown): data is BlockPlacedData {
-  return typeof data === 'object' && data !== null &&
-    'blockId' in data &&
-    'blockType' in data &&
-    'position' in data &&
-    typeof (data as Record<string, unknown>).blockId === 'string' &&
-    typeof (data as Record<string, unknown>).blockType === 'string' &&
-    isValidBlockType((data as Record<string, unknown>).blockType as string) &&
-    typeof (data as Record<string, unknown>).position === 'object' &&
-    (data as Record<string, unknown>).position !== null &&
-    'x' in ((data as Record<string, unknown>).position as Record<string, unknown>) &&
-    'y' in ((data as Record<string, unknown>).position as Record<string, unknown>);
+  if (typeof data !== 'object' || data === null) return false;
+  const record = data as Record<string, unknown>;
+  return 'blockId' in record &&
+    'blockType' in record &&
+    'position' in record &&
+    typeof record.blockId === 'string' &&
+    typeof record.blockType === 'string' &&
+    isValidBlockType(record.blockType) &&
+    typeof record.position === 'object' &&
+    record.position !== null &&
+    isValidGridPosition(record.position);
 }
 
 function isBlockMovedData(data: unknown): data is BlockMovedData {
-  return typeof data === 'object' && data !== null &&
-    'blockId' in data &&
-    'fromPosition' in data &&
-    'toPosition' in data &&
-    typeof (data as Record<string, unknown>).blockId === 'string' &&
-    typeof (data as Record<string, unknown>).toPosition === 'object' &&
-    (data as Record<string, unknown>).toPosition !== null &&
-    'x' in ((data as Record<string, unknown>).toPosition as Record<string, unknown>) &&
-    'y' in ((data as Record<string, unknown>).toPosition as Record<string, unknown>);
+  if (typeof data !== 'object' || data === null) return false;
+  const record = data as Record<string, unknown>;
+  return 'blockId' in record &&
+    'fromPosition' in record &&
+    'toPosition' in record &&
+    typeof record.blockId === 'string' &&
+    typeof record.toPosition === 'object' &&
+    record.toPosition !== null &&
+    isValidGridPosition(record.toPosition);
 }
 
 function isVariableSliderChangedData(data: unknown): data is VariableSliderChangedData {
-  return typeof data === 'object' && data !== null &&
-    'blockId' in data &&
-    'variableName' in data &&
-    'newValue' in data &&
-    typeof (data as Record<string, unknown>).blockId === 'string' &&
-    typeof (data as Record<string, unknown>).variableName === 'string' &&
-    typeof (data as Record<string, unknown>).newValue === 'number';
+  if (typeof data !== 'object' || data === null) return false;
+  const record = data as Record<string, unknown>;
+  return 'blockId' in record &&
+    'variableName' in record &&
+    'newValue' in record &&
+    typeof record.blockId === 'string' &&
+    typeof record.variableName === 'string' &&
+    typeof record.newValue === 'number';
 }
 
 function isValidGridPosition(pos: unknown): pos is GridPosition {
@@ -144,10 +145,10 @@ export function useInteractivePlayback({
             const position: GridPosition = isValidGridPosition(data.position) ? data.position : { x: 0, y: 0 };
             const dimensions: BlockDimensions = isValidBlockDimensions(data.dimensions) ? data.dimensions : { width: 4, height: 1 };
             if (!isValidBlockType(data.blockType)) break;
-            
+
             // Create appropriate block based on type
             if (data.blockType === 'equation') {
-              const newBlock: Block = {
+              const newBlock: EquationBlock = {
                 id: data.blockId,
                 type: data.blockType,
                 position,
@@ -158,16 +159,46 @@ export function useInteractivePlayback({
               };
               newBlocks = [...newBlocks, newBlock];
             } else {
-              // For other block types, create a minimal block
-              const newBlock: Block = {
+              // For other block types, create a minimal block with proper typing
+              const baseBlock = {
                 id: data.blockId,
                 type: data.blockType,
                 position,
                 dimensions,
                 createdAt: event.timestamp,
                 updatedAt: event.timestamp,
-              } as Block;
-              newBlocks = [...newBlocks, newBlock];
+              };
+              
+              // Type-safe block creation based on type
+              switch (data.blockType) {
+                case 'chart': {
+                  const newBlock: ChartBlock = { ...baseBlock, type: 'chart', equations: [] };
+                  newBlocks = [...newBlocks, newBlock];
+                  break;
+                }
+                case 'control': {
+                  const newBlock: ControlBlock = { ...baseBlock, type: 'control', layout: 'vertical', variables: [] };
+                  newBlocks = [...newBlocks, newBlock];
+                  break;
+                }
+                case 'description': {
+                  const newBlock: DescriptionBlock = { ...baseBlock, type: 'description', content: '', format: 'plain' };
+                  newBlocks = [...newBlocks, newBlock];
+                  break;
+                }
+                case 'limit': {
+                  const newBlock: LimitBlock = { ...baseBlock, type: 'limit', variableName: 'x', limitValue: 0, approach: 'both' };
+                  newBlocks = [...newBlocks, newBlock];
+                  break;
+                }
+                case 'shape': {
+                  const newBlock: import('@/lib/block-system/types').ShapeBlock = { ...baseBlock, type: 'shape', shapeType: 'square', fillColor: '#7c3aed', fillValue: 50, fillMode: 'percentage', showGrid: true };
+                  newBlocks = [...newBlocks, newBlock];
+                  break;
+                }
+                default:
+                  break;
+              }
             }
           }
           break;
@@ -274,18 +305,33 @@ export function useInteractivePlayback({
   const applyBlockModification = useCallback((blockId: string, modifications: Partial<Block>) => {
     isUserInteractionRef.current = true;
 
-    setModifiedBlocks((prev) =>
-      prev.map((b) => {
+    setModifiedBlocks((prev) => {
+      const updated = prev.map((b) => {
         if (b.id === blockId) {
-          return {
-            ...b,
-            ...modifications,
-            updatedAt: Date.now(),
-          } as Block;
+          // Type-safe update: only allow modifications that match the block type
+          if (b.type === 'equation') {
+            const eqModifications: Partial<EquationBlock> = modifications as Partial<EquationBlock>;
+            return { ...b, ...eqModifications, updatedAt: Date.now() } as EquationBlock;
+          } else if (b.type === 'chart') {
+            const chartModifications: Partial<ChartBlock> = modifications as Partial<ChartBlock>;
+            return { ...b, ...chartModifications, updatedAt: Date.now() } as ChartBlock;
+          } else if (b.type === 'control') {
+            const controlModifications: Partial<ControlBlock> = modifications as Partial<ControlBlock>;
+            return { ...b, ...controlModifications, updatedAt: Date.now() } as ControlBlock;
+          } else if (b.type === 'description') {
+            const descModifications: Partial<DescriptionBlock> = modifications as Partial<DescriptionBlock>;
+            return { ...b, ...descModifications, updatedAt: Date.now() } as DescriptionBlock;
+          } else if (b.type === 'limit') {
+            const limitModifications: Partial<LimitBlock> = modifications as Partial<LimitBlock>;
+            return { ...b, ...limitModifications, updatedAt: Date.now() } as LimitBlock;
+          }
+          // For unknown block types, just apply the base modifications
+          return { ...b, ...modifications, updatedAt: Date.now() } as Block;
         }
         return b;
-      })
-    );
+      });
+      return updated as Block[];
+    });
 
     setHasUnsavedChanges(true);
 
@@ -315,11 +361,12 @@ export function useInteractivePlayback({
           const updatedVariables = b.variables.map((v) =>
             v.name === variableName ? { ...v, value } : v
           );
-          return {
+          const updatedBlock: ControlBlock = {
             ...b,
             variables: updatedVariables,
             updatedAt: Date.now(),
-          } as Block;
+          };
+          return updatedBlock;
         }
         return b;
       })

@@ -14,7 +14,7 @@ import {
   SquareIcon,
   PuzzleIcon,
 } from '@hugeicons/core-free-icons';
-import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock } from '@/lib/block-system/types';
+import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock, VariableBlock } from '@/lib/block-system/types';
 
 export type LogicType = 'and' | 'or' | 'xor' | 'eq';
 
@@ -24,7 +24,8 @@ export type BlockPreset =
   | { type: 'description'; data: Partial<DescriptionBlock> }
   | { type: 'limit'; data: Partial<LimitBlock> }
   | { type: 'shape'; data: Partial<ShapeBlock> }
-  | { type: 'logic'; data: { logicType: LogicType } };
+  | { type: 'logic'; data: { logicType: LogicType } }
+  | { type: 'variable'; data: Partial<VariableBlock> };
 
 interface BlockLibraryProps {
   onBlockSelect?: (preset: BlockPreset) => void;
@@ -54,12 +55,16 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           isExpanded={expandedCategory === 'equations'}
           onToggle={() => setExpandedCategory(expandedCategory === 'equations' ? null : 'equations')}
         >
-          <BlockItem title="Linear" equation="y = mx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = mx + c' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = mx + c' } })} />
-          <BlockItem title="Quadratic" equation="y = ax² + bx + c" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^2 + bx + c' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = ax^2 + bx + c' } })} />
-          <BlockItem title="Cubic" equation="y = ax³ + bx² + cx + d" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = ax^3 + bx^2 + cx + d' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = ax^3 + bx^2 + cx + d' } })} />
-          <BlockItem title="Exponential" equation="y = a^x" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = a^x' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = a^x' } })} />
-          <BlockItem title="Sine Wave" equation="y = A·sin(x)" onClick={() => handleBlockClick({ type: 'equation', data: { equation: 'y = A * sin(x)' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: 'y = A * sin(x)' } })} />
-          <BlockItem title="Custom" equation="Add your own..." onClick={() => handleBlockClick({ type: 'equation', data: { equation: '' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: '' } })} />
+          <BlockItem title="Empty Equation" equation="Double-click to edit" onClick={() => handleBlockClick({ type: 'equation', data: { equation: '' } })} onDragStart={(e) => handleDragStart(e, { type: 'equation', data: { equation: '' } })} />
+        </CategorySection>
+
+        <CategorySection
+          title="Variables"
+          icon={CalculatorIcon}
+          isExpanded={expandedCategory === 'variables'}
+          onToggle={() => setExpandedCategory(expandedCategory === 'variables' ? null : 'variables')}
+        >
+          <BlockItem title="Variable Slider" equation="Connect to equation" onClick={() => handleBlockClick({ type: 'variable', data: {} })} onDragStart={(e) => handleDragStart(e, { type: 'variable', data: {} })} />
         </CategorySection>
 
         <CategorySection
@@ -122,7 +127,7 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
       </div>
       <div className="border-t border-border p-3 text-xs text-muted-foreground">
         <p>Drag blocks to canvas or click to add</p>
-        <p className="mt-1">Double-click equations to edit constants</p>
+        <p className="mt-1">Double-click equations to edit | Connect variable blocks</p>
       </div>
     </div>
   );
@@ -177,6 +182,7 @@ function BlockItem({
       onClick={onClick}
       onDragStart={onDragStart}
       draggable
+      data-block-library-item
       className="flex w-full flex-col gap-1 rounded-md border border-border p-2 text-left transition-colors hover:bg-accent hover:border-primary/50"
     >
       <span className="text-sm font-medium">{title}</span>

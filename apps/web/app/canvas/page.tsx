@@ -106,6 +106,16 @@ export default function CanvasPage() {
           output: null,
         };
       }
+      case 'variable': {
+        const layout = preset.data.layout ?? 'vertical';
+        return {
+          ...baseBlock,
+          type: 'variable',
+          dimensions: getDefaultBlockDimensions('variable'),
+          layout,
+          variables: [],
+        };
+      }
     }
   };
 

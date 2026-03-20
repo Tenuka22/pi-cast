@@ -11,7 +11,7 @@ export const GRID_UNIT = 32; // Base grid unit in pixels
 // TYPES
 // ============================================================================
 
-export type BlockType = 'equation' | 'chart' | 'control' | 'description' | 'limit' | 'shape' | 'logic';
+export type BlockType = 'equation' | 'chart' | 'control' | 'description' | 'limit' | 'shape' | 'logic' | 'variable';
 
 export type EquationType = 'linear' | 'quadratic' | 'cubic' | 'exponential' | 'trigonometric' | 'custom';
 
@@ -73,6 +73,7 @@ export interface EquationBlock extends BaseBlock {
   connectedControlIds?: string[];
   connectedEquationIds?: string[];
   connectedLimitIds?: string[];
+  connectedVariableIds?: string[];
 }
 
 export interface ChartConfig {
@@ -154,7 +155,14 @@ export interface LogicBlock extends BaseBlock {
   result?: number | boolean; // Computed result
 }
 
-export type Block = EquationBlock | ChartBlock | ControlBlock | DescriptionBlock | LimitBlock | ShapeBlock | LogicBlock;
+export interface VariableBlock extends BaseBlock {
+  type: 'variable';
+  sourceEquationId?: string; // Connected equation block
+  variables: ControlVariable[]; // Variables with sliders
+  layout: 'horizontal' | 'vertical';
+}
+
+export type Block = EquationBlock | ChartBlock | ControlBlock | DescriptionBlock | LimitBlock | ShapeBlock | LogicBlock | VariableBlock;
 
 // ============================================================================
 // CONNECTION TYPES
@@ -176,14 +184,15 @@ export interface BlockConnection {
   sourceHandleId: string;
   targetBlockId: string;
   targetHandleId: string;
-  type: 
-    | 'equation-to-chart' 
-    | 'equation-to-control' 
-    | 'equation-to-equation' 
-    | 'equation-to-limit' 
-    | 'limit-to-chart' 
-    | 'equation-to-shape' 
-    | 'control-to-shape' 
+  type:
+    | 'equation-to-chart'
+    | 'equation-to-control'
+    | 'equation-to-equation'
+    | 'equation-to-limit'
+    | 'equation-to-variable'
+    | 'limit-to-chart'
+    | 'equation-to-shape'
+    | 'control-to-shape'
     | 'control-to-limit'
     | 'equation-to-logic'
     | 'logic-to-logic'
@@ -324,14 +333,15 @@ export function autoArrangeNeighbors(
 
 export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
   switch (type) {
-    case 'equation': return { width: 8, height: 1 };
+    case 'equation': return { width: 8, height: 2 };
     case 'chart': return { width: 16, height: 12 };
-    case 'control': return { width: 6, height: 2 };
-    case 'description': return { width: 10, height: 2 };
-    case 'limit': return { width: 8, height: 2 };
-    case 'shape': return { width: 6, height: 6 };
-    case 'logic': return { width: 4, height: 3 };
-    default: return { width: 4, height: 1 };
+    case 'control': return { width: 6, height: 4 };
+    case 'description': return { width: 10, height: 4 };
+    case 'limit': return { width: 8, height: 4 };
+    case 'shape': return { width: 6, height: 8 };
+    case 'logic': return { width: 4, height: 4 };
+    case 'variable': return { width: 6, height: 4 };
+    default: return { width: 4, height: 2 };
   }
 }
 
@@ -471,6 +481,7 @@ export function getConnectionType(
   if (sourceBlockType === 'equation' && targetBlockType === 'control') return 'equation-to-control';
   if (sourceBlockType === 'equation' && targetBlockType === 'equation') return 'equation-to-equation';
   if (sourceBlockType === 'equation' && targetBlockType === 'limit') return 'equation-to-limit';
+  if (sourceBlockType === 'equation' && targetBlockType === 'variable') return 'equation-to-variable';
   if (sourceBlockType === 'equation' && targetBlockType === 'shape') return 'equation-to-shape';
   if (sourceBlockType === 'limit' && targetBlockType === 'chart') return 'limit-to-chart';
   if (sourceBlockType === 'control' && targetBlockType === 'shape') return 'control-to-shape';
