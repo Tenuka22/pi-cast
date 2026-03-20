@@ -45,7 +45,12 @@ vi.mock('@workspace/ui/components/button', () => ({
     size?: string;
   }) => {
     const button = document.createElement('button');
-    if (type) button.type = type as 'button' | 'submit' | 'reset';
+    if (type) {
+      const validTypes = ['button', 'submit', 'reset'] as const;
+      if (validTypes.includes(type as typeof validTypes[number])) {
+        button.type = type as typeof validTypes[number];
+      }
+    }
     button.setAttribute('data-variant', variant);
     button.setAttribute('data-size', size);
     if (onClick) button.onclick = onClick;
@@ -61,9 +66,7 @@ interface TestIdFunction {
 
 // Declare global types first
 declare global {
-  // eslint-disable-next-line no-var
   var testId: TestIdFunction;
-  // eslint-disable-next-line no-var
   var getByTestId: TestIdFunction;
 }
 

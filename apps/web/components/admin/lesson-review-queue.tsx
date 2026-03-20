@@ -68,8 +68,6 @@ interface LessonReviewQueueProps {
 
 type StatusFilter = 'all' | 'draft' | 'published' | 'archived';
 type VisibilityFilter = 'all' | 'public' | 'private' | 'organization' | 'unlisted';
-type SortField = 'createdAt' | 'publishedAt' | 'views' | 'rating';
-type SortOrder = 'asc' | 'desc';
 
 export function LessonReviewQueue({
   lessons,
@@ -82,8 +80,6 @@ export function LessonReviewQueue({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
-  const [sortField, setSortField] = useState<SortField>('createdAt');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
@@ -100,18 +96,17 @@ export function LessonReviewQueue({
   }, []);
 
   const handleStatusFilter = useCallback((value: string) => {
-    setStatusFilter(value as StatusFilter);
+    if (value === 'all' || value === 'draft' || value === 'published' || value === 'archived') {
+      setStatusFilter(value);
+    }
     setCurrentPage(1);
   }, []);
 
   const handleVisibilityFilter = useCallback((value: string) => {
-    setVisibilityFilter(value as VisibilityFilter);
+    if (value === 'all' || value === 'public' || value === 'private' || value === 'organization' || value === 'unlisted') {
+      setVisibilityFilter(value);
+    }
     setCurrentPage(1);
-  }, []);
-
-  const handleSort = useCallback((field: SortField) => {
-    setSortField(field);
-    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
   }, []);
 
   const handleStatusClick = useCallback((lessonId: string, status: 'draft' | 'published' | 'archived') => {

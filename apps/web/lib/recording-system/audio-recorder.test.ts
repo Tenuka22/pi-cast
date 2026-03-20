@@ -4,7 +4,7 @@
  * Tests for silence detection and audio segmentation logic.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { AudioRecorder } from './audio-recorder';
 import { DEFAULT_SILENCE_CONFIG } from './types';
 

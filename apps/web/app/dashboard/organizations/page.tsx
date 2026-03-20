@@ -363,8 +363,12 @@ function OrganizationCard({
               />
               <select
                 value={inviteRole}
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-                onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "owner")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'admin' || value === 'member' || value === 'owner') {
+                    setInviteRole(value);
+                  }
+                }}
                 className="h-7 rounded-md border border-input bg-input/20 px-2 text-sm"
               >
                 <option value="member">Member</option>

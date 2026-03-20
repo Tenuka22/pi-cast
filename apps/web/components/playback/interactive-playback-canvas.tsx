@@ -53,8 +53,6 @@ export function InteractivePlaybackCanvas({
   className,
 }: InteractivePlaybackCanvasProps) {
   const [showResumeDialog, setShowResumeDialog] = useState(false);
-  const [pendingResumeAction, setPendingResumeAction] = useState<'keep' | 'revert' | null>(null);
-  const pendingChangesRef = useRef<Block[]>([]);
 
   const {
     isPausedForEdit,
@@ -94,11 +92,6 @@ export function InteractivePlaybackCanvas({
       revertChanges();
     }
   }, [resumePlayback, revertChanges]);
-
-  // Handle resume dialog open
-  const handleResumeDialogOpen = useCallback((action: 'keep' | 'revert') => {
-    setPendingResumeAction(action);
-  }, []);
 
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
@@ -256,16 +249,6 @@ function formatActionDescription(action: ManipulationAction): string {
     default:
       return 'Made a change';
   }
-}
-
-// GridCanvas wrapper for playback mode
-interface PlaybackGridCanvasProps {
-  blocks: Block[];
-  isPlaybackMode: boolean;
-  onBlockInteract: () => void;
-  onBlockModification: (blockId: string, modifications: Partial<Block>) => void;
-  onVariableChange: (blockId: string, variableName: string, value: number) => void;
-  readOnly: boolean;
 }
 
 // This would be an enhanced version of GridCanvas that supports playback mode

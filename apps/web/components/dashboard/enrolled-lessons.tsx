@@ -28,7 +28,6 @@ import {
 } from '@workspace/ui/components/select';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@workspace/ui/components/tabs';
@@ -148,7 +147,11 @@ export function EnrolledLessonsDisplay({
 
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+        <Tabs value={filter} onValueChange={(v) => {
+          if (v === 'all' || v === 'in-progress' || v === 'completed') {
+            setFilter(v);
+          }
+        }}>
           <TabsList>
             <TabsTrigger value="all">All ({lessons.length})</TabsTrigger>
             <TabsTrigger value="in-progress">In Progress ({stats.inProgress})</TabsTrigger>
@@ -163,7 +166,11 @@ export function EnrolledLessonsDisplay({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full sm:w-64"
           />
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
+          <Select value={sortBy} onValueChange={(v) => {
+            if (v === 'lastAccessed' || v === 'enrolled' || v === 'progress' || v === 'title') {
+              setSortBy(v);
+            }
+          }}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>

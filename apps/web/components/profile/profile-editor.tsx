@@ -77,8 +77,12 @@ export function ProfileEditor({ initialData, onSave }: ProfileEditorProps) {
     }
   }, [website]);
 
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    void handleSubmit(e);
+  }, [handleSubmit]);
+
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleFormSubmit}>
       <Card>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>

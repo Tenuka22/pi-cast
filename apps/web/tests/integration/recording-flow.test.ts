@@ -30,7 +30,8 @@ beforeEach(() => {
   });
 
   // Mock AudioContext
-  global.AudioContext = mockAudioContext();
+  const MockAudioContext = mockAudioContext as unknown as typeof AudioContext;
+  global.AudioContext = MockAudioContext;
 });
 
 describe('Recording Flow Integration', () => {

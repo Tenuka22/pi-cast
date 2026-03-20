@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import {
@@ -99,12 +99,16 @@ export function AdminUserList({
   }, []);
 
   const handleStatusFilter = useCallback((value: string) => {
-    setStatusFilter(value as StatusFilter);
+    if (value === 'all' || value === 'active' || value === 'banned') {
+      setStatusFilter(value);
+    }
     setCurrentPage(1);
   }, []);
 
   const handleRoleFilter = useCallback((value: string) => {
-    setRoleFilter(value as RoleFilter);
+    if (value === 'all' || value === 'student' || value === 'teacher' || value === 'admin') {
+      setRoleFilter(value);
+    }
     setCurrentPage(1);
   }, []);
 

@@ -60,11 +60,6 @@ const MOCK_PROGRESS: LessonProgress[] = [
 export default function ProgressPage() {
   const [progress] = useState<LessonProgress[]>(MOCK_PROGRESS);
 
-  const handleLessonClick = (lessonId: string) => {
-    console.log('Navigate to lesson:', lessonId);
-    // TODO: Navigate to lesson page
-  };
-
   const stats = {
     totalLessons: progress.length,
     completed: progress.filter((p) => p.isCompleted).length,

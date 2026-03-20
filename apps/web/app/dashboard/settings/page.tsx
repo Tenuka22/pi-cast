@@ -21,8 +21,6 @@ import {
 } from "@workspace/ui/components/card"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Separator } from "@workspace/ui/components/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -103,29 +101,21 @@ function SettingsContent() {
 
 function ProfileTab() {
   const { data: session, refetch } = authClient.useSession()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const handleSaveProfile = async (data: { bio?: string; location?: string; website?: string; image?: string }) => {
-    setIsLoading(true)
-    setError(null)
-
     try {
       // Update name and image via updateUser
       await updateUser({
         name: session?.user?.name,
         image: data.image || undefined,
       })
-      
+
       // TODO: Call profile update API for bio, location, website
       // await profileUpdateMyProfile({ bio: data.bio, location: data.location, website: data.website })
-      
+
       await refetch()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile')
-      throw err
-    } finally {
-      setIsLoading(false)
+      throw err instanceof Error ? err : new Error('Failed to update profile')
     }
   }
 

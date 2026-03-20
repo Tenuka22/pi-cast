@@ -31,12 +31,6 @@ export default function StudentDashboardPage() {
 
 function DashboardContent() {
   const { data: session } = authClient.useSession()
-  const router = useRouter()
-
-  const handleSignOut = async () => {
-    await authClient.signOut()
-    router.push("/")
-  }
 
   if (!session?.user) {
     return null
@@ -202,6 +196,7 @@ function StatCard({ title, value, description, icon }: StatCardProps) {
           <div>
             <div className="text-2xl font-bold">{value}</div>
             <div className="text-sm text-muted-foreground">{title}</div>
+            <div className="text-xs text-muted-foreground">{description}</div>
           </div>
         </div>
       </CardContent>

@@ -13,7 +13,6 @@ import {
   type DescriptionBlock,
   type LimitBlock,
   type BlockConnection,
-  type ConnectionHandleType,
   parseEquation,
   gridToPixels,
   pixelsToGrid,
@@ -318,7 +317,18 @@ export function GridCanvas({
 
       let preset: BlockPreset
       try {
-        preset = JSON.parse(data)
+        const parsed: unknown = JSON.parse(data)
+        // Validate that parsed data has the expected structure
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "type" in parsed &&
+          typeof (parsed as Record<string, unknown>).type === "string"
+        ) {
+          preset = parsed as BlockPreset
+        } else {
+          return
+        }
       } catch {
         return
       }
@@ -707,248 +717,6 @@ export function GridCanvas({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedConnectionId, handleDeleteConnection])
 
-  const createEquationBlock = (
-    position: GridPosition,
-    equation?: string
-  ): EquationBlock => {
-    const parsed = equation ? parseEquation(equation) : undefined
-    return {
-      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: "equation",
-      position,
-      dimensions: getDefaultBlockDimensions("equation"),
-      equation: equation ?? "",
-      tokens: parsed?.tokens,
-      variables: parsed?.variables,
-      equationType: parsed?.equationType,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-  }
-
-  const createChartBlock = (position: GridPosition): ChartBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "chart",
-    position,
-    dimensions: getDefaultBlockDimensions("chart"),
-    equations: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createControlBlock = (
-    position: GridPosition,
-    layout: "horizontal" | "vertical" = "vertical"
-  ): ControlBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "control",
-    position,
-    dimensions: getDefaultBlockDimensions("control"),
-    layout,
-    variables: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createDescriptionBlock = (
-    position: GridPosition,
-    format: "plain" | "markdown" | "latex" = "plain"
-  ): DescriptionBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "description",
-    position,
-    dimensions: getDefaultBlockDimensions("description"),
-    content: "Add your text here...",
-    format,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createLimitBlock = (
-    position: GridPosition,
-    variableName: string = "x",
-    limitValue: number = 0
-  ): LimitBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "limit",
-    position,
-    dimensions: getDefaultBlockDimensions("limit"),
-    variableName,
-    limitValue,
-    approach: "both",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createShapeBlock = (
-    position: GridPosition,
-    shapeType: "square" | "circle" | "rectangle" = "square",
-    fillColor: string = "#7c3aed",
-    fillValue: number = 50,
-    fillMode: "solid" | "fraction" | "decimal" | "percentage" = "percentage"
-  ): import("@/lib/block-system/types").ShapeBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "shape",
-    position,
-    dimensions: getDefaultBlockDimensions("shape"),
-    shapeType,
-    fillColor,
-    fillValue,
-    fillMode,
-    showGrid: true,
-    rows: 10,
-    cols: 10,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createLogicBlock = (
-    position: GridPosition,
-    logicType: import("@/lib/block-system/types").LogicGateType = "and"
-  ): import("@/lib/block-system/types").LogicBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "logic",
-    position,
-    dimensions: getDefaultBlockDimensions("logic"),
-    logicType,
-    inputs: [],
-    output: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const createVariableBlock = (
-    position: GridPosition,
-    layout: "horizontal" | "vertical" = "vertical"
-  ): import("@/lib/block-system/types").VariableBlock => ({
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: "variable",
-    position,
-    dimensions: getDefaultBlockDimensions("variable"),
-    layout,
-    variables: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-
-  const addBlock = (type: Block["type"], data: Record<string, unknown>) => {
-    const position: GridPosition = {
-      x: Math.floor(viewportSize.width / GRID_UNIT / 2) - 4,
-      y: Math.floor(viewportSize.height / GRID_UNIT / 2) - 2,
-    }
-
-    const newBlock: Block = (() => {
-      switch (type) {
-        case "equation": {
-          const equation =
-            typeof data.equation === "string" ? data.equation : undefined
-          return createEquationBlock(position, equation)
-        }
-        case "chart":
-          return createChartBlock(position)
-        case "control": {
-          const layout =
-            data.layout === "horizontal" || data.layout === "vertical"
-              ? data.layout
-              : undefined
-          return createControlBlock(position, layout)
-        }
-        case "description": {
-          const format =
-            data.format === "plain" ||
-            data.format === "markdown" ||
-            data.format === "latex"
-              ? data.format
-              : undefined
-          return createDescriptionBlock(position, format)
-        }
-        case "limit": {
-          const variableName =
-            typeof data.variableName === "string" ? data.variableName : "x"
-          const limitValue =
-            typeof data.limitValue === "number" ? data.limitValue : 0
-          return createLimitBlock(position, variableName, limitValue)
-        }
-        case "shape": {
-          const validShapeTypes = ["square", "circle", "rectangle"] as const
-          const validFillModes = [
-            "solid",
-            "fraction",
-            "decimal",
-            "percentage",
-          ] as const
-          const shapeTypeValue = data.shapeType
-          const shapeType =
-            typeof shapeTypeValue === "string" &&
-            validShapeTypes.includes(
-              shapeTypeValue as (typeof validShapeTypes)[number]
-            )
-              ? (shapeTypeValue as (typeof validShapeTypes)[number])
-              : "square"
-          const fillColor =
-            typeof data.fillColor === "string" ? data.fillColor : "#7c3aed"
-          const fillValue =
-            typeof data.fillValue === "number" ? data.fillValue : 50
-          const fillModeValue = data.fillMode
-          const fillMode =
-            typeof fillModeValue === "string" &&
-            validFillModes.includes(
-              fillModeValue as (typeof validFillModes)[number]
-            )
-              ? (fillModeValue as (typeof validFillModes)[number])
-              : "percentage"
-          return createShapeBlock(
-            position,
-            shapeType,
-            fillColor,
-            fillValue,
-            fillMode
-          )
-        }
-        case "logic": {
-          const logicType =
-            data.logicType === "and" ||
-            data.logicType === "or" ||
-            data.logicType === "xor" ||
-            data.logicType === "eq"
-              ? data.logicType
-              : "and"
-          return createLogicBlock(position, logicType)
-        }
-        case "variable": {
-          const layout =
-            data.layout === "horizontal" || data.layout === "vertical"
-              ? data.layout
-              : undefined
-          return createVariableBlock(position, layout)
-        }
-      }
-    })()
-
-    const validPosition = findNearestValidPosition(
-      position,
-      newBlock.dimensions,
-      blocks
-    )
-    const blockWithPosition = { ...newBlock, position: validPosition }
-
-    const newBlocks = [...blocks, blockWithPosition]
-    if (!isPlaybackMode) {
-      setInternalBlocks(newBlocks)
-    }
-    onBlocksChange?.(newBlocks)
-    setSelectedBlockId(blockWithPosition.id)
-
-    // Record block placed event if recording
-    const equationData = data.equation
-    recordBlockPlaced(
-      blockWithPosition.id,
-      type,
-      validPosition,
-      typeof equationData === "string" ? equationData : undefined
-    )
-  }
-
   const renderBlock = (block: Block) => {
     const isSelected = block.id === selectedBlockId
     const isDragging = dragState?.blockId === block.id
@@ -1294,11 +1062,11 @@ export function GridCanvas({
           handleDragMove(e)
           handleConnectionMove(e)
         }}
-        onMouseUp={(e) => {
+        onMouseUp={() => {
           handleCanvasMouseUp()
           handleDragEnd()
         }}
-        onMouseLeave={(e) => {
+        onMouseLeave={() => {
           handleCanvasMouseUp()
           handleDragEnd()
         }}

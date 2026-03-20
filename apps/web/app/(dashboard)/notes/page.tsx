@@ -14,12 +14,10 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@workspace/ui/components/card';
 import { Badge } from '@workspace/ui/components/badge';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@workspace/ui/components/tabs';
@@ -107,14 +105,6 @@ export default function NotesPage() {
     return result.sort((a, b) => b.updatedAt - a.updatedAt);
   }, [notes, activeTab, searchQuery]);
 
-  const uniqueLessons = useMemo(() => {
-    const lessonMap = new Map<string, string>();
-    notes.forEach((n) => {
-      lessonMap.set(n.lessonId, n.lessonTitle);
-    });
-    return Array.from(lessonMap.entries());
-  }, [notes]);
-
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -184,7 +174,11 @@ export default function NotesPage() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+        <Tabs value={activeTab} onValueChange={(v) => {
+          if (v === 'all' || v === 'private' || v === 'shared') {
+            setActiveTab(v);
+          }
+        }}>
           <TabsList>
             <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
             <TabsTrigger value="private">Private ({stats.private})</TabsTrigger>

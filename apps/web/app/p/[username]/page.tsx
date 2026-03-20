@@ -19,32 +19,6 @@ import {
 } from '@workspace/ui/components/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 
-interface PublicProfileProps {
-  user: {
-    id: string;
-    name: string;
-    bio?: string | null;
-    location?: string | null;
-    website?: string | null;
-    image?: string | null;
-    role?: string | null;
-    createdAt: number;
-  };
-  stats: {
-    lessons: number;
-    students: number;
-    rating: number;
-  };
-  lessons: Array<{
-    id: string;
-    title: string;
-    description: string;
-    level: string;
-    views: number;
-    rating: number;
-  }>;
-}
-
 // Mock data for demonstration
 const MOCK_USER = {
   id: '1',
@@ -90,7 +64,7 @@ const MOCK_LESSONS = [
   },
 ];
 
-export default function PublicProfilePage({ params }: { params: { username: string } }) {
+export default function PublicProfilePage() {
   const [user] = useState(MOCK_USER);
   const [stats] = useState(MOCK_STATS);
   const [lessons] = useState(MOCK_LESSONS);

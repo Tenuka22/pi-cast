@@ -54,7 +54,9 @@ function isVariableSliderChangedData(data: unknown): data is VariableSliderChang
 }
 
 function isValidGridPosition(pos: unknown): pos is GridPosition {
-  return typeof pos === 'object' && pos !== null && 'x' in pos && 'y' in pos;
+  return typeof pos === 'object' && pos !== null && 'x' in pos && 'y' in pos &&
+    typeof (pos as Record<string, unknown>).x === 'number' &&
+    typeof (pos as Record<string, unknown>).y === 'number';
 }
 
 function isValidBlockDimensions(dim: unknown): dim is BlockDimensions {
@@ -129,7 +131,14 @@ export function useInteractivePlayback({
   // Update modified blocks when original blocks change (e.g., during playback)
   useEffect(() => {
     if (!isPausedForEdit && !hasUnsavedChanges) {
-      setModifiedBlocks(originalBlocks);
+      // Use functional update to avoid stale closure
+      setModifiedBlocks((current) => {
+        // Only update if the blocks are actually different
+        if (current !== originalBlocks) {
+          return originalBlocks;
+        }
+        return current;
+      });
     }
   }, [originalBlocks, isPausedForEdit, hasUnsavedChanges]);
 
@@ -309,28 +318,82 @@ export function useInteractivePlayback({
       const updated = prev.map((b) => {
         if (b.id === blockId) {
           // Type-safe update: only allow modifications that match the block type
-          if (b.type === 'equation') {
-            const eqModifications: Partial<EquationBlock> = modifications as Partial<EquationBlock>;
-            return { ...b, ...eqModifications, updatedAt: Date.now() } as EquationBlock;
-          } else if (b.type === 'chart') {
-            const chartModifications: Partial<ChartBlock> = modifications as Partial<ChartBlock>;
-            return { ...b, ...chartModifications, updatedAt: Date.now() } as ChartBlock;
-          } else if (b.type === 'control') {
-            const controlModifications: Partial<ControlBlock> = modifications as Partial<ControlBlock>;
-            return { ...b, ...controlModifications, updatedAt: Date.now() } as ControlBlock;
-          } else if (b.type === 'description') {
-            const descModifications: Partial<DescriptionBlock> = modifications as Partial<DescriptionBlock>;
-            return { ...b, ...descModifications, updatedAt: Date.now() } as DescriptionBlock;
-          } else if (b.type === 'limit') {
-            const limitModifications: Partial<LimitBlock> = modifications as Partial<LimitBlock>;
-            return { ...b, ...limitModifications, updatedAt: Date.now() } as LimitBlock;
+          // We extract only the properties that are valid for this block type
+          const baseUpdate = { updatedAt: Date.now() };
+          
+          switch (b.type) {
+            case 'equation': {
+              const eqBlock: EquationBlock = b;
+              return {
+                ...eqBlock,
+                ...(modifications as Partial<EquationBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'chart': {
+              const chartBlock: ChartBlock = b;
+              return {
+                ...chartBlock,
+                ...(modifications as Partial<ChartBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'control': {
+              const controlBlock: ControlBlock = b;
+              return {
+                ...controlBlock,
+                ...(modifications as Partial<ControlBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'description': {
+              const descBlock: DescriptionBlock = b;
+              return {
+                ...descBlock,
+                ...(modifications as Partial<DescriptionBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'limit': {
+              const limitBlock: LimitBlock = b;
+              return {
+                ...limitBlock,
+                ...(modifications as Partial<LimitBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'shape': {
+              const shapeBlock: import('@/lib/block-system/types').ShapeBlock = b;
+              return {
+                ...shapeBlock,
+                ...(modifications as Partial<import('@/lib/block-system/types').ShapeBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'logic': {
+              const logicBlock: import('@/lib/block-system/types').LogicBlock = b;
+              return {
+                ...logicBlock,
+                ...(modifications as Partial<import('@/lib/block-system/types').LogicBlock>),
+                ...baseUpdate,
+              };
+            }
+            case 'variable': {
+              const variableBlock: import('@/lib/block-system/types').VariableBlock = b;
+              return {
+                ...variableBlock,
+                ...(modifications as Partial<import('@/lib/block-system/types').VariableBlock>),
+                ...baseUpdate,
+              };
+            }
+            default:
+              // For unknown block types, only apply the base update
+              return Object.assign({}, b, baseUpdate);
           }
-          // For unknown block types, just apply the base modifications
-          return { ...b, ...modifications, updatedAt: Date.now() } as Block;
         }
         return b;
       });
-      return updated as Block[];
+      return updated;
     });
 
     setHasUnsavedChanges(true);

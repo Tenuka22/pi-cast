@@ -157,6 +157,7 @@ type MathFunction = (
 function createMathFunction(expression: string): MathFunction {
   // Note: This uses Function constructor with strictly controlled input
   // The expression comes from application-controlled equation strings
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const fn = new Function(
     "x",
     "sin",

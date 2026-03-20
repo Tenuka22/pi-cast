@@ -95,9 +95,6 @@ export function BlockWrapper({
     block.dimensions.height,
   ])
 
-  const width = dimensions.width * GRID_UNIT
-  const height = dimensions.height * GRID_UNIT
-
   const handleBodyClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     const target = e.target instanceof HTMLElement ? e.target : null
@@ -202,15 +199,13 @@ export function EquationBlockComponent({
   // Parse equation on-the-fly if variables/tokens aren't available
   const parsedTokens =
     tokens || (editValue ? parseEquation(editValue).tokens : [])
-  const parsedVariables =
-    variables || (editValue ? parseEquation(editValue).variables : [])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+      inputRef.current.focus();
+      inputRef.current.select();
     }
-  }, [isEditing])
+  }, [isEditing]);
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -243,13 +238,6 @@ export function EquationBlockComponent({
       }
     },
     [editValue, equation, onEquationChange]
-  )
-
-  const handleVariableChange = useCallback(
-    (varName: string, newValue: number) => {
-      onVariableChange?.(varName, newValue)
-    },
-    [onVariableChange]
   )
 
   return (
