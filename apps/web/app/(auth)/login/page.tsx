@@ -49,18 +49,21 @@ export default function LoginPage() {
     setError("")
     setMessage("")
 
-    try {
-      await signInWithOTP({
-        email,
-        otp,
-        callbackURL: "/dashboard",
-      })
-      // If successful, redirect happens automatically
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Invalid code. Please try again."
-      setError(errorMessage)
+    console.log("[Login] Attempting OTP sign-in", { email, otp })
+    
+    const { error } = await signInWithOTP({
+      email,
+      otp,
+      callbackURL: "/dashboard",
+    })
+    
+    console.log("[Login] OTP sign-in response", { error })
+    
+    if (error) {
+      setError(error.message || "Invalid code. Please try again.")
       setIsLoading(false)
     }
+    // If successful, redirect happens automatically
   }
 
   const handleResendCode = async () => {
