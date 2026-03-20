@@ -2,7 +2,7 @@
 
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserNav } from "@/components/auth/user-nav"
-import { useSession, signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth/auth-client"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -23,11 +23,11 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const router = useRouter()
 
   const handleSignOut = async () => {
-    await signOut()
+    await authClient.signOut()
     router.push("/")
   }
 

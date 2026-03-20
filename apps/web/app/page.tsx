@@ -1,17 +1,28 @@
-import Link from "next/link"
-import { Button } from "@workspace/ui/components/button"
-import { getSession } from "@/lib/auth-client"
-import { UserNav } from "@/components/auth/user-nav"
+"use client"
 
-export default async function Page() {
-  const session = await getSession()
+import { authClient } from "@/lib/auth/auth-client"
+import { Button } from "@workspace/ui/components/button"
+import Link from "next/link"
+
+export default function Page() {
+  const { data, isPending } = authClient.useSession()
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-svh flex-col p-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pi-Cast</h1>
-        {session.data?.user ? (
-          <UserNav />
+        {data?.user ? (
+          <Link href="/dashboard">
+            <Button>Dashboard</Button>
+          </Link>
         ) : (
           <Link href="/login">
             <Button>Sign In</Button>
@@ -26,18 +37,13 @@ export default async function Page() {
             <p>Your authentication-powered application.</p>
           </div>
 
-          {session.data?.user ? (
+          {data?.user ? (
             <div className="space-y-4">
               <div className="rounded-lg bg-muted p-4">
                 <p className="font-medium">You are signed in as:</p>
                 <p className="text-muted-foreground">
-                  {session.data?.user?.email}
+                  {data?.user?.email}
                 </p>
-              </div>
-              <div className="flex gap-2">
-                <Link href="/dashboard">
-                  <Button>Go to Dashboard</Button>
-                </Link>
               </div>
             </div>
           ) : (

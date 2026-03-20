@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from "react"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserNav } from "@/components/auth/user-nav"
 import {
-  useSession,
+  authClient,
   updateUser,
   changeEmail,
   deleteUser,
   listSessions,
   revokeSession,
-} from "@/lib/auth-client"
+} from "@/lib/auth/auth-client"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -47,7 +47,7 @@ export default function SettingsPage() {
 }
 
 function SettingsContent() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const [activeTab, setActiveTab] = useState<Tab>("profile")
 
   if (!session?.user) {
@@ -102,7 +102,7 @@ function SettingsContent() {
 }
 
 function ProfileTab() {
-  const { data: session, refetch } = useSession()
+  const { data: session, refetch } = authClient.useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -149,7 +149,7 @@ function ProfileTab() {
 }
 
 function AccountTab() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const [email, setEmail] = useState(session?.user?.email || "")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -312,7 +312,7 @@ function AccountTab() {
 }
 
 function SessionsTab() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   interface SessionItem {
     id: string
     userAgent?: string | null

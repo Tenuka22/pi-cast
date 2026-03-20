@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode, useEffect } from "react"
-import { useSession } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth/auth-client"
 import { useRouter } from "next/navigation"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
@@ -11,7 +11,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
-  const { data: session, isPending } = useSession()
+  const { data: session, isPending } = authClient.useSession()
   const router = useRouter()
 
   useEffect(() => {

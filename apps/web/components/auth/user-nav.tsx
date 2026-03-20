@@ -11,18 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import {
-  signOut,
-  useSession,
-} from "@/lib/auth-client"
+import { authClient } from "@/lib/auth/auth-client"
 import { useRouter } from "next/navigation"
 
 export function UserNav() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const router = useRouter()
 
   const handleSignOut = async () => {
-    await signOut()
+    await authClient.signOut()
     router.push("/")
   }
 

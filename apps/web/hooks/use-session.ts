@@ -1,1 +1,1 @@
-export { useSession } from "@/lib/auth-client" 
+export { useSession } from "@/lib/auth/auth-client" 

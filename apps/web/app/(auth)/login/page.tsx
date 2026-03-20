@@ -15,7 +15,7 @@ import { Label } from "@workspace/ui/components/label"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { GithubIcon, MailIcon, ShieldCheck, RefreshIcon } from "@hugeicons/core-free-icons"
-import { signIn, sendVerificationOtp, signInWithOTP } from "@/lib/auth-client"
+import { signIn, sendVerificationOtp, signInWithOTP } from "@/lib/auth/auth-client"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
