@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { GithubIcon, MailIcon, ShieldCheck, RefreshIcon } from "@hugeicons/core-free-icons"
 import { signIn, sendVerificationOtp, signInWithOTP } from "@/lib/auth/auth-client"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -24,6 +25,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const router = useRouter()
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,19 +53,23 @@ export default function LoginPage() {
 
     console.log("[Login] Attempting OTP sign-in", { email, otp })
     
-    const { error } = await signInWithOTP({
+    const { error, data } = await signInWithOTP({
       email,
       otp,
       callbackURL: "/dashboard",
     })
     
-    console.log("[Login] OTP sign-in response", { error })
+    console.log("[Login] OTP sign-in response", { error, data })
     
     if (error) {
       setError(error.message || "Invalid code. Please try again.")
       setIsLoading(false)
+    } else if (data) {
+      // Success - clear loading and redirect
+      setIsLoading(false)
+      setMessage("Sign in successful! Redirecting...")
+      router.push("/dashboard")
     }
-    // If successful, redirect happens automatically
   }
 
   const handleResendCode = async () => {
