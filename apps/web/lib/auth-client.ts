@@ -1,25 +1,16 @@
+/**
+ * Web App Auth Client
+ * 
+ * This file re-exports the auth client from @pi-cast/auth-client
+ * and adds app-specific auth error handling utilities.
+ */
+
 "use client"
 
-import { createAuthClient } from "better-auth/react"
-import {
-  adminClient,
-  organizationClient,
-  emailOTPClient,
-} from "better-auth/client/plugins"
-import { ENV } from "varlock/env"
 import type { AuthError } from "@pi-cast/orpc-handlers"
+import { toApiError, getErrorMessage, ERROR_CODES } from "@pi-cast/orpc-handlers"
 import {
-  toApiError,
-  getErrorMessage,
-  ERROR_CODES,
-} from "@pi-cast/orpc-handlers"
-
-export const authClient = createAuthClient({
-  baseURL: ENV.NEXT_PUBLIC_API_URL,
-  plugins: [organizationClient(), adminClient(), emailOTPClient()],
-})
-
-export const {
+  authClient,
   signIn,
   signOut,
   signUp,
@@ -32,10 +23,27 @@ export const {
   revokeSession,
   revokeOtherSessions,
   organization,
-} = authClient
+  sendVerificationOtp,
+  signInWithOTP,
+} from "@pi-cast/auth-client"
 
-export const sendVerificationOtp = authClient.emailOtp.sendVerificationOtp
-export const signInWithOTP = authClient.signIn.emailOtp
+export {
+  authClient,
+  signIn,
+  signOut,
+  signUp,
+  useSession,
+  getSession,
+  updateUser,
+  changeEmail,
+  deleteUser,
+  listSessions,
+  revokeSession,
+  revokeOtherSessions,
+  organization,
+  sendVerificationOtp,
+  signInWithOTP,
+}
 
 export async function handleAuthError<T>(
   fn: () => Promise<T>,

@@ -19,6 +19,8 @@
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react": "^1.1.6",
     "@orpc/client": "^1.7.0",
+    "@pi-cast/auth-client": "workspace:*",
+    "@pi-cast/auth-server": "workspace:*",
     "@pi-cast/orpc-handlers": "workspace:*",
     "@varlock/nextjs-integration": "^0.2.3",
     "@workspace/ui": "workspace:*",
