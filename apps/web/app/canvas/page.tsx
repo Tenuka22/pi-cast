@@ -8,7 +8,6 @@ import type { Block } from '@/lib/block-system/types';
 import {
   type GridPosition,
   findNearestValidPosition,
-  getDefaultBlockDimensions,
   parseEquation,
 } from '@/lib/block-system/types';
 
@@ -21,6 +20,9 @@ import {
  * - Editable descriptions
  * - Chart visualization from connected equations
  * - Shape connections and value adjustments
+ *
+ * Note: Block dimensions are now auto-calculated based on content.
+ * The CanvasNode system handles rendering with minimal styling (p-1).
  */
 export default function CanvasPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -31,6 +33,7 @@ export default function CanvasPage() {
       position,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      dimensions: { width: 0, height: 0 },
     };
 
     switch (preset.type) {
@@ -40,7 +43,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'equation',
-          dimensions: getDefaultBlockDimensions('equation'),
           equation,
           tokens: parsed?.tokens,
           variables: parsed?.variables,
@@ -51,7 +53,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'chart',
-          dimensions: getDefaultBlockDimensions('chart'),
           equations: [],
         };
       case 'description': {
@@ -59,7 +60,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'description',
-          dimensions: getDefaultBlockDimensions('description'),
           content: 'Double-click to edit...',
           format,
         };
@@ -71,7 +71,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'limit',
-          dimensions: getDefaultBlockDimensions('limit'),
           variableName,
           limitValue,
           approach,
@@ -85,7 +84,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'shape',
-          dimensions: getDefaultBlockDimensions('shape'),
           shapeType,
           fillColor,
           fillValue,
@@ -100,7 +98,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'logic',
-          dimensions: getDefaultBlockDimensions('logic'),
           logicType,
           inputs: [],
           output: null,
@@ -111,7 +108,6 @@ export default function CanvasPage() {
         return {
           ...baseBlock,
           type: 'variable',
-          dimensions: getDefaultBlockDimensions('variable'),
           layout,
           variables: [],
         };
@@ -120,17 +116,18 @@ export default function CanvasPage() {
   };
 
   const handleBlockDrop = (preset: BlockPreset, position: GridPosition) => {
-    const validPosition = findNearestValidPosition(position, getDefaultBlockDimensions(preset.type), blocks);
-    const newBlock = createBlockFromPreset(preset, validPosition);
-    setBlocks((prev) => [...prev, newBlock]);
+    const newBlock = createBlockFromPreset(preset, position);
+    const validPosition = findNearestValidPosition(position, { width: 4, height: 2 }, blocks);
+    const blockWithPosition = { ...newBlock, position: validPosition };
+    setBlocks((prev) => [...prev, blockWithPosition]);
   };
 
   const handleBlockSelect = (preset: BlockPreset) => {
-    // Click to add block at center of viewport
     const centerPosition: GridPosition = { x: 10, y: 10 };
-    const validPosition = findNearestValidPosition(centerPosition, getDefaultBlockDimensions(preset.type), blocks);
-    const newBlock = createBlockFromPreset(preset, validPosition);
-    setBlocks((prev) => [...prev, newBlock]);
+    const newBlock = createBlockFromPreset(preset, centerPosition);
+    const validPosition = findNearestValidPosition(centerPosition, { width: 4, height: 2 }, blocks);
+    const blockWithPosition = { ...newBlock, position: validPosition };
+    setBlocks((prev) => [...prev, blockWithPosition]);
   };
 
   const handleBlocksChange = (newBlocks: Block[]) => {
