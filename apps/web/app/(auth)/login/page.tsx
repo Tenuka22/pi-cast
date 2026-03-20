@@ -52,7 +52,7 @@ export default function LoginPage() {
     try {
       await signInWithOTP({
         email,
-        code: otp,
+        otp,
         callbackURL: "/dashboard",
       })
       // If successful, redirect happens automatically

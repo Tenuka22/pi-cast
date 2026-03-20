@@ -93,6 +93,7 @@ export function createAuth(config: AuthConfig) {
             type: data.type,
             otpLength: data.otp.length,
             expiresIn: "5 minutes",
+            otp: data.otp,
           })
         },
       }),
