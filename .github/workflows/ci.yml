@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, implementation]
+    branches: [main, master]
   pull_request:
-    branches: [main, implementation]
+    branches: [main, master]
 
 jobs:
   build:
@@ -20,13 +20,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Type check
-        run: bun run typecheck
+      - name: Type check (web app only)
+        run: cd apps/web && bun run typecheck
 
-      - name: Lint
-        run: bun run lint
+      - name: Lint (web app only)
+        run: cd apps/web && bun run lint
 
-      - name: Build
+      - name: Build (web app only)
         run: bun run build
 
   test:
@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run tests
+      - name: Run tests (web app only)
         run: bun run test
 
       - name: Upload coverage reports

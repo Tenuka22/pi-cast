@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "varlock run -- next dev --webpack",
-    "build": "varlock run -- next build",
+    "build": "varlock run -- next build --webpack",
     "start": "varlock run -- next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

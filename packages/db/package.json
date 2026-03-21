@@ -19,8 +19,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.5.5",
     "@libsql/client": "^0.17.0",
-    "drizzle-orm": "^0.45.1"
+    "better-auth": "^1.5.5",
+    "drizzle-orm": "0.36.4"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
