@@ -37,6 +37,10 @@ const LOGIC_GATE_SYMBOLS: Record<LogicGateType, string> = {
   or: '∨',
   xor: '⊕',
   eq: '=',
+  le: '≤',
+  ge: '≥',
+  gt: '>',
+  lt: '<',
 };
 
 const LOGIC_GATE_COLORS: Record<LogicGateType, string> = {
@@ -44,6 +48,10 @@ const LOGIC_GATE_COLORS: Record<LogicGateType, string> = {
   or: 'text-green-500',
   xor: 'text-purple-500',
   eq: 'text-orange-500',
+  le: 'text-cyan-500',
+  ge: 'text-teal-500',
+  gt: 'text-red-500',
+  lt: 'text-pink-500',
 };
 
 export function LogicBlockComponent({

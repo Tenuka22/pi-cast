@@ -13,6 +13,8 @@ interface ConnectionHandleProps {
   isConnecting?: boolean;
   isValidTarget?: boolean;
   isConnected?: boolean;
+  sideIndex?: number;
+  sideCount?: number;
 }
 
 export function ConnectionHandle({
@@ -24,6 +26,8 @@ export function ConnectionHandle({
   isConnecting = false,
   isValidTarget = false,
   isConnected = false,
+  sideIndex = 0,
+  sideCount = 1,
 }: ConnectionHandleProps) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -52,8 +56,11 @@ export function ConnectionHandle({
       className={cn(
         'absolute flex items-center justify-center',
         type === 'input' ? '-left-3' : '-right-3',
-        'top-1/2 -translate-y-1/2'
+        '-translate-y-1/2'
       )}
+      style={{
+        top: `calc(50% + ${(sideIndex - (sideCount - 1) / 2) * 24}px)`,
+      }}
     >
       <div
         data-connection-handle
@@ -120,32 +127,36 @@ export function ConnectionHandles({
     const result: Array<{ id: string; type: ConnectionHandleType; label?: string }> = [];
     
     // All blocks that can receive connections get input handles
-    if (['chart', 'control', 'limit'].includes(blockType)) {
+    if (['chart', 'control', 'limit', 'variable', 'logic', 'comparator', 'constraint', 'shape'].includes(blockType)) {
       result.push({ id: `${blockId}-input`, type: 'input' });
     }
     
     // All blocks that can send connections get output handles
-    if (['equation', 'limit'].includes(blockType)) {
+    if (['equation', 'limit', 'variable', 'logic', 'comparator', 'constraint', 'control'].includes(blockType)) {
       result.push({ id: `${blockId}-output`, type: 'output' });
     }
-    
-    // Equation blocks can have both input (for equation combining) and output
-    if (blockType === 'equation') {
-      result.push({ id: `${blockId}-input`, type: 'input', label: 'Combine' });
-    }
-    
+
     return result;
   })();
 
   // Check if this block is a valid target for the current connection
   const isValidTarget = isConnecting && connectingFromType && (
-    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit'].includes(blockType)) ||
-    (connectingFromType === 'limit' && blockType === 'chart')
+    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit', 'variable', 'constraint'].includes(blockType)) ||
+    (connectingFromType === 'variable' && ['chart'].includes(blockType)) ||
+    (connectingFromType === 'limit' && blockType === 'chart') ||
+    (connectingFromType === 'logic' && ['logic', 'chart', 'shape', 'comparator', 'equation'].includes(blockType)) ||
+    (connectingFromType === 'comparator' && ['logic', 'chart', 'shape', 'comparator', 'equation'].includes(blockType)) ||
+    (connectingFromType === 'constraint' && ['equation', 'chart', 'logic', 'comparator', 'constraint'].includes(blockType)) ||
+    (connectingFromType === 'control' && ['shape', 'limit', 'comparator'].includes(blockType))
   );
 
   return (
     <>
-      {defaultHandles.map((handle) => (
+      {defaultHandles.map((handle) => {
+        const sameSideHandles = defaultHandles.filter((h) => h.type === handle.type);
+        const sideCount = sameSideHandles.length || 1;
+        const sideIndex = sameSideHandles.findIndex((h) => h.id === handle.id);
+        return (
         <ConnectionHandle
           key={handle.id}
           id={handle.id}
@@ -156,8 +167,11 @@ export function ConnectionHandles({
           isConnecting={!!isConnecting}
           isValidTarget={!!isValidTarget}
           isConnected={!!connectedHandles.has(handle.id)}
+          sideIndex={sideIndex < 0 ? 0 : sideIndex}
+          sideCount={sideCount}
         />
-      ))}
+        );
+      })}
     </>
   );
 }

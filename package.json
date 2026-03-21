@@ -28,6 +28,8 @@
     "packages/*"
   ],
   "dependencies": {
-    "function-plot": "^1.25.3"
+    "@types/katex": "^0.16.8",
+    "function-plot": "^1.25.3",
+    "katex": "^0.16.40"
   }
 }

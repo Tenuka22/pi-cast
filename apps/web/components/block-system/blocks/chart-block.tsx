@@ -201,7 +201,6 @@ export function ChartBlockComponent({
           xLine: true,
           yLine: true,
         },
-        padding: 0,
       })
     } catch (error) {
       console.error("Error plotting function:", error)

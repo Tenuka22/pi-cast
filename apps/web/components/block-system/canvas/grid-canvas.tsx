@@ -265,8 +265,6 @@ function createConstraintBlock(
       type: constraintType,
       min: constraintValue,
     },
-    targetEquationId: null,
-    output: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

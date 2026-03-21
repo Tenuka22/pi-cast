@@ -129,11 +129,6 @@ export function ConnectionHandles({
       result.push({ id: `${blockId}-output`, type: 'output' });
     }
 
-    // Equation blocks can have both input (for equation combining) and output
-    if (blockType === 'equation') {
-      result.push({ id: `${blockId}-input`, type: 'input', label: 'Combine' });
-    }
-
     // Logic blocks have multiple inputs (indexed) and one output
     if (blockType === 'logic') {
       // Logic blocks can accept multiple inputs

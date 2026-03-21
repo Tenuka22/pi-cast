@@ -10,6 +10,7 @@ interface ConnectionLineProps {
   isSelected?: boolean;
   isAnimated?: boolean;
   onClick?: () => void;
+  connectionId?: string;
 }
 
 export function ConnectionLine({
@@ -20,6 +21,7 @@ export function ConnectionLine({
   isSelected = false,
   isAnimated = false,
   onClick,
+  connectionId,
 }: ConnectionLineProps) {
   // Calculate smooth bezier curve control points (Obsidian-style)
   // The curve flows horizontally from source to target
@@ -37,14 +39,18 @@ export function ConnectionLine({
   const pathD = `M ${startX} ${startY} C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y}, ${endX} ${endY}`;
 
   return (
-    <g onClick={onClick} className="cursor-pointer">
+    <g
+      onClick={onClick}
+      data-connection-id={connectionId}
+      className="cursor-pointer pointer-events-auto"
+    >
       {/* Outer glow for visibility */}
       <path
         d={pathD}
         fill="none"
         stroke="oklch(0.95 0.02 320)"
         strokeWidth="12"
-        className="opacity-30"
+        className="opacity-30 pointer-events-none"
         style={{ filter: 'blur(2px)' }}
       />
       
@@ -55,7 +61,7 @@ export function ConnectionLine({
         stroke={isSelected ? 'oklch(0.7 0.25 323.949)' : 'oklch(0.6 0.2 320)'}
         strokeWidth={isSelected ? 6 : 4}
         strokeLinecap="round"
-        className="transition-all duration-200"
+        className="transition-all duration-200 pointer-events-none"
       />
       
       {/* Inner highlight for depth */}
@@ -65,6 +71,7 @@ export function ConnectionLine({
         stroke="oklch(0.85 0.15 320 / 0.5)"
         strokeWidth={isSelected ? 2 : 1}
         strokeLinecap="round"
+        className="pointer-events-none"
       />
 
       {/* Animated flow indicator intentionally disabled (kept for API compatibility) */}

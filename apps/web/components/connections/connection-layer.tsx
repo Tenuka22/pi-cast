@@ -54,7 +54,7 @@ export function ConnectionLayer({
       style={{ 
         position: 'absolute',
         inset: 0,
-        zIndex: 10,
+        zIndex: 1,
         transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         transformOrigin: '0 0',
         overflow: 'visible',
@@ -72,6 +72,7 @@ export function ConnectionLayer({
         return (
           <ConnectionLine
             key={connection.id}
+            connectionId={connection.id}
             startX={startPos.x}
             startY={startPos.y}
             endX={endPos.x}

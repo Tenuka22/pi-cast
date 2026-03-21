@@ -2,10 +2,12 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import functionPlot from "function-plot"
+import katex from "katex"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import "katex/dist/katex.min.css"
 import {
   GRID_UNIT,
   type Block,
@@ -16,13 +18,16 @@ import {
   type DescriptionBlock,
   type LimitBlock,
   type ConnectionHandleType,
+  type ConstraintType,
   getTokenClassName,
   parseEquation,
+  formatEquation,
 } from "@/lib/block-system/types"
 import { ConnectionHandles } from "@/components/connections/connection-handles"
 import {
   GraphConfig,
   DEFAULT_GRAPH_CONFIG,
+  evaluateFunction,
 } from "@/lib/visualization/graph-renderer"
 
 // ============================================================================
@@ -38,6 +43,7 @@ interface BlockWrapperProps {
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   className?: string
+  style?: React.CSSProperties
   children: React.ReactNode
 }
 
@@ -50,12 +56,9 @@ export function BlockWrapper({
   onMouseDown,
   onDimensionsChange,
   className,
+  style,
   children,
 }: BlockWrapperProps) {
-  const pos = {
-    x: block.position.x * GRID_UNIT,
-    y: block.position.y * GRID_UNIT,
-  }
   const contentRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({
     width: block.dimensions.width,
@@ -78,7 +81,10 @@ export function BlockWrapper({
         const measuredWidth = Math.ceil(measuredPxWidth / GRID_UNIT)
         const measuredHeight = Math.ceil(measuredPxHeight / GRID_UNIT)
         const unclampedWidth = Math.max(measuredWidth, block.dimensions.width)
-        const unclampedHeight = Math.max(measuredHeight, block.dimensions.height)
+        const unclampedHeight = Math.max(
+          measuredHeight,
+          block.dimensions.height
+        )
         const newWidth =
           maxDimensions?.width !== undefined
             ? Math.min(unclampedWidth, maxDimensions.width)
@@ -94,7 +100,8 @@ export function BlockWrapper({
         }
 
         if (
-          (newWidth !== block.dimensions.width || newHeight !== block.dimensions.height) &&
+          (newWidth !== block.dimensions.width ||
+            newHeight !== block.dimensions.height) &&
           !isDragging
         ) {
           onDimensionsChange?.({ width: newWidth, height: newHeight })
@@ -114,7 +121,14 @@ export function BlockWrapper({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [block.dimensions.width, block.dimensions.height, maxDimensions?.width, maxDimensions?.height, isDragging, onDimensionsChange])
+  }, [
+    block.dimensions.width,
+    block.dimensions.height,
+    maxDimensions?.width,
+    maxDimensions?.height,
+    isDragging,
+    onDimensionsChange,
+  ])
 
   const handleBodyClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -131,6 +145,16 @@ export function BlockWrapper({
     if (target?.closest("[data-connection-handle]")) {
       return
     }
+    // Don't start a drag from interactive elements (or on double-click intent)
+    if (
+      e.button !== 0 ||
+      e.detail > 1 ||
+      target?.closest(
+        'input, textarea, select, button, a, [contenteditable="true"], [data-no-drag]'
+      )
+    ) {
+      return
+    }
     onMouseDown?.(e)
   }
 
@@ -138,13 +162,15 @@ export function BlockWrapper({
     <div
       role="button"
       tabIndex={0}
+      data-block-id={block.id}
       onClick={handleBodyClick}
       onMouseDown={handleBodyMouseDown}
       style={{
-        left: pos.x,
-        top: pos.y,
+        // Positioning is handled by parent transform (grid-canvas.tsx)
+        // Merge incoming style props with base styles
         userSelect: "none",
         WebkitUserSelect: "none",
+        ...style,
       }}
       className={cn(
         "group absolute flex flex-col rounded-lg border-2 transition-all duration-200 select-none hover:border-primary/50 hover:shadow-md",
@@ -170,6 +196,12 @@ export function BlockWrapper({
         style={{
           minWidth: dimensions.width * GRID_UNIT,
           minHeight: dimensions.height * GRID_UNIT,
+          ...(maxDimensions?.width !== undefined
+            ? { maxWidth: maxDimensions.width * GRID_UNIT }
+            : {}),
+          ...(maxDimensions?.height !== undefined
+            ? { maxHeight: maxDimensions.height * GRID_UNIT }
+            : {}),
         }}
       >
         {children}
@@ -189,12 +221,13 @@ interface EquationBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
   ) => void
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
-  onVariableChange?: (variableName: string, value: number) => void
   onEquationChange?: (newEquation: string) => void
   isConnecting?: boolean
   connectingFromType?: string
@@ -207,9 +240,10 @@ export function EquationBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onConnectionStart,
   onConnectionEnd,
-  onVariableChange,
   onEquationChange,
   isConnecting,
   connectingFromType,
@@ -225,10 +259,10 @@ export function EquationBlockComponent({
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+      inputRef.current.focus()
+      inputRef.current.select()
     }
-  }, [isEditing]);
+  }, [isEditing])
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -241,18 +275,21 @@ export function EquationBlockComponent({
 
   const handleBlur = useCallback(() => {
     setIsEditing(false)
-    // Save the equation if it changed
-    if (editValue !== equation && editValue.trim()) {
-      onEquationChange?.(editValue)
+    const formatted = formatEquation(editValue)
+    // Allow clearing the equation back to empty/initial state
+    if (formatted !== equation) {
+      onEquationChange?.(formatted)
+      setEditValue(formatted)
     }
   }, [editValue, equation, onEquationChange])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
-        // Save on Enter
-        if (editValue !== equation && editValue.trim()) {
-          onEquationChange?.(editValue)
+        const formatted = formatEquation(editValue)
+        if (formatted !== equation) {
+          onEquationChange?.(formatted)
+          setEditValue(formatted)
         }
         setIsEditing(false)
       } else if (e.key === "Escape") {
@@ -263,6 +300,21 @@ export function EquationBlockComponent({
     [editValue, equation, onEquationChange]
   )
 
+  const connectedHandleIds = new Set([
+    ...(block.connectedChartIds || []).map(
+      (id) => `${block.id}-output-chart-${id}`
+    ),
+    ...(block.connectedControlIds || []).map(
+      (id) => `${block.id}-output-control-${id}`
+    ),
+    ...(block.connectedEquationIds || []).map(
+      (id) => `${block.id}-output-equation-${id}`
+    ),
+    ...(block.connectedLimitIds || []).map(
+      (id) => `${block.id}-output-limit-${id}`
+    ),
+  ])
+
   return (
     <BlockWrapper
       block={block}
@@ -271,54 +323,43 @@ export function EquationBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
-      <div
-        className="absolute -top-3 left-3 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs shadow-sm"
-        style={{ zIndex: 60 }}
-      >
-        <span className="font-mono text-sm">ƒ</span>
-        <span className="text-xs text-muted-foreground">Equation</span>
+      <div className="flex h-full flex-col p-2">
+        <div className="mx-2 mb-1 flex items-center gap-2 border-b border-border pb-1">
+          <span className="font-mono text-sm font-semibold">f(x)</span>
+          <h3 className="text-sm font-semibold text-foreground">Equation</h3>
+        </div>
+        <div className="flex-1 overflow-auto px-2 py-1">
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full rounded border border-primary bg-card px-2 py-1 font-mono text-base focus:outline-none"
+              placeholder="y = 2x + 1"
+            />
+          ) : (
+            <div
+              onDoubleClick={handleDoubleClick}
+              className="cursor-text rounded py-1 font-mono text-sm leading-relaxed text-card-foreground hover:bg-muted/30"
+            >
+              {equation.trim().length === 0 ? (
+                <span className="text-muted-foreground">
+                  Double-click to edit
+                </span>
+              ) : (
+                <code className="font-mono">{equation}</code>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div
-        className="px-2 py-4"
-        onDoubleClick={handleDoubleClick}
-      >
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="w-full rounded border border-primary bg-card px-2 py-1 font-mono text-lg focus:outline-none"
-            placeholder="Enter equation (e.g., y = mx + c)"
-          />
-        ) : (
-          <div className="font-mono text-lg">
-            {parsedTokens && parsedTokens.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1">
-                {parsedTokens.map((token, index) => (
-                  <span
-                    key={`${token.startIndex}-${index}`}
-                    className={cn(
-                      getTokenClassName(token.type),
-                      "whitespace-pre-wrap break-all"
-                    )}
-                  >
-                    {token.value}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="text-muted-foreground">
-                Double-click to edit
-              </span>
-            )}
-          </div>
-        )}
-      </div>
       <ConnectionHandles
         blockId={block.id}
         blockType={block.type}
@@ -326,30 +367,15 @@ export function EquationBlockComponent({
         onConnectionEnd={onConnectionEnd}
         isConnecting={isConnecting}
         connectingFromType={connectingFromType}
-        connectedHandles={
-          new Set([
-            ...(block.connectedChartIds || []).map(
-              (id) => `${block.id}-output-chart-${id}`
-            ),
-            ...(block.connectedControlIds || []).map(
-              (id) => `${block.id}-output-control-${id}`
-            ),
-            ...(block.connectedEquationIds || []).map(
-              (id) => `${block.id}-output-equation-${id}`
-            ),
-            ...(block.connectedLimitIds || []).map(
-              (id) => `${block.id}-output-limit-${id}`
-            ),
-            ...(block.connectedVariableIds || []).map(
-              (id) => `${block.id}-output-variable-${id}`
-            ),
-          ])
-        }
+        connectedHandles={connectedHandleIds}
       />
+
+      <div className="absolute top-2 right-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+        equation
+      </div>
     </BlockWrapper>
   )
 }
-
 // ============================================================================
 // CHART BLOCK
 // ============================================================================
@@ -361,6 +387,8 @@ interface ChartBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -369,6 +397,7 @@ interface ChartBlockComponentProps {
   isConnecting?: boolean
   connectingFromType?: string
   connectedEquations?: EquationBlock[]
+  constraints?: import("@/lib/block-system/types").ConstraintBlock[]
 }
 
 const PLOT_COLORS = [
@@ -389,24 +418,61 @@ export function ChartBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onConnectionStart,
   onConnectionEnd,
   isConnecting,
   connectingFromType,
   connectedEquations = [],
+  constraints = [],
 }: ChartBlockComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const defaultDimensionsRef = useRef(block.dimensions)
   const MIN_CANVAS_HEIGHT = 240
   const width = block.dimensions.width * GRID_UNIT
   const height = block.dimensions.height * GRID_UNIT
-  const effectiveHeight = Math.max(height, MIN_CANVAS_HEIGHT)
+  const [headerPx, setHeaderPx] = useState(0)
+  const [plotWidthPx, setPlotWidthPx] = useState(width)
+
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const update = () => setHeaderPx(el.offsetHeight || 0)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      // Use the border-box width so the plotted SVG fills the visible container.
+      // `clientWidth` excludes borders which can show up as a clipped/right-gap
+      // on small chart blocks.
+      const rect = el.getBoundingClientRect()
+      const next = Math.round(rect.width) || el.offsetWidth || width
+      if (next && next !== plotWidthPx) setPlotWidthPx(next)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width])
+
+  // Keep chart total height aligned to the grid by making the plot area fit
+  // within the block's height (header + plot = block height).
+  const plotHeight = Math.max(MIN_CANVAS_HEIGHT, Math.max(0, height - headerPx))
 
   const config = useMemo<GraphConfig>(() => {
     const base = block.chartConfig
     return {
-      width,
-      height: effectiveHeight,
+      width: plotWidthPx,
+      height: plotHeight,
       xAxis: {
         ...DEFAULT_GRAPH_CONFIG.xAxis,
         ...(base?.xAxis ?? {}),
@@ -424,7 +490,76 @@ export function ChartBlockComponent({
       showGrid: base?.showGrid ?? DEFAULT_GRAPH_CONFIG.showGrid,
       backgroundColor: "transparent",
     }
-  }, [block.chartConfig, effectiveHeight, width])
+  }, [block.chartConfig, plotHeight, plotWidthPx])
+
+  const constraintDomain = useMemo(() => {
+    let xMin: number | undefined
+    let xMax: number | undefined
+    let yMin: number | undefined
+    let yMax: number | undefined
+
+    for (const c of constraints) {
+      const name = (c.variableName ?? "").toLowerCase()
+      const type = c.constraint.type
+      const min = c.constraint.min
+      const max = c.constraint.max
+
+      const applyMin = (v: number) => {
+        if (name === "x") xMin = xMin === undefined ? v : Math.max(xMin, v)
+        if (name === "y") yMin = yMin === undefined ? v : Math.max(yMin, v)
+      }
+      const applyMax = (v: number) => {
+        if (name === "x") xMax = xMax === undefined ? v : Math.min(xMax, v)
+        if (name === "y") yMax = yMax === undefined ? v : Math.min(yMax, v)
+      }
+
+      if (type === "gte" && typeof min === "number") applyMin(min)
+      if (type === "gt" && typeof min === "number") applyMin(min + 1e-9)
+      if (type === "lte" && typeof min === "number") applyMax(min)
+      if (type === "lt" && typeof min === "number") applyMax(min - 1e-9)
+      if (type === "range") {
+        if (typeof min === "number") applyMin(min)
+        if (typeof max === "number") applyMax(max)
+      }
+    }
+
+    return { xMin, xMax, yMin, yMax }
+  }, [constraints])
+
+  const constrainedConfig = useMemo<GraphConfig>(() => {
+    const next: GraphConfig = {
+      ...config,
+      xAxis: { ...config.xAxis },
+      yAxis: { ...config.yAxis },
+    }
+
+    // Always include a small reference window around 0 for readability.
+    // Constraints limit the *plotted function*, not the axis ticks themselves.
+    const enforceAxis = (axis: { min: number; max: number }) => {
+      let min = axis.min
+      let max = axis.max
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+        min = -10
+        max = 10
+      }
+      min = Math.min(min, -1, 0)
+      max = Math.max(max, 1, 0)
+      // Ensure min < max
+      if (min === max) {
+        min -= 2
+        max += 2
+      }
+      return { min, max }
+    }
+
+    const enforcedX = enforceAxis(next.xAxis)
+    const enforcedY = enforceAxis(next.yAxis)
+    next.xAxis.min = enforcedX.min
+    next.xAxis.max = enforcedX.max
+    next.yAxis.min = enforcedY.min
+    next.yAxis.max = enforcedY.max
+    return next
+  }, [config, constraintDomain])
 
   const plots = useMemo(
     () =>
@@ -438,30 +573,107 @@ export function ChartBlockComponent({
 
         return {
           key: `eq${index}`,
-          equation: equationBlock.equation,
+          equation:
+            equationBlock.enabled === false ? "y = 0" : equationBlock.equation,
           variables,
           color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
-          label: equationBlock.equation,
+          label:
+            equationBlock.enabled === false
+              ? "disabled"
+              : equationBlock.equation,
         }
       }),
     [connectedEquations]
   )
 
+  const autoYAxis = useMemo(() => {
+    const xMin = Math.max(
+      constrainedConfig.xAxis.min,
+      constraintDomain.xMin ?? Number.NEGATIVE_INFINITY
+    )
+    const xMax = Math.min(
+      constrainedConfig.xAxis.max,
+      constraintDomain.xMax ?? Number.POSITIVE_INFINITY
+    )
+    if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMin === xMax) {
+      return null
+    }
+
+    const samples = 120
+    let minY = Number.POSITIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+
+    for (const plot of plots) {
+      const equation = plot.equation
+      if (!equation?.trim()) continue
+
+      for (let i = 0; i <= samples; i++) {
+        const t = i / samples
+        const x = xMin + (xMax - xMin) * t
+        const y = evaluateFunction(equation, { ...plot.variables, x })
+        if (!Number.isFinite(y)) continue
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+
+    if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return null
+    if (minY === maxY) {
+      const pad = Math.max(1, Math.abs(minY) * 0.1)
+      return { min: minY - pad, max: maxY + pad }
+    }
+
+    const pad = (maxY - minY) * 0.1
+    return { min: minY - pad, max: maxY + pad }
+  }, [constrainedConfig.xAxis.max, constrainedConfig.xAxis.min, plots])
+
+  const effectiveConfig = useMemo<GraphConfig>(() => {
+    const base = constrainedConfig
+    if (!autoYAxis) return base
+
+    const enforceAxis = (axis: { min: number; max: number }) => {
+      let min = axis.min
+      let max = axis.max
+      min = Math.min(min, -1, 0)
+      max = Math.max(max, 1, 0)
+      if (min === max) {
+        min -= 2
+        max += 2
+      }
+      return { min, max }
+    }
+
+    const enforced = enforceAxis({ min: autoYAxis.min, max: autoYAxis.max })
+    return {
+      ...base,
+      yAxis: {
+        ...base.yAxis,
+        min: enforced.min,
+        max: enforced.max,
+      },
+    }
+  }, [
+    autoYAxis,
+    constrainedConfig,
+    constraintDomain.yMax,
+    constraintDomain.yMin,
+  ])
+
   // Build function strings with substituted variables
   const functionData = useMemo(() => {
     return plots
       .map((plot) => {
-        let fn = plot.equation?.trim() ?? ''
-        
+        let fn = plot.equation?.trim() ?? ""
+
         // Skip empty equations
         if (!fn) return null
-        
+
         // Remove "y =" or "y=" prefix if present (function-plot expects just the expression)
-        fn = fn.replace(/^y\s*=\s*/i, '').trim()
-        
+        fn = fn.replace(/^y\s*=\s*/i, "").trim()
+
         // Skip if nothing left after removing prefix
         if (!fn) return null
-        
+
         // Substitute known constants
         fn = fn.replace(/\bpi\b/g, String(Math.PI))
         fn = fn.replace(/\be\b(?!q)/g, String(Math.E))
@@ -474,23 +686,54 @@ export function ChartBlockComponent({
         })
 
         // Final validation - skip if expression is still invalid
-        if (!fn || fn === '=' || fn.endsWith('=')) return null
-        
+        if (!fn || fn === "=" || fn.endsWith("=")) return null
+
         // Skip incomplete expressions (ending with operator or unclosed parentheses)
         if (/[+\-*/^]$/.test(fn.trim())) return null
-        if ((fn.match(/\(/g) || []).length !== (fn.match(/\)/g) || []).length) return null
-        
+        if ((fn.match(/\(/g) || []).length !== (fn.match(/\)/g) || []).length)
+          return null
+
         // Skip if contains unsupported unicode characters that function-plot can't handle
         if (/[∧∨⊕→⁻⁺]/.test(fn)) return null
 
+        // Apply constraint masking (show axes/ticks but don't plot outside constraints)
+        const xMinLimit = constraintDomain.xMin
+        const xMaxLimit = constraintDomain.xMax
+        const yMinLimit = constraintDomain.yMin
+        const yMaxLimit = constraintDomain.yMax
+
+        const NAN_EXPR = "(0/0)"
+        let masked = `(${fn})`
+        if (typeof yMinLimit === "number") {
+          masked = `((${masked}) < (${yMinLimit}) ? ${NAN_EXPR} : (${masked}))`
+        }
+        if (typeof yMaxLimit === "number") {
+          masked = `((${masked}) > (${yMaxLimit}) ? ${NAN_EXPR} : (${masked}))`
+        }
+        if (typeof xMinLimit === "number") {
+          masked = `(x < (${xMinLimit}) ? ${NAN_EXPR} : (${masked}))`
+        }
+        if (typeof xMaxLimit === "number") {
+          masked = `(x > (${xMaxLimit}) ? ${NAN_EXPR} : (${masked}))`
+        }
+
         return {
-          fn,
+          fn: masked,
           color: plot.color,
           graphType: "polyline" as const,
         }
       })
-      .filter((item): item is { fn: string; color: string; graphType: 'polyline' } => item !== null)
-  }, [plots])
+      .filter(
+        (item): item is { fn: string; color: string; graphType: "polyline" } =>
+          item !== null
+      )
+  }, [
+    plots,
+    constraintDomain.xMax,
+    constraintDomain.xMin,
+    constraintDomain.yMax,
+    constraintDomain.yMin,
+  ])
 
   // Render the plot when plots or config changes
   useEffect(() => {
@@ -502,18 +745,18 @@ export function ChartBlockComponent({
     try {
       functionPlot({
         target: containerRef.current,
-        width: config.width,
-        height: config.height,
+        width: effectiveConfig.width,
+        height: effectiveConfig.height,
         disableZoom: true,
         yAxis: {
-          domain: [config.yAxis.min, config.yAxis.max],
+          domain: [effectiveConfig.yAxis.min, effectiveConfig.yAxis.max],
           invert: false,
         },
         xAxis: {
-          domain: [config.xAxis.min, config.xAxis.max],
+          domain: [effectiveConfig.xAxis.min, effectiveConfig.xAxis.max],
           invert: false,
         },
-        grid: config.showGrid,
+        grid: effectiveConfig.showGrid,
         data: functionData,
         tip: {
           xLine: true,
@@ -523,7 +766,7 @@ export function ChartBlockComponent({
     } catch (error) {
       console.error("Error plotting function:", error, functionData)
     }
-  }, [functionData, config])
+  }, [functionData, effectiveConfig])
 
   const hasEquations = functionData.length > 0
   const connectedHandleIds = new Set(
@@ -541,8 +784,13 @@ export function ChartBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
-      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+      <div
+        ref={headerRef}
+        className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2"
+      >
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-semibold">📈</span>
           <span className="text-xs text-muted-foreground">
@@ -558,15 +806,35 @@ export function ChartBlockComponent({
       </div>
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-hidden rounded-lg border border-border bg-muted/50"
+        className="function-plot-root relative flex-1 overflow-hidden rounded-lg border border-border bg-muted/50"
         style={{
-          minHeight: MIN_CANVAS_HEIGHT,
-          height: effectiveHeight,
-          maxHeight: effectiveHeight,
+          minHeight: plotHeight,
+          height: plotHeight,
+          maxHeight: plotHeight,
+          minWidth: width,
           width,
           maxWidth: width,
         }}
       >
+        <style>{`
+          .function-plot-root svg g.axis path,
+          .function-plot-root svg g.axis line,
+          .function-plot-root svg g.x.axis path,
+          .function-plot-root svg g.x.axis line,
+          .function-plot-root svg g.y.axis path,
+          .function-plot-root svg g.y.axis line,
+          .function-plot-root svg .tick line {
+            stroke: oklch(0.86 0.16 323.949) !important;
+            stroke-width: 1.25 !important;
+            shape-rendering: crispEdges;
+          }
+          .function-plot-root svg g.axis text,
+          .function-plot-root svg g.x.axis text,
+          .function-plot-root svg g.y.axis text,
+          .function-plot-root svg .tick text {
+            fill: oklch(0.86 0.16 323.949) !important;
+          }
+        `}</style>
         {!hasEquations && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
             Connected equations will render here
@@ -597,6 +865,8 @@ interface ControlBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onVariableChange?: (name: string, value: number | string) => void
   onConnectionStart?: (
     handleId: string,
@@ -614,6 +884,8 @@ export function ControlBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onVariableChange,
   onConnectionStart,
   onConnectionEnd,
@@ -627,9 +899,12 @@ export function ControlBlockComponent({
       block={block}
       isSelected={isSelected}
       isDragging={isDragging}
+      maxDimensions={{ width: 24, height: 18 }}
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -639,7 +914,7 @@ export function ControlBlockComponent({
           </span>
         </div>
       </div>
-      <div className="flex-1 p-4">
+      <div className="flex-1">
         {variables.length > 0 ? (
           <div
             className={cn(
@@ -691,6 +966,13 @@ function ControlVariableInput({
 }: ControlVariableInputProps) {
   const [value, setValue] = useState(variable.value)
 
+  useEffect(() => {
+    if (Number.isFinite(variable.value) && variable.value !== value) {
+      setValue(variable.value)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variable.value])
+
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value)
     setValue(newValue)
@@ -698,10 +980,23 @@ function ControlVariableInput({
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseFloat(e.target.value)
+    const raw = e.target.value
+    if (raw.trim() === "") {
+      setValue(Number.NaN)
+      return
+    }
+    const newValue = parseFloat(raw)
+    if (!Number.isFinite(newValue)) return
     setValue(newValue)
     onChange?.(newValue)
   }
+
+  const inputValue: string | number = Number.isFinite(value) ? value : ""
+  const sliderValue = Number.isFinite(value)
+    ? value
+    : Number.isFinite(variable.value)
+      ? variable.value
+      : 0
 
   return (
     <div className="space-y-2">
@@ -709,7 +1004,7 @@ function ControlVariableInput({
         <Label className="font-mono text-sm">{variable.name}</Label>
         <Input
           type="number"
-          value={value}
+          value={inputValue}
           onChange={handleInputChange}
           className="h-7 w-20 text-right font-mono"
           step={variable.step || 1}
@@ -717,7 +1012,7 @@ function ControlVariableInput({
       </div>
       <input
         type="range"
-        value={value}
+        value={sliderValue}
         min={variable.min || -100}
         max={variable.max || 100}
         step={variable.step || 1}
@@ -739,6 +1034,9 @@ interface DescriptionBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
+  onContentChange?: (content: string) => void
 }
 
 export function DescriptionBlockComponent({
@@ -748,11 +1046,49 @@ export function DescriptionBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
+  onContentChange,
 }: DescriptionBlockComponentProps) {
   const { content, format, title } = block
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(content)
+  const latexRef = useRef<HTMLSpanElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditContent(content)
+    }
+  }, [content, isEditing])
+
+  // Render LaTeX content using KaTeX
+  useEffect(() => {
+    if (latexRef.current && format === "latex" && !isEditing) {
+      try {
+        katex.render(content, latexRef.current, {
+          displayMode: false,
+          throwOnError: false,
+          output: "html",
+          macros: {
+            "\\RR": "\\mathbb{R}",
+            "\\NN": "\\mathbb{N}",
+            "\\ZZ": "\\mathbb{Z}",
+            "\\QQ": "\\mathbb{Q}",
+            "\\CC": "\\mathbb{C}",
+          },
+        })
+      } catch (error) {
+        console.error("KaTeX rendering error:", error)
+      }
+    }
+  }, [content, format, isEditing])
+
+  const commitContent = useCallback(() => {
+    if (editContent !== content) {
+      onContentChange?.(editContent)
+    }
+  }, [content, editContent, onContentChange])
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -764,17 +1100,22 @@ export function DescriptionBlockComponent({
   )
 
   const handleBlur = useCallback(() => {
+    commitContent()
     setIsEditing(false)
-  }, [])
+  }, [commitContent])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault()
+        commitContent()
+        setIsEditing(false)
+      } else if (e.key === "Escape") {
         setEditContent(content)
         setIsEditing(false)
       }
     },
-    [content]
+    [commitContent, content]
   )
 
   useEffect(() => {
@@ -791,40 +1132,53 @@ export function DescriptionBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
-      className="p-4"
+      className={className}
+      style={style}
     >
-      {title && (
-        <div className="mb-2 flex items-center gap-2 border-b border-border pb-2">
-          <span className="font-mono text-sm font-semibold">📝</span>
-          <h3 className="text-sm font-semibold">{title}</h3>
-        </div>
-      )}
-      <div className="flex-1 overflow-auto">
-        {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="h-full w-full resize-none rounded border border-primary bg-card p-2 text-sm leading-relaxed focus:outline-none"
-          />
-        ) : format === "latex" ? (
-          <div
-            onDoubleClick={handleDoubleClick}
-            className="cursor-text rounded p-1 font-mono text-sm hover:bg-muted/50"
-          >
-            <code className="rounded bg-muted px-2 py-1">{content}</code>
+      <div className="flex h-full flex-col p-2">
+        {title && (
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <span className="font-mono text-lg font-semibold">📝</span>
+            <h3 className="truncate text-xs font-medium text-muted-foreground">
+              {title}
+            </h3>
           </div>
-        ) : (
-          <p
-            onDoubleClick={handleDoubleClick}
-            className="cursor-text rounded p-1 text-sm leading-relaxed whitespace-pre-wrap text-card-foreground hover:bg-muted/50"
-          >
-            {content}
-          </p>
         )}
+        <div className="flex-1 overflow-auto px-1 py-0">
+          {isEditing ? (
+            <textarea
+              ref={textareaRef}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full resize-none rounded border border-border bg-card px-1 py-0 text-sm leading-relaxed focus:ring-1 focus:ring-primary focus:outline-none"
+            />
+          ) : format === "latex" ? (
+            <div
+              onDoubleClick={handleDoubleClick}
+              className="cursor-text rounded px-1 py-0 text-sm leading-tight text-card-foreground hover:bg-muted/30"
+            >
+              <span ref={latexRef} className="text-sm leading-tight" />
+            </div>
+          ) : format === "markdown" ? (
+            <p
+              onDoubleClick={handleDoubleClick}
+              className="cursor-text rounded px-1 py-0 text-sm leading-relaxed break-words whitespace-pre-wrap text-card-foreground hover:bg-muted/30"
+            >
+              {content}
+            </p>
+          ) : (
+            <p
+              onDoubleClick={handleDoubleClick}
+              className="cursor-text rounded px-1 py-0 text-sm leading-relaxed break-words whitespace-pre-wrap text-card-foreground hover:bg-muted/30"
+            >
+              {content}
+            </p>
+          )}
+        </div>
       </div>
+
       <div className="absolute top-2 right-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
         {format}
       </div>
@@ -843,6 +1197,8 @@ interface LimitBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onVariableChange?: (variableName: string, value: number | string) => void
   onApproachChange?: (approach: "left" | "right" | "both") => void
   variableOptions?: string[]
@@ -862,6 +1218,8 @@ export function LimitBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onVariableChange,
   onApproachChange,
   variableOptions = [],
@@ -880,6 +1238,8 @@ export function LimitBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -965,6 +1325,8 @@ interface VariableBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onVariableChange?: (variableName: string, value: number) => void
   onConnectionStart?: (
     handleId: string,
@@ -982,6 +1344,8 @@ export function VariableBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onVariableChange,
   onConnectionStart,
   onConnectionEnd,
@@ -998,6 +1362,8 @@ export function VariableBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -1037,11 +1403,7 @@ export function VariableBlockComponent({
         isConnecting={isConnecting}
         connectingFromType={connectingFromType}
         connectedHandles={
-          new Set(
-            block.sourceEquationId
-              ? [`${block.id}-input-equation-${block.sourceEquationId}`]
-              : []
-          )
+          new Set(block.sourceEquationId ? [`${block.id}-input`] : [])
         }
       />
     </BlockWrapper>
@@ -1059,6 +1421,8 @@ interface LogicBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -1076,6 +1440,10 @@ const LOGIC_GATE_SYMBOLS: Record<
   or: "∨",
   xor: "⊕",
   eq: "=",
+  le: "≤",
+  ge: "≥",
+  gt: ">",
+  lt: "<",
 }
 
 const LOGIC_GATE_COLORS: Record<
@@ -1086,6 +1454,10 @@ const LOGIC_GATE_COLORS: Record<
   or: "text-green-500",
   xor: "text-purple-500",
   eq: "text-orange-500",
+  le: "text-cyan-500",
+  ge: "text-teal-500",
+  gt: "text-red-500",
+  lt: "text-pink-500",
 }
 
 export function LogicBlockComponent({
@@ -1095,6 +1467,8 @@ export function LogicBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onConnectionStart,
   onConnectionEnd,
   isConnecting,
@@ -1110,26 +1484,35 @@ export function LogicBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
-      className="p-4"
+      className={className}
+      style={style}
     >
-      <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
-        <span className="font-mono">🔌</span>
-      </div>
-      <div className="flex flex-col items-center gap-2">
-        <div className={cn("text-4xl font-bold", LOGIC_GATE_COLORS[logicType])}>
-          {LOGIC_GATE_SYMBOLS[logicType]}
+      <div className="p-4">
+        <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
+          <span className="font-mono">🔌</span>
         </div>
-        <div className="text-xs font-medium text-muted-foreground uppercase">
-          {logicType}
-        </div>
-        {result !== undefined && (
-          <div className="mt-2 rounded bg-primary/10 px-3 py-1 font-mono text-sm">
-            ={" "}
-            {typeof result === "boolean" ? (result ? "true" : "false") : result}
+        <div className="flex flex-col items-center gap-2">
+          <div
+            className={cn("text-4xl font-bold", LOGIC_GATE_COLORS[logicType])}
+          >
+            {LOGIC_GATE_SYMBOLS[logicType]}
           </div>
-        )}
-        <div className="text-xs text-muted-foreground">
-          {inputs.length} input{inputs.length !== 1 ? "s" : ""}
+          <div className="text-xs font-medium text-muted-foreground uppercase">
+            {logicType}
+          </div>
+          {result !== undefined && (
+            <div className="mt-2 rounded bg-primary/10 px-3 py-1 font-mono text-sm">
+              ={" "}
+              {typeof result === "boolean"
+                ? result
+                  ? "true"
+                  : "false"
+                : result}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">
+            {inputs.length} input{inputs.length !== 1 ? "s" : ""}
+          </div>
         </div>
       </div>
       <ConnectionHandles
@@ -1151,6 +1534,309 @@ export function LogicBlockComponent({
 }
 
 // ============================================================================
+// COMPARATOR BLOCK
+// ============================================================================
+
+interface ComparatorBlockComponentProps {
+  block: import("@/lib/block-system/types").ComparatorBlock
+  isSelected?: boolean
+  isDragging?: boolean
+  onClick?: () => void
+  onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
+  onConnectionStart?: (
+    handleId: string,
+    handleType: ConnectionHandleType
+  ) => void
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
+  isConnecting?: boolean
+  connectingFromType?: string
+}
+
+const COMPARATOR_SYMBOLS: Record<
+  import("@/lib/block-system/types").LogicGateType,
+  string
+> = {
+  and: "âˆ§",
+  or: "âˆ¨",
+  xor: "âŠ•",
+  eq: "=",
+  le: "â‰¤",
+  ge: "â‰¥",
+  gt: ">",
+  lt: "<",
+}
+
+export function ComparatorBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onDimensionsChange,
+  className,
+  style,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+}: ComparatorBlockComponentProps) {
+  const { operator, result, leftInput, rightInput } = block
+  const inputCount = [leftInput, rightInput].filter(Boolean).length
+
+  return (
+    <BlockWrapper
+      block={block}
+      isSelected={isSelected}
+      isDragging={isDragging}
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
+    >
+      <div className="p-4">
+        <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
+          <span className="font-mono">â‰Ÿ</span>
+          <span>Comparator</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-4xl font-bold text-orange-500">
+            {COMPARATOR_SYMBOLS[operator]}
+          </div>
+          <div className="text-xs font-medium text-muted-foreground uppercase">
+            {operator}
+          </div>
+          {result !== undefined && (
+            <div className="mt-2 rounded bg-primary/10 px-3 py-1 font-mono text-sm">
+              ={" "}
+              {typeof result === "boolean"
+                ? result
+                  ? "true"
+                  : "false"
+                : result}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">
+            {inputCount} / 2 inputs
+          </div>
+        </div>
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        handles={[
+          { id: `${block.id}-input-left`, type: "input", label: "L" },
+          { id: `${block.id}-input-right`, type: "input", label: "R" },
+          { id: `${block.id}-output`, type: "output" },
+        ]}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={
+          new Set([
+            ...(leftInput ? [`${block.id}-input-left`] : []),
+            ...(rightInput ? [`${block.id}-input-right`] : []),
+            ...(block.output ? [`${block.id}-output`] : []),
+          ])
+        }
+      />
+    </BlockWrapper>
+  )
+}
+
+// ============================================================================
+// CONSTRAINT BLOCK (Display-only for now)
+// ============================================================================
+
+interface ConstraintBlockComponentProps {
+  block: import("@/lib/block-system/types").ConstraintBlock
+  isSelected?: boolean
+  isDragging?: boolean
+  onClick?: () => void
+  onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
+  variableOptions?: string[]
+  onConstraintChange?: (
+    next: Partial<import("@/lib/block-system/types").ConstraintBlock>
+  ) => void
+  onConnectionStart?: (
+    handleId: string,
+    handleType: ConnectionHandleType
+  ) => void
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
+  isConnecting?: boolean
+  connectingFromType?: string
+}
+
+export function ConstraintBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onDimensionsChange,
+  className,
+  style,
+  variableOptions = [],
+  onConstraintChange,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+}: ConstraintBlockComponentProps) {
+  const { variableName, constraint, result } = block
+
+  const constraintType = constraint.type
+  const minValue = constraint.min ?? 0
+  const maxValue = constraint.max ?? 0
+  const operatorLabel =
+    constraintType === "gte"
+      ? ">="
+      : constraintType === "gt"
+        ? ">"
+        : constraintType === "lte"
+          ? "<="
+          : constraintType === "lt"
+            ? "<"
+            : "range"
+
+  return (
+    <BlockWrapper
+      block={block}
+      isSelected={isSelected}
+      isDragging={isDragging}
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
+    >
+      <div className="p-4">
+        <div className="absolute -top-3 left-3 flex items-center gap-2 rounded bg-card px-2 text-xs text-muted-foreground">
+          <span className="font-mono">âš™</span>
+          <span>Constraint</span>
+          <span className="font-mono text-foreground">{operatorLabel}</span>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Var</Label>
+            <select
+              value={
+                variableOptions.includes(variableName)
+                  ? variableName
+                  : (variableOptions[0] ?? "")
+              }
+              onChange={(e) =>
+                onConstraintChange?.({
+                  variableName: e.target.value.trim() || "x",
+                })
+              }
+              disabled={variableOptions.length === 0}
+              className={cn(
+                "h-7 w-24 rounded border border-input bg-background px-2 font-mono text-xs",
+                variableOptions.length === 0 && "opacity-60"
+              )}
+            >
+              {variableOptions.length === 0 ? (
+                <option value="">Connect equation</option>
+              ) : (
+                variableOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))
+              )}
+            </select>
+            <div className="ml-auto flex items-center gap-2">
+              {constraintType !== "range" ? (
+                <>
+                  <Label className="text-xs text-muted-foreground">Value</Label>
+                  <Input
+                    type="number"
+                    value={Number.isFinite(minValue) ? minValue : 0}
+                    onChange={(e) => {
+                      const nextMin = Number(e.target.value)
+                      onConstraintChange?.({
+                        constraint: {
+                          ...constraint,
+                          min: Number.isFinite(nextMin) ? nextMin : 0,
+                        },
+                      })
+                    }}
+                    className="h-7 w-24 text-right font-mono"
+                  />
+                </>
+              ) : (
+                <>
+                  <Label className="text-xs text-muted-foreground">Min</Label>
+                  <Input
+                    type="number"
+                    value={Number.isFinite(minValue) ? minValue : 0}
+                    onChange={(e) => {
+                      const nextMin = Number(e.target.value)
+                      onConstraintChange?.({
+                        constraint: {
+                          ...constraint,
+                          min: Number.isFinite(nextMin) ? nextMin : 0,
+                        },
+                      })
+                    }}
+                    className="h-7 w-20 text-right font-mono"
+                  />
+                  <Label className="text-xs text-muted-foreground">Max</Label>
+                  <Input
+                    type="number"
+                    value={Number.isFinite(maxValue) ? maxValue : 0}
+                    onChange={(e) => {
+                      const nextMax = Number(e.target.value)
+                      onConstraintChange?.({
+                        constraint: {
+                          ...constraint,
+                          max: Number.isFinite(nextMax) ? nextMax : 0,
+                        },
+                      })
+                    }}
+                    className="h-7 w-20 text-right font-mono"
+                  />
+                </>
+              )}
+            </div>
+          </div>
+
+          {result !== undefined && (
+            <div
+              className={cn(
+                "rounded px-3 py-1 font-mono text-sm",
+                result
+                  ? "bg-green-500/10 text-green-600"
+                  : "bg-red-500/10 text-red-600"
+              )}
+            >
+              {result ? "true" : "false"}
+            </div>
+          )}
+        </div>
+      </div>
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+      />
+    </BlockWrapper>
+  )
+}
+
+// ============================================================================
 // SHAPE BLOCK
 // ============================================================================
 
@@ -1161,6 +1847,8 @@ interface ShapeBlockComponentProps {
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
   onFillValueChange?: (value: number) => void
   onFillColorChange?: (color: string) => void
   onFillModeChange?: (
@@ -1184,6 +1872,8 @@ export function ShapeBlockComponent({
   onClick,
   onMouseDown,
   onDimensionsChange,
+  className,
+  style,
   onFillValueChange,
   onFillColorChange,
   onFillModeChange,
@@ -1281,6 +1971,8 @@ export function ShapeBlockComponent({
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">

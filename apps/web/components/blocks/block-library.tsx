@@ -116,12 +116,6 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           onToggle={() => setExpandedCategory(expandedCategory === 'charts' ? null : 'charts')}
         >
           <BlockItem
-            title="Small Canvas"
-            equation="384x288px"
-            onClick={() => handleBlockClick({ type: 'chart', data: { dimensions: { width: 12, height: 9 } } })}
-            onDragStart={(e) => handleDragStart(e, { type: 'chart', data: { dimensions: { width: 12, height: 9 } } })}
-          />
-          <BlockItem
             title="Medium Canvas"
             equation="512x384px"
             onClick={() => handleBlockClick({ type: 'chart', data: { dimensions: { width: 16, height: 12 } } })}

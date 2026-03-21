@@ -3,6 +3,12 @@
  *
  * Core types, grid utilities, and equation tokenizer for the pi-cast block system.
  * Based on 32x32 pixel grid units.
+ * 
+ * NODE TREE ARCHITECTURE:
+ * - Each node can have prev (input) and next (output) pointers
+ * - Data flows from source nodes through the chain
+ * - Chart nodes can traverse back through the chain to get all inputs
+ * - Supports branching (multiple next nodes from one node)
  */
 
 export const GRID_UNIT = 32 // Base grid unit in pixels
@@ -22,6 +28,69 @@ export type BlockType =
   | "variable"
   | "comparator"
   | "constraint"
+
+// ============================================================================
+// NODE TREE TYPES (New Chain-Based Architecture)
+// ============================================================================
+
+/**
+ * Data that flows between nodes in the chain
+ */
+export interface NodeData {
+  // Equation data
+  equation?: string
+  variables?: Variable[]
+  tokens?: EquationToken[]
+  equationType?: EquationType
+  evaluatedValue?: number
+  result?: number | boolean
+
+  // For limit approach values
+  limitValues?: LimitApproachValue[]
+
+  // For shape fill
+  fillValue?: number
+  fillPercentage?: number
+  isFilled?: boolean
+
+  // For logic/comparator results
+  booleanResult?: boolean
+
+  // Metadata
+  timestamp?: number
+}
+
+/**
+ * Limit approach value for showing near values
+ */
+export interface LimitApproachValue {
+  x: number
+  y: number
+  label: string
+}
+
+/**
+ * Node in the chain/tree structure
+ * Each node can have:
+ * - prev: the node that feeds data INTO this node (input)
+ * - next: array of nodes that receive data FROM this node (outputs)
+ */
+export interface NodeChain {
+  id: string
+  nodeId: string // References the block/node id
+  type: BlockType
+  
+  // Chain pointers
+  prev: string | null // ID of the previous NodeChain (input)
+  next: string[] // IDs of the next NodeChains (outputs) - can branch
+  
+  // Position in canvas
+  position: GridPosition
+  dimensions: BlockDimensions
+  
+  createdAt: number
+  updatedAt: number
+}
 
 export type EquationType =
   | "linear"
@@ -92,6 +161,8 @@ export interface BaseBlock {
   isLocked?: boolean
   createdAt: number
   updatedAt: number
+  // Node chain reference (for new tree-based architecture)
+  nodeChainId?: string
 }
 
 export interface EquationBlock extends BaseBlock {
@@ -100,6 +171,9 @@ export interface EquationBlock extends BaseBlock {
   tokens?: EquationToken[]
   variables?: Variable[]
   equationType?: EquationType
+  // Enable/disable (optional boolean input)
+  enabled?: boolean
+  enabledSourceId?: string
   // Connection tracking
   connectedChartIds?: string[]
   connectedControlIds?: string[]
@@ -170,7 +244,7 @@ export interface DescriptionBlock extends BaseBlock {
 
 export interface LimitBlock extends BaseBlock {
   type: "limit"
-  targetEquationId?: string
+  targetEquationId?: string | null
   variableName: string
   limitValue: number
   approach: LimitApproach
@@ -205,12 +279,12 @@ export interface ComparatorBlock extends BaseBlock {
   leftInput: string | null // Connected left operand block ID
   rightInput: string | null // Connected right operand block ID
   output: string | null // Connected output block ID
-  result?: boolean // Computed boolean result
+  result?: boolean | number // Computed boolean result or numeric value
 }
 
 export interface ConstraintBlock extends BaseBlock {
   type: "constraint"
-  targetEquationId?: string // Connected equation block ID
+  targetEquationId?: string | null // Connected equation block ID
   variableName: string // Variable to constrain (e.g., 'x')
   constraint: VariableConstraint // The constraint definition
   result?: boolean // Whether the constraint is satisfied
@@ -261,6 +335,10 @@ export interface BlockConnection {
     | "equation-to-equation"
     | "equation-to-limit"
     | "equation-to-variable"
+    | "equation-to-constraint"
+    | "variable-to-chart"
+    | "logic-to-equation"
+    | "comparator-to-equation"
     | "limit-to-chart"
     | "equation-to-shape"
     | "control-to-shape"
@@ -277,6 +355,9 @@ export interface BlockConnection {
     | "comparator-to-comparator"
     | "constraint-to-equation"
     | "constraint-to-chart"
+    | "constraint-to-constraint"
+    | "constraint-to-logic"
+    | "constraint-to-comparator"
   createdAt: number
 }
 
@@ -458,7 +539,7 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
     case "control":
       return { width: 6, height: 4 }
     case "description":
-      return { width: 10, height: 4 }
+      return { width: 10, height: 2 }
     case "limit":
       return { width: 8, height: 4 }
     case "shape":
@@ -683,6 +764,173 @@ export function parseEquation(equation: string): {
 }
 
 // ============================================================================
+// EQUATION FORMATTER
+// ============================================================================
+
+function isOpeningParen(token: EquationToken): boolean {
+  return token.type === "parenthesis" && (token.value === "(" || token.value === "[")
+}
+
+function isClosingParen(token: EquationToken): boolean {
+  return token.type === "parenthesis" && (token.value === ")" || token.value === "]")
+}
+
+function isOperandEnd(token: EquationToken): boolean {
+  return (
+    token.type === "number" ||
+    token.type === "variable" ||
+    token.type === "function" ||
+    isClosingParen(token)
+  )
+}
+
+function isOperandStart(token: EquationToken): boolean {
+  return (
+    token.type === "number" ||
+    token.type === "variable" ||
+    token.type === "function" ||
+    isOpeningParen(token)
+  )
+}
+
+function shouldInsertImplicitMultiply(prev: EquationToken, next: EquationToken): boolean {
+  // Avoid turning function calls into multiplication (e.g. sin(x))
+  if (prev.type === "function" && isOpeningParen(next)) return false
+  // Avoid turning "sinx" into "sin * x" (users likely meant sin(x))
+  if (prev.type === "function" && next.type === "variable") return false
+  return isOperandEnd(prev) && isOperandStart(next)
+}
+
+/**
+ * formatEquation
+ * - Removes unnecessary whitespace
+ * - Adds explicit multiplication for implicit terms (e.g. "mx" -> "m * x")
+ * - Normalizes spacing around operators
+ */
+export function formatEquation(equation: string): string {
+  const rawTokens = tokenizeEquation(equation).filter((t) => t.type !== "whitespace")
+  if (rawTokens.length === 0) return ""
+
+  // Split short implicit variable products like "mx" into "m" "x"
+  // (Tokenizer treats "mx" as a single variable token, but users often mean m*x.)
+  const functionNames = new Set([
+    "sin",
+    "cos",
+    "tan",
+    "log",
+    "ln",
+    "sqrt",
+    "abs",
+    "exp",
+    "floor",
+    "ceil",
+  ])
+  const expandedTokens: EquationToken[] = []
+  for (const token of rawTokens) {
+    if (
+      token.type === "variable" &&
+      /^[a-z]{2}$/.test(token.value) &&
+      !functionNames.has(token.value.toLowerCase())
+    ) {
+      expandedTokens.push(
+        {
+          ...token,
+          value: token.value[0] ?? token.value,
+          endIndex: token.startIndex + 1,
+        },
+        {
+          ...token,
+          value: token.value[1] ?? token.value,
+          startIndex: token.startIndex + 1,
+        }
+      )
+      continue
+    }
+    expandedTokens.push(token)
+  }
+
+  const tokens: EquationToken[] = []
+  for (const current of expandedTokens) {
+    const prev = tokens.length > 0 ? tokens[tokens.length - 1] : undefined
+    if (prev && shouldInsertImplicitMultiply(prev, current)) {
+      tokens.push({
+        value: "*",
+        type: "operator",
+        startIndex: current.startIndex,
+        endIndex: current.startIndex,
+      })
+    }
+    tokens.push(current)
+  }
+
+  let out = ""
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]
+    if (!token) continue
+    const prev = i > 0 ? tokens[i - 1] : undefined
+    const next = i < tokens.length - 1 ? tokens[i + 1] : undefined
+
+    if (token.type === "operator" || token.type === "equals") {
+      const op = token.value
+      if (op === "^") {
+        // No spaces around exponent operator
+        out = out.replace(/\s+$/g, "")
+        out += "^"
+        continue
+      }
+
+      // Unary minus: at start or after another operator/equals/opening paren
+      const isUnaryMinus =
+        op === "-" &&
+        (!prev ||
+          prev.type === "operator" ||
+          prev.type === "equals" ||
+          isOpeningParen(prev))
+      if (isUnaryMinus) {
+        out = out.replace(/\s+$/g, "")
+        out += "-"
+        continue
+      }
+
+      out = out.replace(/\s+$/g, "")
+      out += ` ${op} `
+      continue
+    }
+
+    if (isOpeningParen(token)) {
+      out = out.replace(/\s+$/g, "")
+      out += token.value
+      continue
+    }
+
+    if (isClosingParen(token)) {
+      out = out.replace(/\s+$/g, "")
+      out += token.value
+      continue
+    }
+
+    // For function names, add a space if it's not a call (handled above) and not at start
+    if (token.type === "function") {
+      const isCall = next ? isOpeningParen(next) : false
+      if (!isCall && out.length > 0 && !out.endsWith(" ")) out += " "
+      out += token.value
+      continue
+    }
+
+    // Default: just append value, ensuring single space separation when needed
+    if (out.length > 0 && !out.endsWith(" ")) {
+      // Add a space between two plain identifiers/numbers only if we didn't insert '*' (rare case)
+      if (prev && (prev.type === "variable" || prev.type === "number") && (token.type === "variable" || token.type === "number")) {
+        out += " "
+      }
+    }
+    out += token.value
+  }
+
+  return out.replace(/\s+/g, " ").trim()
+}
+
+// ============================================================================
 // CONNECTION UTILITIES
 // ============================================================================
 
@@ -692,6 +940,12 @@ export function getConnectionType(
 ): BlockConnection["type"] | null {
   if (sourceBlockType === "equation" && targetBlockType === "chart")
     return "equation-to-chart"
+  if (sourceBlockType === "variable" && targetBlockType === "chart")
+    return "variable-to-chart"
+  if (sourceBlockType === "logic" && targetBlockType === "equation")
+    return "logic-to-equation"
+  if (sourceBlockType === "comparator" && targetBlockType === "equation")
+    return "comparator-to-equation"
   if (sourceBlockType === "equation" && targetBlockType === "control")
     return "equation-to-control"
   if (sourceBlockType === "equation" && targetBlockType === "equation")
@@ -700,6 +954,8 @@ export function getConnectionType(
     return "equation-to-limit"
   if (sourceBlockType === "equation" && targetBlockType === "variable")
     return "equation-to-variable"
+  if (sourceBlockType === "equation" && targetBlockType === "constraint")
+    return "equation-to-constraint"
   if (sourceBlockType === "equation" && targetBlockType === "shape")
     return "equation-to-shape"
   if (sourceBlockType === "equation" && targetBlockType === "logic")
@@ -732,6 +988,12 @@ export function getConnectionType(
     return "constraint-to-equation"
   if (sourceBlockType === "constraint" && targetBlockType === "chart")
     return "constraint-to-chart"
+  if (sourceBlockType === "constraint" && targetBlockType === "constraint")
+    return "constraint-to-constraint"
+  if (sourceBlockType === "constraint" && targetBlockType === "logic")
+    return "constraint-to-logic"
+  if (sourceBlockType === "constraint" && targetBlockType === "comparator")
+    return "constraint-to-comparator"
   return null
 }
 
@@ -741,4 +1003,339 @@ export function isValidConnection(
 ): boolean {
   const connectionType = getConnectionType(sourceBlock.type, targetBlock.type)
   return connectionType !== null
+}
+
+// ============================================================================
+// NODE CHAIN UTILITIES (New Tree-Based Architecture)
+// ============================================================================
+
+/**
+ * Create a new node chain
+ */
+export function createNodeChain(
+  nodeId: string,
+  type: BlockType,
+  position: GridPosition,
+  dimensions: BlockDimensions = { width: 4, height: 2 }
+): NodeChain {
+  const now = Date.now()
+  return {
+    id: `chain-${now}-${Math.random().toString(36).substr(2, 9)}`,
+    nodeId,
+    type,
+    prev: null,
+    next: [],
+    position,
+    dimensions,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+/**
+ * Connect two node chains (source -> target)
+ * source.next.push(target) and target.prev = source
+ */
+export function connectNodeChains(
+  sourceChain: NodeChain,
+  targetChain: NodeChain,
+  allChains: Map<string, NodeChain>
+): void {
+  // Add target to source's next array (if not already connected)
+  if (!sourceChain.next.includes(targetChain.id)) {
+    sourceChain.next.push(targetChain.id)
+    sourceChain.updatedAt = Date.now()
+  }
+
+  // Set target's prev to source (if not already set)
+  if (targetChain.prev !== sourceChain.id) {
+    targetChain.prev = sourceChain.id
+    targetChain.updatedAt = Date.now()
+  }
+
+  // Update the chains in the map
+  allChains.set(sourceChain.id, sourceChain)
+  allChains.set(targetChain.id, targetChain)
+}
+
+/**
+ * Disconnect two node chains
+ */
+export function disconnectNodeChains(
+  sourceChain: NodeChain,
+  targetChain: NodeChain,
+  allChains: Map<string, NodeChain>
+): void {
+  // Remove target from source's next array
+  sourceChain.next = sourceChain.next.filter((id) => id !== targetChain.id)
+  sourceChain.updatedAt = Date.now()
+
+  // Clear target's prev if it points to source
+  if (targetChain.prev === sourceChain.id) {
+    targetChain.prev = null
+    targetChain.updatedAt = Date.now()
+  }
+
+  allChains.set(sourceChain.id, sourceChain)
+  allChains.set(targetChain.id, targetChain)
+}
+
+/**
+ * Traverse a node chain backwards (from any node to all source nodes)
+ * Returns an array of node chain IDs in order from source to current
+ */
+export function traverseChainBackwards(
+  chainId: string,
+  allChains: Map<string, NodeChain>,
+  visited: Set<string> = new Set()
+): string[] {
+  if (visited.has(chainId)) return []
+  visited.add(chainId)
+
+  const chain = allChains.get(chainId)
+  if (!chain) return []
+
+  const result: string[] = [chainId]
+
+  // Recursively traverse backwards
+  if (chain.prev) {
+    const prevChain = traverseChainBackwards(chain.prev, allChains, visited)
+    result.unshift(...prevChain)
+  }
+
+  return result
+}
+
+/**
+ * Traverse a node chain forwards (from any node to all end nodes)
+ * Returns an array of node chain IDs in order from current to ends
+ */
+export function traverseChainForwards(
+  chainId: string,
+  allChains: Map<string, NodeChain>,
+  visited: Set<string> = new Set()
+): string[] {
+  if (visited.has(chainId)) return []
+  visited.add(chainId)
+
+  const chain = allChains.get(chainId)
+  if (!chain) return []
+
+  const result: string[] = [chainId]
+
+  // Recursively traverse forwards through all next nodes
+  for (const nextId of chain.next) {
+    const nextChains = traverseChainForwards(nextId, allChains, visited)
+    result.push(...nextChains)
+  }
+
+  return result
+}
+
+/**
+ * Get all blocks in a chain by traversing backwards from a chart or end node
+ * Returns blocks in order from source to target
+ */
+export function getBlocksInChain(
+  endChainId: string,
+  allChains: Map<string, NodeChain>,
+  blocks: Block[]
+): Block[] {
+  const chainIds = traverseChainBackwards(endChainId, allChains)
+  const result: Block[] = []
+
+  for (const chainId of chainIds) {
+    const chain = allChains.get(chainId)
+    if (chain) {
+      const block = blocks.find((b) => b.id === chain.nodeId)
+      if (block && !result.find((b) => b.id === block.id)) {
+        result.push(block)
+      }
+    }
+  }
+
+  return result
+}
+
+/**
+ * Find the source nodes (nodes with no prev) in a chain
+ */
+export function findSourceNodes(
+  chainId: string,
+  allChains: Map<string, NodeChain>
+): string[] {
+  const chain = allChains.get(chainId)
+  if (!chain) return []
+
+  if (!chain.prev) {
+    return [chainId]
+  }
+
+  return findSourceNodes(chain.prev, allChains)
+}
+
+/**
+ * Evaluate data flow through a node chain
+ * Collects data from all nodes in the chain from source to target
+ */
+export function evaluateNodeChain(
+  chainId: string,
+  allChains: Map<string, NodeChain>,
+  blocks: Block[]
+): NodeData {
+  const chain = allChains.get(chainId)
+  if (!chain) return {}
+
+  const block = blocks.find((b) => b.id === chain.nodeId)
+  if (!block) return {}
+
+  // Start with empty data
+  const result: NodeData = {
+    timestamp: Date.now(),
+  }
+
+  // Collect data from this node
+  switch (block.type) {
+    case "equation": {
+      const eqBlock = block as EquationBlock
+      result.equation = eqBlock.equation
+      result.variables = eqBlock.variables
+      result.tokens = eqBlock.tokens
+      result.equationType = eqBlock.equationType
+      break
+    }
+    case "control": {
+      const ctrlBlock = block as ControlBlock
+      result.variables = ctrlBlock.variables.map((v) => ({
+        name: v.name,
+        value: v.value,
+        defaultValue: v.value,
+        min: v.min,
+        max: v.max,
+        step: v.step,
+      }))
+      break
+    }
+    case "limit": {
+      const limitBlock = block as LimitBlock
+      // Limit data is evaluated based on the previous node's equation
+      result.limitValues = []
+      break
+    }
+    case "shape": {
+      const shapeBlock = block as ShapeBlock
+      result.fillValue = shapeBlock.fillValue
+      result.fillPercentage =
+        shapeBlock.fillMode === "percentage"
+          ? shapeBlock.fillValue
+          : shapeBlock.fillMode === "fraction"
+            ? shapeBlock.fillValue * 100
+            : shapeBlock.fillMode === "decimal"
+              ? shapeBlock.fillValue * 100
+              : 0
+      result.isFilled = result.fillPercentage === 100
+      break
+    }
+    case "logic": {
+      const logicBlock = block as LogicBlock
+      result.booleanResult = logicBlock.result as boolean
+      break
+    }
+    case "comparator": {
+      const compBlock = block as ComparatorBlock
+      result.booleanResult = compBlock.result as boolean
+      break
+    }
+  }
+
+  // Recursively collect data from previous nodes
+  if (chain.prev) {
+    const prevData = evaluateNodeChain(chain.prev, allChains, blocks)
+    // Merge previous data (current node data takes precedence)
+    Object.assign(result, prevData, result)
+  }
+
+  return result
+}
+
+/**
+ * Generate limit approach values for visualization
+ * Shows values approaching the limit from left, right, or both sides
+ */
+export function generateLimitApproachValues(
+  equation: string,
+  variables: Variable[],
+  variableName: string,
+  limitValue: number,
+  approach: LimitApproach,
+  steps: number = 5
+): LimitApproachValue[] {
+  const values: LimitApproachValue[] = []
+  const stepSize = 0.1 // Distance between each approach value
+
+  // Create a variable map for evaluation
+  const varMap: Record<string, number> = {}
+  variables.forEach((v) => {
+    varMap[v.name] = v.value
+  })
+
+  // Generate approach values
+  const generateSide = (direction: "left" | "right") => {
+    for (let i = steps; i >= 1; i--) {
+      const x =
+        direction === "left"
+          ? limitValue - i * stepSize
+          : limitValue + i * stepSize
+
+      // Evaluate the equation at this x value
+      // (simplified - in production you'd use the full evaluation engine)
+      varMap[variableName] = x
+      const y = evaluateEquationAtX(equation, varMap)
+
+      values.push({
+        x,
+        y,
+        label: `${variableName} → ${x.toFixed(2)}`,
+      })
+    }
+  }
+
+  if (approach === "left" || approach === "both") {
+    generateSide("left")
+  }
+
+  if (approach === "right" || approach === "both") {
+    generateSide("right")
+  }
+
+  return values
+}
+
+/**
+ * Simplified equation evaluation at a specific x value
+ */
+function evaluateEquationAtX(
+  equation: string,
+  variables: Record<string, number>
+): number {
+  try {
+    // Extract RHS of equation
+    let expr = equation.replace(/\s/g, "")
+    const equalsIndex = expr.indexOf("=")
+    if (equalsIndex !== -1) {
+      expr = expr.substring(equalsIndex + 1)
+    }
+
+    // Replace variables with values
+    for (const [name, value] of Object.entries(variables)) {
+      const regex = new RegExp(`\\b${name}\\b`, "g")
+      expr = expr.replace(regex, value.toString())
+    }
+
+    // Handle basic math (simplified - production would use full parser)
+    // eslint-disable-next-line no-new-func
+    return Function(`"use strict"; return (${expr})`)()
+  } catch {
+    return NaN
+  }
 }

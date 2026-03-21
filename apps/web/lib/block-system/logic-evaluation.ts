@@ -173,7 +173,7 @@ export function evaluateConstraint(
   if (!equationBlock) return true; // No equation connected, constraint is satisfied by default
 
   // Get the variable value from the equation
-  const variable = equationBlock.variables?.find((v) => v.name === variableName);
+  const variable = (equationBlock as EquationBlock).variables?.find((v: import('@/lib/block-system/types').Variable) => v.name === variableName);
   const value = variable?.value ?? 0;
 
   switch (constraint.type) {
@@ -233,10 +233,10 @@ export function updateLogicBlockResults(
     if (!logicResult) return block;
 
     if (isLogicBlock(block)) {
-      return { ...block, result: logicResult.result, updatedAt: now };
+      return { ...block, result: logicResult.result as boolean, updatedAt: now } as Block;
     }
     if (isComparatorBlock(block)) {
-      return { ...block, result: logicResult.result, updatedAt: now };
+      return { ...block, result: logicResult.result as boolean, updatedAt: now } as Block;
     }
     return block;
   });

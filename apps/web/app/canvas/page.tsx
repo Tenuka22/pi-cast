@@ -1,31 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
 import { BlockLibrary } from '@/components/blocks/block-library';
 import type { BlockPreset } from '@/components/blocks/block-library';
-import type { Block } from '@/lib/block-system/types';
+import type { Block, NodeChain, GridPosition } from '@/lib/block-system/types';
 import {
-  type GridPosition,
   findNearestValidPosition,
   parseEquation,
+  createNodeChain,
 } from '@/lib/block-system/types';
 
 /**
- * Canvas Page - Main workspace for block-based math visualization.
+ * Canvas Page - Main workspace for node tree-based math visualization.
+ * 
+ * NODE TREE ARCHITECTURE:
+ * - Each block has a nodeChainId that links it to a chain structure
+ * - Chains have prev (input) and next (output) pointers
+ * - Data flows from source nodes through the chain
+ * - Charts can traverse back through the chain to get all inputs
+ * 
  * Features:
- * - Double-click equations to edit constants
- * - Hover sliders for constants (default step: 10)
- * - Logic gates (AND, OR, XOR, EQ) for connections
- * - Editable descriptions
- * - Chart visualization from connected equations
- * - Shape connections and value adjustments
- *
- * Note: Block dimensions are now auto-calculated based on content.
- * The CanvasNode system handles rendering with minimal styling (p-1).
+ * - Chain-based connections (add to beginning or end of chain)
+ * - Visual chain indicators showing data flow
+ * - Easy tracking of data through the pipeline
+ * - Support for branching (one node -> multiple outputs)
+ * 
+ * Example chains:
+ * 1. Equation -> Variable Slider -> Limiter -> Chart
+ * 2. Equation (x=2) -> Equation (y=3) -> Equation (y=x) -> Chart -> Shape
+ * 3. Limiter (x approaching 10) -> Chart (shows all near values)
  */
 export default function CanvasPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [nodeChains, setNodeChains] = useState<Map<string, NodeChain>>(new Map());
 
   const createBlockFromPreset = (preset: BlockPreset, position: GridPosition): Block => {
     const baseBlock = {
@@ -128,8 +136,6 @@ export default function CanvasPage() {
             min: constraintType === 'range' ? constraintValue : constraintValue,
             max: constraintType === 'range' ? 100 : undefined,
           },
-          targetEquationId: null,
-          output: null,
         };
       }
       case 'variable': {
@@ -144,10 +150,66 @@ export default function CanvasPage() {
     }
   };
 
+  /**
+   * Create a new node chain for a block
+   */
+  const createNodeChainForBlock = useCallback((block: Block): NodeChain => {
+    const chain = createNodeChain(
+      block.id,
+      block.type,
+      block.position,
+      block.dimensions
+    );
+    setNodeChains((prev) => new Map(prev).set(chain.id, chain));
+    return chain;
+  }, []);
+
+  /**
+   * Connect two blocks in a chain (source -> target)
+   * This creates a directional data flow from source to target
+   */
+  const connectBlocks = useCallback((sourceBlockId: string, targetBlockId: string) => {
+    setNodeChains((prevChains) => {
+      const newChains = new Map(prevChains);
+      const sourceChain = Array.from(newChains.values()).find((c) => c.nodeId === sourceBlockId);
+      const targetChain = Array.from(newChains.values()).find((c) => c.nodeId === targetBlockId);
+
+      if (sourceChain && targetChain) {
+        const { connectNodeChains } = require('@/lib/block-system/types') as typeof import('@/lib/block-system/types');
+        connectNodeChains(sourceChain, targetChain, newChains);
+      }
+
+      return newChains;
+    });
+  }, []);
+
+  /**
+   * Disconnect two blocks in a chain
+   */
+  const disconnectBlocks = useCallback((sourceBlockId: string, targetBlockId: string) => {
+    setNodeChains((prevChains) => {
+      const newChains = new Map(prevChains);
+      const sourceChain = Array.from(newChains.values()).find((c) => c.nodeId === sourceBlockId);
+      const targetChain = Array.from(newChains.values()).find((c) => c.nodeId === targetBlockId);
+
+      if (sourceChain && targetChain) {
+        const { disconnectNodeChains } = require('@/lib/block-system/types') as typeof import('@/lib/block-system/types');
+        disconnectNodeChains(sourceChain, targetChain, newChains);
+      }
+
+      return newChains;
+    });
+  }, []);
+
   const handleBlockDrop = (preset: BlockPreset, position: GridPosition) => {
     const newBlock = createBlockFromPreset(preset, position);
     const validPosition = findNearestValidPosition(position, { width: 4, height: 2 }, blocks);
     const blockWithPosition = { ...newBlock, position: validPosition };
+    
+    // Create a node chain for the new block
+    const chain = createNodeChain(blockWithPosition.id, blockWithPosition.type, validPosition, blockWithPosition.dimensions);
+    setNodeChains((prev) => new Map(prev).set(chain.id, chain));
+    
     setBlocks((prev) => [...prev, blockWithPosition]);
   };
 
@@ -156,6 +218,11 @@ export default function CanvasPage() {
     const newBlock = createBlockFromPreset(preset, centerPosition);
     const validPosition = findNearestValidPosition(centerPosition, { width: 4, height: 2 }, blocks);
     const blockWithPosition = { ...newBlock, position: validPosition };
+    
+    // Create a node chain for the new block
+    const chain = createNodeChain(blockWithPosition.id, blockWithPosition.type, validPosition, blockWithPosition.dimensions);
+    setNodeChains((prev) => new Map(prev).set(chain.id, chain));
+    
     setBlocks((prev) => [...prev, blockWithPosition]);
   };
 
@@ -167,7 +234,15 @@ export default function CanvasPage() {
     <div className="flex h-screen w-full">
       <BlockLibrary onBlockSelect={handleBlockSelect} />
       <div className="flex-1">
-        <GridCanvas blocks={blocks} onBlocksChange={handleBlocksChange} onBlockDrop={handleBlockDrop} />
+        <GridCanvas
+          blocks={blocks}
+          nodeChains={nodeChains}
+          onBlocksChange={handleBlocksChange}
+          onNodeChainsChange={setNodeChains}
+          onBlockDrop={handleBlockDrop}
+          onConnectBlocks={connectBlocks}
+          onDisconnectBlocks={disconnectBlocks}
+        />
       </div>
     </div>
   );
