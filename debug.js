@@ -1,1 +1,0 @@
-const fs=require('fs');const path='apps/web/components/blocks/block-components.tsx';const text=fs.readFileSync(path,'utf8');const idx=text.indexOf('export function DescriptionBlockComponent');const excerpt=text.slice(idx, idx+2000);console.log(excerpt.replace(/\r/g,'\\r'));

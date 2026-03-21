@@ -125,12 +125,12 @@ export function ConnectionHandles({
   // Default handles based on block type
   const defaultHandles: Array<{ id: string; type: ConnectionHandleType; label?: string }> = handles || (() => {
     const result: Array<{ id: string; type: ConnectionHandleType; label?: string }> = [];
-    
+
     // All blocks that can receive connections get input handles
-    if (['chart', 'control', 'limit', 'variable', 'logic', 'comparator', 'constraint', 'shape'].includes(blockType)) {
+    if (['chart', 'control', 'limit', 'variable', 'logic', 'comparator', 'constraint', 'shape', 'table'].includes(blockType)) {
       result.push({ id: `${blockId}-input`, type: 'input' });
     }
-    
+
     // All blocks that can send connections get output handles
     if (['equation', 'limit', 'variable', 'logic', 'comparator', 'constraint', 'control'].includes(blockType)) {
       result.push({ id: `${blockId}-output`, type: 'output' });
@@ -141,12 +141,12 @@ export function ConnectionHandles({
 
   // Check if this block is a valid target for the current connection
   const isValidTarget = isConnecting && connectingFromType && (
-    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit', 'variable', 'constraint'].includes(blockType)) ||
+    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit', 'variable', 'constraint', 'table'].includes(blockType)) ||
     (connectingFromType === 'variable' && ['chart'].includes(blockType)) ||
-    (connectingFromType === 'limit' && blockType === 'chart') ||
+    (connectingFromType === 'limit' && ['chart', 'table'].includes(blockType)) ||
     (connectingFromType === 'logic' && ['logic', 'chart', 'shape', 'comparator', 'equation'].includes(blockType)) ||
     (connectingFromType === 'comparator' && ['logic', 'chart', 'shape', 'comparator', 'equation'].includes(blockType)) ||
-    (connectingFromType === 'constraint' && ['equation', 'chart', 'logic', 'comparator', 'constraint'].includes(blockType)) ||
+    (connectingFromType === 'constraint' && ['equation', 'chart', 'logic', 'comparator', 'constraint', 'table'].includes(blockType)) ||
     (connectingFromType === 'control' && ['shape', 'limit', 'comparator'].includes(blockType))
   );
 

@@ -28,6 +28,7 @@ export type BlockType =
   | "variable"
   | "comparator"
   | "constraint"
+  | "table"
 
 // ============================================================================
 // NODE TREE TYPES (New Chain-Based Architecture)
@@ -206,6 +207,7 @@ export interface ChartConfig {
 export interface ChartBlock extends BaseBlock {
   type: "chart"
   sourceEquationIds?: string[]
+  sourceLimitIds?: string[]
   equations: string[]
   chartConfig?: ChartConfig
 }
@@ -290,6 +292,32 @@ export interface ConstraintBlock extends BaseBlock {
   result?: boolean // Whether the constraint is satisfied
 }
 
+export interface TableRow {
+  id: string
+  values: Record<string, number | string>
+}
+
+export interface TableColumn {
+  id: string
+  label: string
+  type: "variable" | "equation" | "result" | "custom"
+  equation?: string // For computed columns
+  variableName?: string // For variable columns
+}
+
+export interface TableBlock extends BaseBlock {
+  type: "table"
+  sourceEquationId?: string | null // Connected equation block for y = f(x) calculations
+  sourceLimitId?: string | null // Connected limit block for limit approach values
+  sourceConstraintIds?: string[] // Connected constraint blocks for filtering values
+  columns: TableColumn[]
+  rows: TableRow[]
+  autoGenerateRows?: boolean // Auto-generate rows based on limit approach
+  variableName?: string // Primary variable for row generation (e.g., 'x')
+  showGrid?: boolean
+  highlightLastRow?: boolean
+}
+
 export interface VariableBlock extends BaseBlock {
   type: "variable"
   sourceEquationId?: string // Connected equation block
@@ -308,6 +336,7 @@ export type Block =
   | VariableBlock
   | ComparatorBlock
   | ConstraintBlock
+  | TableBlock
 
 // ============================================================================
 // CONNECTION TYPES
@@ -336,13 +365,18 @@ export interface BlockConnection {
     | "equation-to-limit"
     | "equation-to-variable"
     | "equation-to-constraint"
+    | "equation-to-shape"
+    | "equation-to-logic"
+    | "equation-to-comparator"
+    | "equation-to-table"
     | "variable-to-chart"
     | "logic-to-equation"
     | "comparator-to-equation"
     | "limit-to-chart"
-    | "equation-to-shape"
+    | "limit-to-table"
     | "control-to-shape"
     | "control-to-limit"
+    | "control-to-comparator"
     | "equation-to-logic"
     | "logic-to-logic"
     | "logic-to-chart"
@@ -358,6 +392,7 @@ export interface BlockConnection {
     | "constraint-to-constraint"
     | "constraint-to-logic"
     | "constraint-to-comparator"
+    | "constraint-to-table"
   createdAt: number
 }
 
@@ -552,6 +587,8 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
       return { width: 6, height: 4 }
     case "constraint":
       return { width: 6, height: 5 }
+    case "table":
+      return { width: 20, height: 12 }
     default:
       return { width: 4, height: 2 }
   }
@@ -962,6 +999,8 @@ export function getConnectionType(
     return "equation-to-logic"
   if (sourceBlockType === "equation" && targetBlockType === "comparator")
     return "equation-to-comparator"
+  if (sourceBlockType === "equation" && targetBlockType === "table")
+    return "equation-to-table"
   if (sourceBlockType === "control" && targetBlockType === "shape")
     return "control-to-shape"
   if (sourceBlockType === "control" && targetBlockType === "limit")
@@ -970,6 +1009,8 @@ export function getConnectionType(
     return "control-to-comparator"
   if (sourceBlockType === "limit" && targetBlockType === "chart")
     return "limit-to-chart"
+  if (sourceBlockType === "limit" && targetBlockType === "table")
+    return "limit-to-table"
   if (sourceBlockType === "logic" && targetBlockType === "logic")
     return "logic-to-logic"
   if (sourceBlockType === "logic" && targetBlockType === "chart")
@@ -994,6 +1035,8 @@ export function getConnectionType(
     return "constraint-to-logic"
   if (sourceBlockType === "constraint" && targetBlockType === "comparator")
     return "constraint-to-comparator"
+  if (sourceBlockType === "constraint" && targetBlockType === "table")
+    return "constraint-to-table"
   return null
 }
 

@@ -147,6 +147,24 @@ export default function CanvasPage() {
           variables: [],
         };
       }
+      case 'table': {
+        const autoGenerateRows = preset.data.autoGenerateRows ?? true;
+        const variableName = preset.data.variableName ?? 'x';
+        const showGrid = preset.data.showGrid ?? true;
+        const highlightLastRow = preset.data.highlightLastRow ?? true;
+        return {
+          ...baseBlock,
+          type: 'table',
+          sourceEquationId: null,
+          sourceLimitId: null,
+          columns: [],
+          rows: [],
+          autoGenerateRows,
+          variableName,
+          showGrid,
+          highlightLastRow,
+        };
+      }
     }
   };
 

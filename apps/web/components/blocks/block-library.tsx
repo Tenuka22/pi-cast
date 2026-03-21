@@ -14,7 +14,7 @@ import {
   SquareIcon,
   PuzzleIcon,
 } from '@hugeicons/core-free-icons';
-import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock, VariableBlock } from '@/lib/block-system/types';
+import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock, VariableBlock, TableBlock } from '@/lib/block-system/types';
 
 export type LogicType = 'and' | 'or' | 'xor' | 'eq' | 'le' | 'ge' | 'gt' | 'lt';
 
@@ -29,7 +29,8 @@ export type BlockPreset =
   | { type: 'logic'; data: { logicType: LogicType } }
   | { type: 'comparator'; data: { operator: LogicType } }
   | { type: 'constraint'; data: { variableName: string; constraintType: ConstraintPresetType; constraintValue?: number } }
-  | { type: 'variable'; data: Partial<VariableBlock> };
+  | { type: 'variable'; data: Partial<VariableBlock> }
+  | { type: 'table'; data: Partial<TableBlock> };
 
 interface BlockLibraryProps {
   onBlockSelect?: (preset: BlockPreset) => void;
@@ -162,6 +163,20 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           <BlockItem title="Circle" equation="Fraction" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'circle', fillValue: 50, fillMode: 'fraction' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'circle', fillValue: 50, fillMode: 'fraction' } })} />
           <BlockItem title="Rectangle" equation="Decimal" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'rectangle', fillValue: 25, fillMode: 'decimal' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'rectangle', fillValue: 25, fillMode: 'decimal' } })} />
           <BlockItem title="Empty Square" equation="0% filled" onClick={() => handleBlockClick({ type: 'shape', data: { shapeType: 'square', fillValue: 0, fillMode: 'percentage' } })} onDragStart={(e) => handleDragStart(e, { type: 'shape', data: { shapeType: 'square', fillValue: 0, fillMode: 'percentage' } })} />
+        </CategorySection>
+
+        <CategorySection
+          title="Tables"
+          icon={ChartIcon}
+          isExpanded={expandedCategory === 'tables'}
+          onToggle={() => setExpandedCategory(expandedCategory === 'tables' ? null : 'tables')}
+        >
+          <BlockItem 
+            title="Dynamic Table" 
+            equation="y = mx + c support" 
+            onClick={() => handleBlockClick({ type: 'table', data: { autoGenerateRows: true, variableName: 'x', showGrid: true, highlightLastRow: true } })}
+            onDragStart={(e) => handleDragStart(e, { type: 'table', data: { autoGenerateRows: true, variableName: 'x', showGrid: true, highlightLastRow: true } })}
+          />
         </CategorySection>
       </div>
       <div className="border-t border-border p-3 text-xs text-muted-foreground">

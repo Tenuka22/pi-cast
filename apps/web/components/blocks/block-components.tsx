@@ -315,6 +315,22 @@ export function EquationBlockComponent({
     ),
   ])
 
+  // Render equation with syntax-highlighted tokens
+  const renderEquation = () => {
+    if (!parsedTokens || parsedTokens.length === 0) {
+      return equation
+    }
+
+    return parsedTokens.map((token, index) => (
+      <span
+        key={`${token.startIndex}-${index}`}
+        className={getTokenClassName(token.type)}
+      >
+        {token.value}
+      </span>
+    ))
+  }
+
   return (
     <BlockWrapper
       block={block}
@@ -353,7 +369,7 @@ export function EquationBlockComponent({
                   Double-click to edit
                 </span>
               ) : (
-                <code className="font-mono">{equation}</code>
+                <code className="font-mono">{renderEquation()}</code>
               )}
             </div>
           )}
@@ -398,6 +414,7 @@ interface ChartBlockComponentProps {
   connectingFromType?: string
   connectedEquations?: EquationBlock[]
   constraints?: import("@/lib/block-system/types").ConstraintBlock[]
+  connectedLimits?: LimitBlock[]
 }
 
 const PLOT_COLORS = [
@@ -426,6 +443,7 @@ export function ChartBlockComponent({
   connectingFromType,
   connectedEquations = [],
   constraints = [],
+  connectedLimits = [],
 }: ChartBlockComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -796,6 +814,12 @@ export function ChartBlockComponent({
           <span className="text-xs text-muted-foreground">
             {connectedEquations.length || 0} equation
             {connectedEquations.length !== 1 ? "s" : ""} connected
+            {connectedLimits.length > 0 && (
+              <span className="ml-2">
+                • {connectedLimits.length} limit
+                {connectedLimits.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -838,6 +862,58 @@ export function ChartBlockComponent({
         {!hasEquations && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
             Connected equations will render here
+          </div>
+        )}
+        {/* Limit approach indicators */}
+        {connectedLimits.length > 0 && hasEquations && (
+          <div className="pointer-events-none absolute inset-0">
+            {connectedLimits.map((limit, index) => {
+              const x = limit.limitValue
+              const isLeftOrBoth = limit.approach === "left" || limit.approach === "both"
+              const isRightOrBoth = limit.approach === "right" || limit.approach === "both"
+              return (
+                <React.Fragment key={limit.id}>
+                  {/* Vertical dashed line at limit position */}
+                  <div
+                    className="absolute top-0 bottom-0 w-px bg-primary/50 border-l-2 border-dashed"
+                    style={{
+                      left: `${((x - (-10)) / (10 - (-10))) * 100}%`,
+                    }}
+                  />
+                  {/* Approach arrows */}
+                  {isLeftOrBoth && (
+                    <div
+                      className="absolute top-2 text-xs text-primary font-mono"
+                      style={{
+                        left: `${((x - 2 - (-10)) / (10 - (-10))) * 100}%`,
+                      }}
+                    >
+                      →
+                    </div>
+                  )}
+                  {isRightOrBoth && (
+                    <div
+                      className="absolute top-2 text-xs text-primary font-mono"
+                      style={{
+                        left: `${((x + 2 - (-10)) / (10 - (-10))) * 100}%`,
+                      }}
+                    >
+                      ←
+                    </div>
+                  )}
+                  {/* Limit value label */}
+                  <div
+                    className="absolute -top-1 px-1 py-0.5 text-xs bg-primary text-primary-foreground rounded"
+                    style={{
+                      left: `${((x - (-10)) / (10 - (-10))) * 100}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    {limit.variableName} → {limit.limitValue}
+                  </div>
+                </React.Fragment>
+              )
+            })}
           </div>
         )}
       </div>
@@ -1209,6 +1285,7 @@ interface LimitBlockComponentProps {
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
   isConnecting?: boolean
   connectingFromType?: string
+  connectedEquation?: EquationBlock | null
 }
 
 export function LimitBlockComponent({
@@ -1227,8 +1304,42 @@ export function LimitBlockComponent({
   onConnectionEnd,
   isConnecting,
   connectingFromType,
+  connectedEquation,
 }: LimitBlockComponentProps) {
-  const { variableName, limitValue, approach } = block
+  const { variableName, limitValue, approach, result } = block
+
+  // Calculate limit result from connected equation
+  const limitResult = useMemo(() => {
+    if (!connectedEquation?.equation) return null
+
+    const equation = connectedEquation.equation
+    const variables: Record<string, number> = {}
+    ;(connectedEquation.variables ?? []).forEach((v) => {
+      variables[v.name] = v.value
+    })
+
+    try {
+      // Evaluate equation at the limit value
+      let expr = equation.replace(/\s/g, "")
+      const equalsIndex = expr.indexOf("=")
+      if (equalsIndex !== -1) {
+        expr = expr.substring(equalsIndex + 1)
+      }
+
+      // Replace variable with limit value
+      variables[variableName] = limitValue
+      for (const [name, value] of Object.entries(variables)) {
+        const regex = new RegExp(`\\b${name}\\b`, "g")
+        expr = expr.replace(regex, value.toString())
+      }
+
+      // eslint-disable-next-line no-new-func
+      const y = Function(`"use strict"; return (${expr})`)() as number
+      return isFinite(y) ? y : NaN
+    } catch {
+      return null
+    }
+  }, [connectedEquation, variableName, limitValue])
 
   return (
     <BlockWrapper
@@ -1294,6 +1405,24 @@ export function LimitBlockComponent({
             ))}
           </div>
         </div>
+
+        {/* Limit Result Display */}
+        {connectedEquation && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-xs font-medium text-muted-foreground">
+              Limit Result
+            </div>
+            <div className="font-mono text-sm">
+              lim<sub>{variableName}→{limitValue}</sub> f({variableName}) ={" "}
+              <span className={isFinite(limitResult ?? NaN) ? "text-green-600" : "text-red-600"}>
+                {isFinite(limitResult ?? NaN) ? limitResult?.toFixed(4) : "undefined"}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Connect a table to see approach values
+            </div>
+          </div>
+        )}
       </div>
       <ConnectionHandles
         blockId={block.id}
@@ -1863,6 +1992,9 @@ interface ShapeBlockComponentProps {
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
   isConnecting?: boolean
   connectingFromType?: string
+  connectedEquation?: EquationBlock | null
+  connectedLogic?: import("@/lib/block-system/types").LogicBlock | null
+  connectedComparator?: import("@/lib/block-system/types").ComparatorBlock | null
 }
 
 export function ShapeBlockComponent({
@@ -1883,8 +2015,62 @@ export function ShapeBlockComponent({
   onConnectionEnd,
   isConnecting,
   connectingFromType,
+  connectedEquation,
+  connectedLogic,
+  connectedComparator,
 }: ShapeBlockComponentProps) {
   const { shapeType, fillColor, fillValue, fillMode, showGrid } = block
+
+  // Compute effective fill value from connections
+  const effectiveFillValue = useMemo(() => {
+    // Priority: Logic/Comparator boolean result > Equation numeric result > Manual fillValue
+    if (connectedLogic && typeof connectedLogic.result === "boolean") {
+      return connectedLogic.result ? 100 : 0
+    }
+    if (connectedComparator && typeof connectedComparator.result === "boolean") {
+      return connectedComparator.result ? 100 : 0
+    }
+    if (connectedEquation?.equation) {
+      try {
+        const equation = connectedEquation.equation
+        const variables: Record<string, number> = {}
+        ;(connectedEquation.variables ?? []).forEach((v) => {
+          variables[v.name] = v.value
+        })
+        
+        let expr = equation.replace(/\s/g, "")
+        const equalsIndex = expr.indexOf("=")
+        if (equalsIndex !== -1) {
+          expr = expr.substring(equalsIndex + 1)
+        }
+        
+        for (const [name, value] of Object.entries(variables)) {
+          const regex = new RegExp(`\\b${name}\\b`, "g")
+          expr = expr.replace(regex, value.toString())
+        }
+        
+        // eslint-disable-next-line no-new-func
+        const result = Function(`"use strict"; return (${expr})`)() as number
+        
+        if (isFinite(result)) {
+          // Normalize to 0-100 range based on fillMode
+          if (fillMode === "percentage") {
+            return Math.max(0, Math.min(100, result))
+          } else if (fillMode === "decimal") {
+            return Math.max(0, Math.min(1, result)) * 100
+          } else {
+            // fraction
+            return Math.max(0, Math.min(1, result)) * 100
+          }
+        }
+      } catch {
+        // Fall through to manual value
+      }
+    }
+    return fillValue
+  }, [connectedEquation, connectedLogic, connectedComparator, fillValue, fillMode])
+
+  const hasConnectedValue = !!(connectedEquation || connectedLogic || connectedComparator)
 
   const renderShape = () => {
     // Use block dimensions to calculate SVG size (accounting for padding and header)
@@ -1893,11 +2079,19 @@ export function ShapeBlockComponent({
       block.dimensions.height * GRID_UNIT - 120 // Account for header and controls
     )
     const center = svgSize / 2
+    
+    // Calculate fill percentage (0-100)
+    const fillPercent = fillMode === "percentage" 
+      ? effectiveFillValue 
+      : fillMode === "decimal" 
+        ? effectiveFillValue * 100 
+        : effectiveFillValue
 
     switch (shapeType) {
       case "circle":
         return (
           <svg width={svgSize} height={svgSize} className="mx-auto">
+            {/* Outer circle border */}
             <circle
               cx={center}
               cy={center}
@@ -1906,10 +2100,11 @@ export function ShapeBlockComponent({
               stroke={fillColor}
               strokeWidth="2"
             />
+            {/* Inner filled circle - radius scales with fill percentage */}
             <circle
               cx={center}
               cy={center}
-              r={(center - 10) * (fillValue / 100)}
+              r={((center - 10) * fillPercent) / 100}
               fill={fillColor}
               opacity="0.5"
             />
@@ -1918,6 +2113,7 @@ export function ShapeBlockComponent({
       case "rectangle":
         return (
           <svg width={svgSize} height={svgSize} className="mx-auto">
+            {/* Outer rectangle border */}
             <rect
               x="20"
               y="40"
@@ -1927,11 +2123,12 @@ export function ShapeBlockComponent({
               stroke={fillColor}
               strokeWidth="2"
             />
+            {/* Inner filled rectangle - height scales from bottom */}
             <rect
               x="20"
-              y="40"
+              y={40 + (svgSize - 80) * (1 - fillPercent / 100)}
               width={svgSize - 40}
-              height={(svgSize - 80) * (fillValue / 100)}
+              height={(svgSize - 80) * (fillPercent / 100)}
               fill={fillColor}
               opacity="0.5"
             />
@@ -1941,6 +2138,7 @@ export function ShapeBlockComponent({
       default:
         return (
           <svg width={svgSize} height={svgSize} className="mx-auto">
+            {/* Outer square border */}
             <rect
               x="10"
               y="10"
@@ -1950,10 +2148,11 @@ export function ShapeBlockComponent({
               stroke={fillColor}
               strokeWidth="2"
             />
+            {/* Inner filled square - width scales from left */}
             <rect
               x="10"
               y="10"
-              width={(svgSize - 20) * (fillValue / 100)}
+              width={((svgSize - 20) * fillPercent) / 100}
               height={svgSize - 20}
               fill={fillColor}
               opacity="0.5"
@@ -1985,31 +2184,50 @@ export function ShapeBlockComponent({
       <div className="flex-1 space-y-4 p-4">
         <div className="flex justify-center">{renderShape()}</div>
 
-        <div className="space-y-2">
-          <Label className="text-xs">Fill Value ({fillMode})</Label>
-          <input
-            type="range"
-            value={fillValue}
-            min={0}
-            max={
-              fillMode === "percentage" ? 100 : fillMode === "decimal" ? 1 : 1
-            }
-            step={fillMode === "percentage" ? 1 : 0.01}
-            onChange={(e) => onFillValueChange?.(parseFloat(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>0</span>
-            <span className="font-mono">{fillValue}</span>
-            <span>
-              {fillMode === "percentage"
-                ? 100
-                : fillMode === "decimal"
-                  ? 1
-                  : "1/1"}
-            </span>
+        {/* Connected Value Display or Manual Slider */}
+        {hasConnectedValue ? (
+          <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+            <Label className="text-xs">Connected Value</Label>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {connectedLogic
+                  ? `Logic: ${connectedLogic.result ? "true" : "false"}`
+                  : connectedComparator
+                    ? `Comparator: ${connectedComparator.result ? "true" : "false"}`
+                    : "Equation output"}
+              </span>
+              <span className="font-mono text-sm font-semibold">
+                {effectiveFillValue.toFixed(2)}%
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <Label className="text-xs">Fill Value ({fillMode})</Label>
+            <input
+              type="range"
+              value={fillValue}
+              min={0}
+              max={
+                fillMode === "percentage" ? 100 : fillMode === "decimal" ? 1 : 1
+              }
+              step={fillMode === "percentage" ? 1 : 0.01}
+              onChange={(e) => onFillValueChange?.(parseFloat(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span className="font-mono">{fillValue}</span>
+              <span>
+                {fillMode === "percentage"
+                  ? 100
+                  : fillMode === "decimal"
+                    ? 1
+                    : "1/1"}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label className="text-xs">Color</Label>
@@ -2065,3 +2283,484 @@ export function ShapeBlockComponent({
 }
 
 export default BlockWrapper
+
+// ============================================================================
+// TABLE BLOCK (Dynamic Table for Limits and Equations)
+// ============================================================================
+
+interface TableBlockComponentProps {
+  block: import("@/lib/block-system/types").TableBlock
+  isSelected?: boolean
+  isDragging?: boolean
+  onClick?: () => void
+  onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
+  className?: string
+  style?: React.CSSProperties
+  onConnectionStart?: (
+    handleId: string,
+    handleType: ConnectionHandleType
+  ) => void
+  onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
+  isConnecting?: boolean
+  connectingFromType?: string
+  connectedEquation?: EquationBlock | null
+  connectedLimit?: LimitBlock | null
+  connectedConstraints?: import("@/lib/block-system/types").ConstraintBlock[]
+  onColumnChange?: (columns: import("@/lib/block-system/types").TableColumn[]) => void
+  onRowChange?: (rows: import("@/lib/block-system/types").TableRow[]) => void
+  onSettingsChange?: (settings: {
+    autoGenerateRows?: boolean
+    variableName?: string
+    showGrid?: boolean
+    highlightLastRow?: boolean
+  }) => void
+}
+
+export function TableBlockComponent({
+  block,
+  isSelected,
+  isDragging = false,
+  onClick,
+  onMouseDown,
+  onDimensionsChange,
+  className,
+  style,
+  onConnectionStart,
+  onConnectionEnd,
+  isConnecting,
+  connectingFromType,
+  connectedEquation,
+  connectedLimit,
+  connectedConstraints = [],
+  onColumnChange,
+  onRowChange,
+  onSettingsChange,
+}: TableBlockComponentProps) {
+  const {
+    columns = [],
+    rows = [],
+    autoGenerateRows = true,
+    variableName = "x",
+    showGrid = true,
+    highlightLastRow = true,
+    sourceEquationId,
+    sourceConstraintIds,
+  } = block
+
+  // State for controlling how many rows to display
+  const [displayedRowCount, setDisplayedRowCount] = useState(11) // Default: show 11 rows
+
+  // Generate table data based on connected equation and limit
+  const tableData = useMemo(() => {
+    if (!connectedEquation?.equation) {
+      return { columns: [], rows: [] }
+    }
+
+    const equation = connectedEquation.equation
+    const variables: Record<string, number> = {}
+    ;(connectedEquation.variables ?? []).forEach((v) => {
+      variables[v.name] = v.value
+    })
+
+    // Default columns based on equation
+    const defaultColumns: import("@/lib/block-system/types").TableColumn[] = [
+      { id: "x", label: "x", type: "variable", variableName: "x" },
+      { id: "y", label: "y = f(x)", type: "result", equation },
+    ]
+
+    // Generate rows based on limit or default range
+    let generatedRows: import("@/lib/block-system/types").TableRow[] = []
+
+    if (connectedLimit && autoGenerateRows) {
+      // Generate limit approach values with more precision steps
+      const limitValue = connectedLimit.limitValue
+      const approach = connectedLimit.approach
+      const stepSizes = [0.001, 0.01, 0.05, 0.1, 0.5, 1] // Multiple step sizes for detailed approach
+      const stepsPerSize = 3 // How many values per step size
+
+      const generateSide = (direction: "left" | "right") => {
+        const sideRows: import("@/lib/block-system/types").TableRow[] = []
+        
+        for (const stepSize of stepSizes) {
+          for (let i = stepsPerSize; i >= 1; i--) {
+            const x =
+              direction === "left"
+                ? limitValue - i * stepSize
+                : limitValue + i * stepSize
+            variables[variableName] = x
+            const y = evaluateEquationAtX(equation, variables)
+            sideRows.push({
+              id: `row-${direction}-${stepSize}-${i}`,
+              values: { 
+                x: parseFloat(x.toFixed(6)), 
+                y: parseFloat(y.toFixed(6)),
+                step: stepSize,
+              },
+            })
+          }
+        }
+        
+        // Sort by distance from limit (closest last for each side)
+        if (direction === "left") {
+          sideRows.sort((a, b) => (a.values.x as number) - (b.values.x as number))
+        } else {
+          sideRows.sort((a, b) => (b.values.x as number) - (a.values.x as number))
+        }
+        
+        return sideRows
+      }
+
+      if (approach === "left" || approach === "both") {
+        generatedRows.push(...generateSide("left"))
+      }
+      
+      if (approach === "right" || approach === "both") {
+        generatedRows.push(...generateSide("right"))
+      }
+
+      // Add the limit point itself at the end
+      variables[variableName] = limitValue
+      const yAtLimit = evaluateEquationAtX(equation, variables)
+      generatedRows.push({
+        id: "row-limit",
+        values: {
+          x: parseFloat(limitValue.toFixed(6)),
+          y: parseFloat(yAtLimit.toFixed(6)),
+          step: 0,
+        },
+      })
+    } else {
+      // Default: generate a simple table from -5 to 5
+      for (let x = -5; x <= 5; x++) {
+        variables[variableName] = x
+        const y = evaluateEquationAtX(equation, variables)
+        generatedRows.push({
+          id: `row-${x}`,
+          values: { x, y: parseFloat(y.toFixed(4)) },
+        })
+      }
+    }
+
+    return {
+      columns: defaultColumns,
+      rows: generatedRows,
+    }
+  }, [connectedEquation, connectedLimit, autoGenerateRows, variableName])
+
+  // Filter rows based on connected constraints
+  const filteredTableData = useMemo(() => {
+    if (!connectedConstraints.length || !tableData.rows.length) {
+      return tableData
+    }
+
+    const filteredRows = tableData.rows.filter((row) => {
+      // Check if row satisfies all constraints
+      return connectedConstraints.every((constraint) => {
+        const varName = constraint.variableName
+        const rowValue = row.values[varName]
+        if (typeof rowValue !== "number") return true
+
+        const { type, min, max } = constraint.constraint
+        switch (type) {
+          case "gte":
+            return min === undefined || rowValue >= min
+          case "gt":
+            return min === undefined || rowValue > min
+          case "lte":
+            return max === undefined || rowValue <= max
+          case "lt":
+            return max === undefined || rowValue < max
+          case "range":
+            return (min === undefined || rowValue >= min) &&
+              (max === undefined || rowValue <= max)
+          default:
+            return true
+        }
+      })
+    })
+
+    return {
+      columns: tableData.columns,
+      rows: filteredRows,
+    }
+  }, [tableData, connectedConstraints])
+
+  // Get the rows to display based on the current count
+  const displayedRows = useMemo(() => {
+    const allRows = rows.length > 0 ? rows : filteredTableData.rows
+    return allRows.slice(0, displayedRowCount)
+  }, [rows, filteredTableData.rows, displayedRowCount])
+
+  // Reset displayed row count when limit or equation changes
+  useEffect(() => {
+    setDisplayedRowCount(11)
+  }, [connectedLimit, connectedEquation])
+
+  // Note: We don't sync tableData back to block state to avoid infinite loops.
+  // The table data is derived from connected equation/limit and displayed directly.
+  // The block's columns/rows are only used for manually configured tables.
+
+  const handleHeaderClick = (columnId: string) => {
+    // Could be used for column sorting or editing
+  }
+
+  const handleShowMore = () => {
+    setDisplayedRowCount((prev) => Math.min(prev + 10, filteredTableData.rows.length))
+  }
+
+  const handleShowAll = () => {
+    setDisplayedRowCount(filteredTableData.rows.length)
+  }
+
+  const hasMoreRows = displayedRowCount < filteredTableData.rows.length
+
+  const connectedHandleIds = new Set([
+    ...(block.sourceEquationId
+      ? [`${block.id}-input-equation-${block.sourceEquationId}`]
+      : []),
+    ...(block.sourceLimitId
+      ? [`${block.id}-input-limit-${block.sourceLimitId}`]
+      : []),
+    ...(block.sourceConstraintIds || []).map(
+      (id) => `${block.id}-input-constraint-${id}`
+    ),
+  ])
+
+  return (
+    <BlockWrapper
+      block={block}
+      isSelected={isSelected}
+      isDragging={isDragging}
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
+      className={className}
+      style={style}
+    >
+      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-semibold">📊</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">
+              {displayedRows.length} / {filteredTableData.rows.length} rows ×{" "}
+              {columns.length || filteredTableData.columns.length} columns
+            </span>
+            {connectedEquation && (
+              <span className="text-xs text-green-600">✓ Equation connected</span>
+            )}
+            {connectedConstraints.length > 0 && (
+              <span className="text-xs text-primary">
+                {connectedConstraints.length} constraint
+                {connectedConstraints.length !== 1 ? "s" : ""} filtering
+              </span>
+            )}
+            {connectedConstraints.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                (from {tableData.rows.length} total)
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              onSettingsChange?.({ autoGenerateRows: !autoGenerateRows })
+            }
+            className={cn(
+              "h-6 text-xs",
+              autoGenerateRows && "bg-primary/10 text-primary"
+            )}
+          >
+            Auto
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-2">
+        {!connectedEquation && connectedConstraints.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <div className="text-center">
+              <p>Connect an equation to display values</p>
+              <p className="mt-1 text-xs">
+                Or connect a constraint that's linked to an equation
+              </p>
+            </div>
+          </div>
+        ) : !connectedEquation && connectedConstraints.length > 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <div className="text-center">
+              <p>Constraint connected but no equation found</p>
+              <p className="mt-2 text-xs">
+                Make sure the constraint is connected to an equation first
+              </p>
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-primary">
+                  {connectedConstraints.length} constraint
+                  {connectedConstraints.length !== 1 ? "s" : ""} connected:
+                </p>
+                {connectedConstraints.map((c) => (
+                  <p key={c.id} className="text-xs font-mono">
+                    {c.variableName} {c.constraint.type === 'gte' ? '≥' : c.constraint.type === 'gt' ? '>' : c.constraint.type === 'lte' ? '≤' : c.constraint.type === 'lt' ? '<' : 'range'} {c.constraint.min}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : filteredTableData.rows.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <div className="text-center">
+              <p>No rows match the constraints</p>
+              {connectedConstraints.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-primary">
+                    {connectedConstraints.length} constraint
+                    {connectedConstraints.length !== 1 ? "s" : ""} active:
+                  </p>
+                  {connectedConstraints.map((c) => (
+                    <p key={c.id} className="text-xs font-mono">
+                      {c.variableName} {c.constraint.type === 'gte' ? '≥' : c.constraint.type === 'gt' ? '>' : c.constraint.type === 'lte' ? '≤' : c.constraint.type === 'lt' ? '<' : 'range'} {c.constraint.min}
+                    </p>
+                  ))}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Tip: Connect constraint directly to table for filtering
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="overflow-hidden rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    {(columns.length > 0 ? columns : filteredTableData.columns).map(
+                      (col) => (
+                        <th
+                          key={col.id}
+                          onClick={() => handleHeaderClick(col.id)}
+                          className={cn(
+                            "border-b border-border px-3 py-2 text-left font-medium",
+                            showGrid && "border-r last:border-r-0"
+                          )}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono">{col.label}</span>
+                            {col.type === "variable" && (
+                              <span className="text-xs text-muted-foreground">
+                                (var)
+                              </span>
+                            )}
+                            {col.type === "result" && (
+                              <span className="text-xs text-muted-foreground">
+                                (calc)
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedRows.map((row, index) => {
+                    const isLastRow = index === displayedRows.length - 1
+                    const isLimitRow = row.id === "row-limit"
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          "transition-colors hover:bg-muted/30",
+                          highlightLastRow &&
+                            (isLastRow || isLimitRow) &&
+                            "bg-primary/5 font-medium"
+                        )}
+                      >
+                        {(columns.length > 0 ? columns : filteredTableData.columns).map(
+                          (col) => (
+                            <td
+                              key={`${row.id}-${col.id}`}
+                              className={cn(
+                                "border-b border-border px-3 py-2 font-mono text-xs",
+                                showGrid && "border-r last:border-r-0"
+                              )}
+                            >
+                              {row.values[col.id] !== undefined
+                                ? String(row.values[col.id])
+                                : "-"}
+                            </td>
+                          )
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Show More / Show All buttons */}
+            {connectedLimit && hasMoreRows && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShowMore}
+                  className="flex-1"
+                >
+                  Show More (+10)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShowAll}
+                >
+                  Show All ({tableData.rows.length})
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <ConnectionHandles
+        blockId={block.id}
+        blockType={block.type}
+        onConnectionStart={onConnectionStart}
+        onConnectionEnd={onConnectionEnd}
+        isConnecting={isConnecting}
+        connectingFromType={connectingFromType}
+        connectedHandles={connectedHandleIds}
+      />
+    </BlockWrapper>
+  )
+}
+
+// Helper function to evaluate equation at a specific x value
+function evaluateEquationAtX(
+  equation: string,
+  variables: Record<string, number>
+): number {
+  try {
+    // Extract RHS of equation
+    let expr = equation.replace(/\s/g, "")
+    const equalsIndex = expr.indexOf("=")
+    if (equalsIndex !== -1) {
+      expr = expr.substring(equalsIndex + 1)
+    }
+
+    // Replace variables with values
+    for (const [name, value] of Object.entries(variables)) {
+      const regex = new RegExp(`\\b${name}\\b`, "g")
+      expr = expr.replace(regex, value.toString())
+    }
+
+    // Handle basic math evaluation
+    // eslint-disable-next-line no-new-func
+    return Function(`"use strict"; return (${expr})`)()
+  } catch {
+    return NaN
+  }
+}

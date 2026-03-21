@@ -51,6 +51,7 @@ import {
   VariableBlockComponent,
   ComparatorBlockComponent,
   ConstraintBlockComponent,
+  TableBlockComponent,
 } from "./block-components";
 import { ConnectionLayer } from "@/components/connections/connection-layer";
 import { ConnectionPreview } from "@/components/connections/connection-line";
@@ -86,6 +87,7 @@ function isValidBlockPreset(value: unknown): value is BlockPreset {
       "variable",
       "comparator",
       "constraint",
+      "table",
     ].includes(value.type)
   );
 }
@@ -116,6 +118,10 @@ function isVariableBlock(block: Block): block is import("@/lib/block-system/type
 
 function isLogicBlock(block: Block): block is LogicBlock {
   return block.type === "logic";
+}
+
+function isTableBlock(block: Block): block is import("@/lib/block-system/types").TableBlock {
+  return block.type === "table";
 }
 
 function isComparatorBlock(block: Block): block is ComparatorBlock {
@@ -1272,6 +1278,16 @@ export function GridCanvas({
                 : isConstraintBlock(sourceBlock) && sourceBlock.targetEquationId
                   ? sourceBlock.targetEquationId
                   : sourceBlock.id;
+            
+            // Handle limit -> chart connection
+            if (isLimitBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceLimitIds: [...(targetBlock.sourceLimitIds || []), sourceBlock.id],
+              };
+            }
+            
+            // Handle equation/variable/constraint -> chart connection
             return {
               ...targetBlock,
               sourceEquationIds: [
@@ -1388,6 +1404,35 @@ export function GridCanvas({
               targetEquationId: targetBlock.targetEquationId ?? sourceBlock.targetEquationId,
               variableName: targetBlock.variableName || sourceBlock.variableName || "x",
             };
+          } else if (isShapeBlock(targetBlock) && isEquationBlock(sourceBlock)) {
+            // Handle equation -> shape connection for dynamic fill value
+            return {
+              ...targetBlock,
+              sourceValueId: sourceBlock.id,
+            };
+          } else if (isTableBlock(targetBlock)) {
+            // Handle equation -> table connection
+            if (isEquationBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceEquationId: sourceBlock.id,
+                variableName: targetBlock.variableName || "x",
+              };
+            }
+            // Handle limit -> table connection
+            if (isLimitBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceLimitId: sourceBlock.id,
+              };
+            }
+            // Handle constraint -> table connection
+            if (isConstraintBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceConstraintIds: [...(targetBlock.sourceConstraintIds || []), sourceBlock.id],
+              };
+            }
           }
         } else if (
           isVariableBlock(sourceBlock) &&
@@ -1443,7 +1488,20 @@ export function GridCanvas({
             ),
           };
         } else if (block.id === connection.targetBlockId) {
-          if (isChartBlock(block) || isControlBlock(block)) {
+          if (isChartBlock(block)) {
+            // Handle disconnecting from chart (both equations and limits)
+            return {
+              ...block,
+              sourceEquationIds: block.sourceEquationIds?.filter(
+                (id) =>
+                  id !== connection.sourceBlockId &&
+                  (!backingEquationId || id !== backingEquationId)
+              ),
+              sourceLimitIds: block.sourceLimitIds?.filter(
+                (id) => id !== connection.sourceBlockId
+              ),
+            };
+          } else if (isControlBlock(block)) {
             return {
               ...block,
               sourceEquationIds: block.sourceEquationIds?.filter(
@@ -1479,6 +1537,29 @@ export function GridCanvas({
                   ? null
                   : block.rightInput,
             };
+          } else if (isTableBlock(block)) {
+            // Handle disconnecting equation from table
+            if (block.sourceEquationId === connection.sourceBlockId) {
+              return { ...block, sourceEquationId: null };
+            }
+            // Handle disconnecting limit from table
+            if (block.sourceLimitId === connection.sourceBlockId) {
+              return { ...block, sourceLimitId: null };
+            }
+            // Handle disconnecting constraint from table
+            if (block.sourceConstraintIds?.includes(connection.sourceBlockId)) {
+              return {
+                ...block,
+                sourceConstraintIds: block.sourceConstraintIds.filter(
+                  (id) => id !== connection.sourceBlockId
+                ),
+              };
+            }
+          }
+
+          // Handle disconnecting equation from shape
+          if (isShapeBlock(block) && block.sourceValueId === connection.sourceBlockId) {
+            return { ...block, sourceValueId: undefined };
           }
 
           if (isEquationBlock(block) && block.enabledSourceId === connection.sourceBlockId) {
@@ -1705,6 +1786,12 @@ export function GridCanvas({
             (block.sourceEquationIds ?? []).includes(b.targetEquationId)
           );
         }) as ConstraintBlock[];
+
+        // Get connected limits for showing approach values
+        const connectedLimits = (block.sourceLimitIds ?? [])
+          .map((id) => blocks.find((b) => b.id === id && b.type === "limit"))
+          .filter((limit): limit is LimitBlock => Boolean(limit));
+
         return (
           <ChartBlockComponent
             key={block.id}
@@ -1712,6 +1799,7 @@ export function GridCanvas({
             {...commonProps}
             connectedEquations={connectedEquations}
             constraints={connectedConstraints}
+            connectedLimits={connectedLimits}
           />
         );
       }
@@ -1814,6 +1902,12 @@ export function GridCanvas({
             key={block.id}
             block={block}
             {...commonProps}
+            connectedEquation={(() => {
+              if (!isLimitBlock(block) || !block.targetEquationId) return null;
+              const eq = blocks.find((b) => b.id === block.targetEquationId && isEquationBlock(b));
+              if (!eq || !isEquationBlock(eq)) return null;
+              return eq;
+            })()}
             variableOptions={(() => {
               if (!isLimitBlock(block) || !block.targetEquationId)
                 return undefined;
@@ -1852,12 +1946,31 @@ export function GridCanvas({
             }}
           />
         );
-      case "shape":
+      case "shape": {
+        // Find connected equation (from sourceValueId)
+        const connectedEquation = isShapeBlock(block) && block.sourceValueId
+          ? blocks.find((b) => b.id === block.sourceValueId && b.type === "equation")
+          : undefined
+        
+        // Find connected logic/comparator blocks (from connections)
+        const connectedLogicBlock = connections
+          .filter((c) => c.targetBlockId === block.id && c.sourceBlockId)
+          .map((c) => blocks.find((b) => b.id === c.sourceBlockId))
+          .find((b) => b?.type === "logic")
+        
+        const connectedComparatorBlock = connections
+          .filter((c) => c.targetBlockId === block.id && c.sourceBlockId)
+          .map((c) => blocks.find((b) => b.id === c.sourceBlockId))
+          .find((b) => b?.type === "comparator")
+        
         return (
           <ShapeBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
+            connectedEquation={connectedEquation && isEquationBlock(connectedEquation) ? connectedEquation : null}
+            connectedLogic={connectedLogicBlock && isLogicBlock(connectedLogicBlock) ? connectedLogicBlock : null}
+            connectedComparator={connectedComparatorBlock && isComparatorBlock(connectedComparatorBlock) ? connectedComparatorBlock : null}
             onFillValueChange={(value) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
@@ -1909,7 +2022,8 @@ export function GridCanvas({
               onBlocksChange?.(updatedBlocks);
             }}
           />
-        );
+        )
+      }
       case "logic":
         return (
           <LogicBlockComponent key={block.id} block={block} {...commonProps} />
@@ -1982,6 +2096,83 @@ export function GridCanvas({
                   return { ...b, variables, updatedAt: now };
                 }
 
+                return b;
+              });
+              setInternalBlocks(updatedBlocks);
+              onBlocksChange?.(updatedBlocks);
+            }}
+          />
+        );
+      case "table":
+        // Get connected constraints for filtering table values
+        const connectedConstraints = (block.sourceConstraintIds ?? [])
+          .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
+          .filter((c): c is ConstraintBlock => Boolean(c));
+
+        // Get equation from direct connection OR from constraint's target equation
+        let equationFromConstraint: EquationBlock | null = null;
+        if (!block.sourceEquationId && connectedConstraints.length > 0) {
+          // Find equation through constraint's targetEquationId
+          const constraintWithEquation = connectedConstraints.find(c => c.targetEquationId);
+          if (constraintWithEquation?.targetEquationId) {
+            const eq = blocks.find(
+              (b) => b.id === constraintWithEquation.targetEquationId
+            );
+            if (eq && isEquationBlock(eq)) {
+              equationFromConstraint = eq;
+            }
+          }
+        }
+
+        return (
+          <TableBlockComponent
+            key={block.id}
+            block={block}
+            {...commonProps}
+            connectedEquation={(() => {
+              // Priority: direct equation connection > equation through constraint
+              if (block.sourceEquationId) {
+                const eq = blocks.find((b) => b.id === block.sourceEquationId && isEquationBlock(b));
+                if (eq && isEquationBlock(eq)) return eq;
+              }
+              return equationFromConstraint;
+            })()}
+            connectedLimit={(() => {
+              if (!isTableBlock(block) || !block.sourceLimitId) return null;
+              const limit = blocks.find((b) => b.id === block.sourceLimitId && isLimitBlock(b));
+              if (!limit || !isLimitBlock(limit)) return null;
+              return limit;
+            })()}
+            connectedConstraints={connectedConstraints}
+            onColumnChange={(columns) => {
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isTableBlock(b)) {
+                  return { ...b, columns, updatedAt: Date.now() };
+                }
+                return b;
+              });
+              setInternalBlocks(updatedBlocks);
+              onBlocksChange?.(updatedBlocks);
+            }}
+            onRowChange={(rows) => {
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isTableBlock(b)) {
+                  return { ...b, rows, updatedAt: Date.now() };
+                }
+                return b;
+              });
+              setInternalBlocks(updatedBlocks);
+              onBlocksChange?.(updatedBlocks);
+            }}
+            onSettingsChange={(settings) => {
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isTableBlock(b)) {
+                  return {
+                    ...b,
+                    ...settings,
+                    updatedAt: Date.now(),
+                  };
+                }
                 return b;
               });
               setInternalBlocks(updatedBlocks);
