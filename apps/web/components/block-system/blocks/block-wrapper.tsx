@@ -14,8 +14,10 @@ interface BlockWrapperProps {
   block: Block;
   isSelected?: boolean;
   isDragging?: boolean;
+  maxDimensions?: { width: number; height: number };
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   className?: string;
   children: ReactNode;
 }
@@ -24,8 +26,10 @@ export function BlockWrapper({
   block,
   isSelected,
   isDragging = false,
+  maxDimensions,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   className,
   children,
 }: BlockWrapperProps): React.ReactElement {
@@ -34,21 +38,40 @@ export function BlockWrapper({
     width: block.dimensions.width,
     height: block.dimensions.height,
   });
+  const dimensionsRef = useRef(dimensions);
+  useEffect(() => {
+    dimensionsRef.current = dimensions;
+  }, [dimensions]);
 
   // Measure content and round up to nearest grid unit (32px)
   useEffect(() => {
     const updateDimensions = () => {
       if (contentRef.current) {
-        const rect = contentRef.current.getBoundingClientRect();
+        // Use layout sizes so pan/zoom CSS transforms don't cause feedback loops.
+        const measuredPxWidth = contentRef.current.offsetWidth;
+        const measuredPxHeight = contentRef.current.offsetHeight;
         // Use the LARGER of: measured content OR block's stored dimensions
         // This prevents shrinking while allowing growth
-        const measuredWidth = Math.ceil(rect.width / GRID_UNIT);
-        const measuredHeight = Math.ceil(rect.height / GRID_UNIT);
-        const newWidth = Math.max(measuredWidth, block.dimensions.width);
-        const newHeight = Math.max(measuredHeight, block.dimensions.height);
+        const measuredWidth = Math.ceil(measuredPxWidth / GRID_UNIT);
+        const measuredHeight = Math.ceil(measuredPxHeight / GRID_UNIT);
+        const unclampedWidth = Math.max(measuredWidth, block.dimensions.width);
+        const unclampedHeight = Math.max(measuredHeight, block.dimensions.height);
+        const newWidth =
+          maxDimensions?.width !== undefined
+            ? Math.min(unclampedWidth, maxDimensions.width)
+            : unclampedWidth;
+        const newHeight =
+          maxDimensions?.height !== undefined
+            ? Math.min(unclampedHeight, maxDimensions.height)
+            : unclampedHeight;
 
-        if (newWidth !== dimensions.width || newHeight !== dimensions.height) {
+        const current = dimensionsRef.current;
+        if (newWidth !== current.width || newHeight !== current.height) {
           setDimensions({ width: newWidth, height: newHeight });
+        }
+
+        if (newWidth !== block.dimensions.width || newHeight !== block.dimensions.height) {
+          onDimensionsChange?.({ width: newWidth, height: newHeight });
         }
       }
     };
@@ -65,12 +88,7 @@ export function BlockWrapper({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [
-    dimensions.width,
-    dimensions.height,
-    block.dimensions.width,
-    block.dimensions.height,
-  ]);
+  }, [block.dimensions.width, block.dimensions.height, maxDimensions?.width, maxDimensions?.height, onDimensionsChange]);
 
   const handleBodyClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -129,8 +147,8 @@ export function BlockWrapper({
         ref={contentRef}
         className="flex flex-col items-stretch"
         style={{
-          minWidth: block.dimensions.width * GRID_UNIT,
-          minHeight: block.dimensions.height * GRID_UNIT,
+          minWidth: dimensions.width * GRID_UNIT,
+          minHeight: dimensions.height * GRID_UNIT,
         }}
       >
         {children}

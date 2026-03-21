@@ -118,29 +118,56 @@ export function ConnectionHandles({
   // Default handles based on block type
   const defaultHandles: Array<{ id: string; type: ConnectionHandleType; label?: string }> = handles || (() => {
     const result: Array<{ id: string; type: ConnectionHandleType; label?: string }> = [];
-    
+
     // All blocks that can receive connections get input handles
     if (['chart', 'control', 'limit'].includes(blockType)) {
       result.push({ id: `${blockId}-input`, type: 'input' });
     }
-    
+
     // All blocks that can send connections get output handles
-    if (['equation', 'limit'].includes(blockType)) {
+    if (['equation', 'limit', 'logic', 'comparator', 'constraint'].includes(blockType)) {
       result.push({ id: `${blockId}-output`, type: 'output' });
     }
-    
+
     // Equation blocks can have both input (for equation combining) and output
     if (blockType === 'equation') {
       result.push({ id: `${blockId}-input`, type: 'input', label: 'Combine' });
     }
-    
+
+    // Logic blocks have multiple inputs (indexed) and one output
+    if (blockType === 'logic') {
+      // Logic blocks can accept multiple inputs
+      result.push({ id: `${blockId}-input-0`, type: 'input', label: 'In 1' });
+      result.push({ id: `${blockId}-input-1`, type: 'input', label: 'In 2' });
+    }
+
+    // Comparator blocks have left and right inputs
+    if (blockType === 'comparator') {
+      result.push({ id: `${blockId}-left`, type: 'input', label: 'Left' });
+      result.push({ id: `${blockId}-right`, type: 'input', label: 'Right' });
+    }
+
+    // Constraint blocks have output to equation
+    if (blockType === 'constraint') {
+      result.push({ id: `${blockId}-output`, type: 'output', label: 'Apply to' });
+    }
+
+    // Chart blocks can receive constraint inputs
+    if (blockType === 'chart') {
+      result.push({ id: `${blockId}-constraint-input`, type: 'input', label: 'Constraint' });
+    }
+
     return result;
   })();
 
   // Check if this block is a valid target for the current connection
   const isValidTarget = isConnecting && connectingFromType && (
-    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit'].includes(blockType)) ||
-    (connectingFromType === 'limit' && blockType === 'chart')
+    (connectingFromType === 'equation' && ['chart', 'control', 'equation', 'limit', 'logic', 'comparator'].includes(blockType)) ||
+    (connectingFromType === 'limit' && blockType === 'chart') ||
+    (connectingFromType === 'control' && ['shape', 'limit', 'comparator'].includes(blockType)) ||
+    (connectingFromType === 'logic' && ['logic', 'chart', 'shape', 'comparator'].includes(blockType)) ||
+    (connectingFromType === 'comparator' && ['logic', 'chart', 'shape', 'comparator'].includes(blockType)) ||
+    (connectingFromType === 'constraint' && ['equation', 'chart'].includes(blockType))
   );
 
   return (

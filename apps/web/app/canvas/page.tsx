@@ -54,6 +54,7 @@ export default function CanvasPage() {
           ...baseBlock,
           type: 'chart',
           equations: [],
+          dimensions: preset.data.dimensions ?? baseBlock.dimensions,
         };
       case 'description': {
         const format = preset.data.format ?? 'plain';
@@ -100,6 +101,34 @@ export default function CanvasPage() {
           type: 'logic',
           logicType,
           inputs: [],
+          output: null,
+        };
+      }
+      case 'comparator': {
+        const operator = preset.data.operator ?? 'eq';
+        return {
+          ...baseBlock,
+          type: 'comparator',
+          operator,
+          leftInput: null,
+          rightInput: null,
+          output: null,
+        };
+      }
+      case 'constraint': {
+        const variableName = preset.data.variableName ?? 'x';
+        const constraintType = preset.data.constraintType ?? 'gte';
+        const constraintValue = preset.data.constraintValue ?? 0;
+        return {
+          ...baseBlock,
+          type: 'constraint',
+          variableName,
+          constraint: {
+            type: constraintType,
+            min: constraintType === 'range' ? constraintValue : constraintValue,
+            max: constraintType === 'range' ? 100 : undefined,
+          },
+          targetEquationId: null,
           output: null,
         };
       }

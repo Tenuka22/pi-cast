@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import functionPlot from "function-plot"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -21,7 +22,6 @@ import {
 import { ConnectionHandles } from "@/components/connections/connection-handles"
 import {
   GraphConfig,
-  renderGraph,
   DEFAULT_GRAPH_CONFIG,
 } from "@/lib/visualization/graph-renderer"
 
@@ -33,8 +33,10 @@ interface BlockWrapperProps {
   block: Block
   isSelected?: boolean
   isDragging?: boolean
+  maxDimensions?: { width: number; height: number }
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   className?: string
   children: React.ReactNode
 }
@@ -43,8 +45,10 @@ export function BlockWrapper({
   block,
   isSelected,
   isDragging = false,
+  maxDimensions,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   className,
   children,
 }: BlockWrapperProps) {
@@ -57,21 +61,43 @@ export function BlockWrapper({
     width: block.dimensions.width,
     height: block.dimensions.height,
   })
+  const dimensionsRef = useRef(dimensions)
+  useEffect(() => {
+    dimensionsRef.current = dimensions
+  }, [dimensions])
 
   // Measure content and round up to nearest grid unit (32px)
   useEffect(() => {
     const updateDimensions = () => {
       if (contentRef.current) {
-        const rect = contentRef.current.getBoundingClientRect()
+        // Use layout sizes so pan/zoom CSS transforms don't cause feedback loops.
+        const measuredPxWidth = contentRef.current.offsetWidth
+        const measuredPxHeight = contentRef.current.offsetHeight
         // Use the LARGER of: measured content OR block's stored dimensions
         // This prevents shrinking while allowing growth
-        const measuredWidth = Math.ceil(rect.width / GRID_UNIT)
-        const measuredHeight = Math.ceil(rect.height / GRID_UNIT)
-        const newWidth = Math.max(measuredWidth, block.dimensions.width)
-        const newHeight = Math.max(measuredHeight, block.dimensions.height)
+        const measuredWidth = Math.ceil(measuredPxWidth / GRID_UNIT)
+        const measuredHeight = Math.ceil(measuredPxHeight / GRID_UNIT)
+        const unclampedWidth = Math.max(measuredWidth, block.dimensions.width)
+        const unclampedHeight = Math.max(measuredHeight, block.dimensions.height)
+        const newWidth =
+          maxDimensions?.width !== undefined
+            ? Math.min(unclampedWidth, maxDimensions.width)
+            : unclampedWidth
+        const newHeight =
+          maxDimensions?.height !== undefined
+            ? Math.min(unclampedHeight, maxDimensions.height)
+            : unclampedHeight
 
-        if (newWidth !== dimensions.width || newHeight !== dimensions.height) {
+        const current = dimensionsRef.current
+        if (newWidth !== current.width || newHeight !== current.height) {
           setDimensions({ width: newWidth, height: newHeight })
+        }
+
+        if (
+          (newWidth !== block.dimensions.width || newHeight !== block.dimensions.height) &&
+          !isDragging
+        ) {
+          onDimensionsChange?.({ width: newWidth, height: newHeight })
         }
       }
     }
@@ -88,12 +114,7 @@ export function BlockWrapper({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [
-    dimensions.width,
-    dimensions.height,
-    block.dimensions.width,
-    block.dimensions.height,
-  ])
+  }, [block.dimensions.width, block.dimensions.height, maxDimensions?.width, maxDimensions?.height, isDragging, onDimensionsChange])
 
   const handleBodyClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -147,8 +168,8 @@ export function BlockWrapper({
         ref={contentRef}
         className="flex flex-col items-stretch"
         style={{
-          minWidth: block.dimensions.width * GRID_UNIT,
-          minHeight: block.dimensions.height * GRID_UNIT,
+          minWidth: dimensions.width * GRID_UNIT,
+          minHeight: dimensions.height * GRID_UNIT,
         }}
       >
         {children}
@@ -167,6 +188,7 @@ interface EquationBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -184,6 +206,7 @@ export function EquationBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onConnectionStart,
   onConnectionEnd,
   onVariableChange,
@@ -247,6 +270,7 @@ export function EquationBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div
         className="absolute -top-3 left-3 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs shadow-sm"
@@ -336,6 +360,7 @@ interface ChartBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -363,20 +388,25 @@ export function ChartBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onConnectionStart,
   onConnectionEnd,
   isConnecting,
   connectingFromType,
   connectedEquations = [],
 }: ChartBlockComponentProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const defaultDimensionsRef = useRef(block.dimensions)
+  const MIN_CANVAS_HEIGHT = 240
   const width = block.dimensions.width * GRID_UNIT
   const height = block.dimensions.height * GRID_UNIT
+  const effectiveHeight = Math.max(height, MIN_CANVAS_HEIGHT)
+
   const config = useMemo<GraphConfig>(() => {
     const base = block.chartConfig
     return {
       width,
-      height,
+      height: effectiveHeight,
       xAxis: {
         ...DEFAULT_GRAPH_CONFIG.xAxis,
         ...(base?.xAxis ?? {}),
@@ -394,7 +424,7 @@ export function ChartBlockComponent({
       showGrid: base?.showGrid ?? DEFAULT_GRAPH_CONFIG.showGrid,
       backgroundColor: "transparent",
     }
-  }, [block.chartConfig, height, width])
+  }, [block.chartConfig, effectiveHeight, width])
 
   const plots = useMemo(
     () =>
@@ -407,29 +437,95 @@ export function ChartBlockComponent({
         if (variables.y === undefined) variables.y = 0
 
         return {
+          key: `eq${index}`,
           equation: equationBlock.equation,
           variables,
-          options: {
-            color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
-            lineWidth: 2,
-            label: equationBlock.equation,
-          },
+          color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
+          label: equationBlock.equation,
         }
       }),
     [connectedEquations]
   )
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    renderGraph(ctx, plots, config)
-  }, [config, plots, width, height])
+  // Build function strings with substituted variables
+  const functionData = useMemo(() => {
+    return plots
+      .map((plot) => {
+        let fn = plot.equation?.trim() ?? ''
+        
+        // Skip empty equations
+        if (!fn) return null
+        
+        // Remove "y =" or "y=" prefix if present (function-plot expects just the expression)
+        fn = fn.replace(/^y\s*=\s*/i, '').trim()
+        
+        // Skip if nothing left after removing prefix
+        if (!fn) return null
+        
+        // Substitute known constants
+        fn = fn.replace(/\bpi\b/g, String(Math.PI))
+        fn = fn.replace(/\be\b(?!q)/g, String(Math.E))
+        // Substitute variables (except x which is the independent variable)
+        Object.entries(plot.variables).forEach(([name, value]) => {
+          if (name !== "x") {
+            const regex = new RegExp(`\\b${name}\\b`, "g")
+            fn = fn.replace(regex, String(value))
+          }
+        })
 
-  const hasEquations = connectedEquations.length > 0
+        // Final validation - skip if expression is still invalid
+        if (!fn || fn === '=' || fn.endsWith('=')) return null
+        
+        // Skip incomplete expressions (ending with operator or unclosed parentheses)
+        if (/[+\-*/^]$/.test(fn.trim())) return null
+        if ((fn.match(/\(/g) || []).length !== (fn.match(/\)/g) || []).length) return null
+        
+        // Skip if contains unsupported unicode characters that function-plot can't handle
+        if (/[∧∨⊕→⁻⁺]/.test(fn)) return null
+
+        return {
+          fn,
+          color: plot.color,
+          graphType: "polyline" as const,
+        }
+      })
+      .filter((item): item is { fn: string; color: string; graphType: 'polyline' } => item !== null)
+  }, [plots])
+
+  // Render the plot when plots or config changes
+  useEffect(() => {
+    if (!containerRef.current || functionData.length === 0) return
+
+    // Clear previous content
+    containerRef.current.innerHTML = ""
+
+    try {
+      functionPlot({
+        target: containerRef.current,
+        width: config.width,
+        height: config.height,
+        disableZoom: true,
+        yAxis: {
+          domain: [config.yAxis.min, config.yAxis.max],
+          invert: false,
+        },
+        xAxis: {
+          domain: [config.xAxis.min, config.xAxis.max],
+          invert: false,
+        },
+        grid: config.showGrid,
+        data: functionData,
+        tip: {
+          xLine: true,
+          yLine: true,
+        },
+      })
+    } catch (error) {
+      console.error("Error plotting function:", error, functionData)
+    }
+  }, [functionData, config])
+
+  const hasEquations = functionData.length > 0
   const connectedHandleIds = new Set(
     (block.sourceEquationIds || []).map(
       (id) => `${block.id}-input-equation-${id}`
@@ -441,8 +537,10 @@ export function ChartBlockComponent({
       block={block}
       isSelected={isSelected}
       isDragging={isDragging}
+      maxDimensions={defaultDimensionsRef.current}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -458,12 +556,17 @@ export function ChartBlockComponent({
           </span>
         </div>
       </div>
-      <div className="relative flex-1 overflow-hidden rounded-lg border border-border bg-muted/50">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 h-full w-full"
-          aria-hidden={!hasEquations}
-        />
+      <div
+        ref={containerRef}
+        className="relative flex-1 overflow-hidden rounded-lg border border-border bg-muted/50"
+        style={{
+          minHeight: MIN_CANVAS_HEIGHT,
+          height: effectiveHeight,
+          maxHeight: effectiveHeight,
+          width,
+          maxWidth: width,
+        }}
+      >
         {!hasEquations && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
             Connected equations will render here
@@ -493,6 +596,7 @@ interface ControlBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onVariableChange?: (name: string, value: number | string) => void
   onConnectionStart?: (
     handleId: string,
@@ -509,6 +613,7 @@ export function ControlBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onVariableChange,
   onConnectionStart,
   onConnectionEnd,
@@ -524,6 +629,7 @@ export function ControlBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -632,6 +738,7 @@ interface DescriptionBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
 }
 
 export function DescriptionBlockComponent({
@@ -640,6 +747,7 @@ export function DescriptionBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
 }: DescriptionBlockComponentProps) {
   const { content, format, title } = block
   const [isEditing, setIsEditing] = useState(false)
@@ -682,6 +790,7 @@ export function DescriptionBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
       className="p-4"
     >
       {title && (
@@ -733,6 +842,7 @@ interface LimitBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onVariableChange?: (variableName: string, value: number | string) => void
   onApproachChange?: (approach: "left" | "right" | "both") => void
   variableOptions?: string[]
@@ -751,6 +861,7 @@ export function LimitBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onVariableChange,
   onApproachChange,
   variableOptions = [],
@@ -768,6 +879,7 @@ export function LimitBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -852,6 +964,7 @@ interface VariableBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onVariableChange?: (variableName: string, value: number) => void
   onConnectionStart?: (
     handleId: string,
@@ -868,6 +981,7 @@ export function VariableBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onVariableChange,
   onConnectionStart,
   onConnectionEnd,
@@ -883,6 +997,7 @@ export function VariableBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -943,6 +1058,7 @@ interface LogicBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -978,6 +1094,7 @@ export function LogicBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onConnectionStart,
   onConnectionEnd,
   isConnecting,
@@ -992,6 +1109,7 @@ export function LogicBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
       className="p-4"
     >
       <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
@@ -1042,6 +1160,7 @@ interface ShapeBlockComponentProps {
   isDragging?: boolean
   onClick?: () => void
   onMouseDown?: (e: React.MouseEvent) => void
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void
   onFillValueChange?: (value: number) => void
   onFillColorChange?: (color: string) => void
   onFillModeChange?: (
@@ -1064,6 +1183,7 @@ export function ShapeBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onFillValueChange,
   onFillColorChange,
   onFillModeChange,
@@ -1160,6 +1280,7 @@ export function ShapeBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">

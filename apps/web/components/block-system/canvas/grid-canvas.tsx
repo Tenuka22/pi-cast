@@ -21,6 +21,8 @@ import {
   type ShapeBlock,
   type VariableBlock,
   type LogicBlock,
+  type ComparatorBlock,
+  type ConstraintBlock,
   type BlockConnection,
   type ShapeType,
   type ShapeFillMode,
@@ -41,6 +43,8 @@ import {
   LimitBlockComponent,
   ShapeBlockComponent,
   LogicBlockComponent,
+  ComparatorBlockComponent,
+  ConstraintBlockComponent,
   VariableBlockComponent,
   isEquationBlock,
   isControlBlock,
@@ -50,12 +54,18 @@ import {
   isVariableBlock,
   isLogicBlock,
   isDescriptionBlock,
+  isComparatorBlock,
+  isConstraintBlock,
 } from '../blocks';
 import { ConnectionLayer } from '../connections/connection-layer';
 import { ConnectionPreview } from '../connections/connection-line';
 import { useRecording } from '@/lib/recording-system/use-recording';
 import { RecordingControls } from '@/components/recording/recording-controls';
 import { RecordingStatusBar } from '@/components/recording/recording-status-bar';
+import {
+  evaluateAllLogicBlocks,
+  updateLogicBlockResults,
+} from '@/lib/block-system/logic-evaluation';
 
 interface GridCanvasProps {
   className?: string;
@@ -221,6 +231,47 @@ function createVariableBlock(
   };
 }
 
+function createComparatorBlock(
+  position: GridPosition,
+  operator: ComparatorBlock['operator'] = 'eq'
+): ComparatorBlock {
+  return {
+    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'comparator',
+    position,
+    dimensions: getDefaultBlockDimensions('comparator'),
+    operator,
+    leftInput: null,
+    rightInput: null,
+    output: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+function createConstraintBlock(
+  position: GridPosition,
+  variableName: string = 'x',
+  constraintType: ConstraintBlock['constraint']['type'] = 'gte',
+  constraintValue: number = 0
+): ConstraintBlock {
+  return {
+    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'constraint',
+    position,
+    dimensions: getDefaultBlockDimensions('constraint'),
+    variableName,
+    constraint: {
+      type: constraintType,
+      min: constraintValue,
+    },
+    targetEquationId: null,
+    output: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 export function GridCanvas({
   className,
   onBlocksChange,
@@ -287,6 +338,18 @@ export function GridCanvas({
     // Animation code intentionally disabled
   }, [blocks, onBlocksChange]);
 
+  // Evaluate logic gates and comparators when blocks or connections change
+  useEffect(() => {
+    const logicResults = evaluateAllLogicBlocks(blocks);
+    if (logicResults.length > 0) {
+      const updatedBlocks = updateLogicBlockResults(blocks, logicResults);
+      if (!externalBlocks) {
+        setInternalBlocks(updatedBlocks);
+      }
+      onBlocksChange?.(updatedBlocks);
+    }
+  }, [blocks, connections, externalBlocks, onBlocksChange]);
+
   const handleBlockClick = useCallback(
     (blockId: string) => {
       setSelectedBlockId(blockId);
@@ -296,6 +359,31 @@ export function GridCanvas({
       }
     },
     [isPlaybackMode, onBlockInteract]
+  );
+
+  const handleBlockDimensionsChange = useCallback(
+    (blockId: string, dimensions: { width: number; height: number }) => {
+      const now = Date.now();
+
+      if (readOnly) {
+        return;
+      }
+
+      if (isPlaybackMode) {
+        onBlockModification?.(blockId, { dimensions, updatedAt: now });
+        return;
+      }
+
+      const updatedBlocks = blocks.map((b) =>
+        b.id === blockId ? { ...b, dimensions, updatedAt: now } : b
+      );
+
+      if (!externalBlocks) {
+        setInternalBlocks(updatedBlocks);
+      }
+      onBlocksChange?.(updatedBlocks);
+    },
+    [blocks, externalBlocks, isPlaybackMode, onBlockModification, onBlocksChange, readOnly]
   );
 
   const handleDragStart = useCallback(
@@ -584,8 +672,68 @@ export function GridCanvas({
       };
 
       setConnections((prev) => [...prev, newConnection]);
+
+      // Update logic block inputs
+      const now = Date.now();
+      if (isLogicBlock(targetBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === targetBlock.id && isLogicBlock(b)) {
+            if (!b.inputs.includes(sourceBlock.id)) {
+              return {
+                ...b,
+                inputs: [...b.inputs, sourceBlock.id],
+                updatedAt: now,
+              };
+            }
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
+
+      // Update comparator block inputs
+      if (isComparatorBlock(targetBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === targetBlock.id && isComparatorBlock(b)) {
+            const updates: Partial<ComparatorBlock> = { updatedAt: now };
+            // Determine if this is left or right input based on handleId
+            if (targetHandleId.includes('left') || !b.leftInput) {
+              updates.leftInput = sourceBlock.id;
+            } else if (targetHandleId.includes('right') || !b.rightInput) {
+              updates.rightInput = sourceBlock.id;
+            }
+            return { ...b, ...updates };
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
+
+      // Update constraint block target
+      if (isConstraintBlock(sourceBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === sourceBlock.id && isConstraintBlock(b)) {
+            return {
+              ...b,
+              targetEquationId: targetBlock.id,
+              updatedAt: now,
+            };
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
     },
-    [connectionDrag, blocks, connections]
+    [connectionDrag, blocks, externalBlocks, onBlocksChange]
   );
 
   const handleDeleteConnection = useCallback(
@@ -594,8 +742,68 @@ export function GridCanvas({
       if (!connection) return;
 
       setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+
+      // Update logic block inputs
+      const now = Date.now();
+      const targetBlock = blocks.find((b) => b.id === connection.targetBlockId);
+      if (targetBlock && isLogicBlock(targetBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === targetBlock.id && isLogicBlock(b)) {
+            return {
+              ...b,
+              inputs: b.inputs.filter((id) => id !== connection.sourceBlockId),
+              updatedAt: now,
+            };
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
+
+      // Update comparator block inputs
+      if (targetBlock && isComparatorBlock(targetBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === targetBlock.id && isComparatorBlock(b)) {
+            const updates: Partial<ComparatorBlock> = { updatedAt: now };
+            if (b.leftInput === connection.sourceBlockId) {
+              updates.leftInput = null;
+            }
+            if (b.rightInput === connection.sourceBlockId) {
+              updates.rightInput = null;
+            }
+            return { ...b, ...updates };
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
+
+      // Update constraint block target
+      const sourceBlock = blocks.find((b) => b.id === connection.sourceBlockId);
+      if (sourceBlock && isConstraintBlock(sourceBlock)) {
+        const updatedBlocks = blocks.map((b) => {
+          if (b.id === sourceBlock.id && isConstraintBlock(b)) {
+            return {
+              ...b,
+              targetEquationId: null,
+              updatedAt: now,
+            };
+          }
+          return b;
+        });
+        if (!externalBlocks) {
+          setInternalBlocks(updatedBlocks);
+        }
+        onBlocksChange?.(updatedBlocks);
+      }
     },
-    [connections]
+    [connections, blocks, externalBlocks, onBlocksChange]
   );
 
   const handleConnectionClick = useCallback((connectionId: string) => {
@@ -628,6 +836,8 @@ export function GridCanvas({
         isSelected,
         onClick: () => handleBlockClick(block.id),
         onMouseDown: (e: React.MouseEvent) => handleDragStart(e, block),
+        onDimensionsChange: (dimensions: { width: number; height: number }) =>
+          handleBlockDimensionsChange(block.id, dimensions),
         className: cn(
           'transition-shadow',
           isDragging ? 'z-50 cursor-grabbing shadow-2xl' : 'z-10'
@@ -692,12 +902,22 @@ export function GridCanvas({
         const connectedEquations = (block.sourceEquationIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && isEquationBlock(b)))
           .filter((eq): eq is EquationBlock => Boolean(eq));
+        
+        // Get connected constraints
+        const connectedConstraints = blocks
+          .filter((b): b is ConstraintBlock => isConstraintBlock(b) && b.targetEquationId === block.id)
+          .map((b) => ({
+            variableName: b.variableName,
+            constraint: b.constraint,
+          }));
+        
         return (
           <ChartBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
             connectedEquations={connectedEquations}
+            connectedConstraints={connectedConstraints}
           />
         );
       }
@@ -860,6 +1080,54 @@ export function GridCanvas({
       if (isLogicBlock(block)) {
         return (
           <LogicBlockComponent key={block.id} block={block} {...commonProps} />
+        );
+      }
+
+      if (isComparatorBlock(block)) {
+        return (
+          <ComparatorBlockComponent key={block.id} block={block} {...commonProps} />
+        );
+      }
+
+      if (isConstraintBlock(block)) {
+        return (
+          <ConstraintBlockComponent
+            key={block.id}
+            block={block}
+            {...commonProps}
+            onVariableChange={(varName, value) => {
+              const now = Date.now();
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isConstraintBlock(b)) {
+                  if (varName === 'variableName' && typeof value === 'string') {
+                    return { ...b, variableName: value, updatedAt: now };
+                  }
+                  return b;
+                }
+                return b;
+              });
+              setInternalBlocks(updatedBlocks);
+              onBlocksChange?.(updatedBlocks);
+            }}
+            onConstraintChange={(type, values) => {
+              const now = Date.now();
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isConstraintBlock(b)) {
+                  const constraint = { ...b.constraint, type };
+                  if (Array.isArray(values)) {
+                    constraint.min = values[0];
+                    constraint.max = values[1];
+                  } else {
+                    constraint.min = values;
+                  }
+                  return { ...b, constraint, updatedAt: now };
+                }
+                return b;
+              });
+              setInternalBlocks(updatedBlocks);
+              onBlocksChange?.(updatedBlocks);
+            }}
+          />
         );
       }
 

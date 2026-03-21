@@ -25,6 +25,7 @@ interface ShapeBlockComponentProps {
   isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   onFillValueChange?: (value: number) => void;
   onFillColorChange?: (color: string) => void;
   onFillModeChange?: (mode: ShapeFillMode) => void;
@@ -45,6 +46,7 @@ export function ShapeBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onFillValueChange,
   onFillColorChange,
   onFillModeChange,
@@ -150,6 +152,7 @@ export function ShapeBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">

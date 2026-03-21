@@ -22,6 +22,9 @@ export function CanvasNodeContent({
   const contentRef = useRef<HTMLDivElement>(null);
   const lastReportedRef = useRef<{ width: number; height: number } | null>(null);
 
+  const minWidthPx = Math.max(4, node.dimensions?.width ?? 0) * GRID_UNIT;
+  const minHeightPx = Math.max(2, node.dimensions?.height ?? 0) * GRID_UNIT;
+
   const measureContent = useCallback(() => {
     if (!contentRef.current) {
       return { width: 0, height: 0 };
@@ -71,6 +74,7 @@ export function CanvasNodeContent({
     <div
       ref={contentRef}
       className={cn('relative flex min-h-[64px] min-w-[128px] flex-col p-1', className)}
+      style={{ minWidth: minWidthPx, minHeight: minHeightPx }}
       data-node-id={node.id}
       data-node-type={node.type}
     >

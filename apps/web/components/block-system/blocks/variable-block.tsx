@@ -22,6 +22,7 @@ interface VariableBlockComponentProps {
   isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   onVariableChange?: (variableName: string, value: number) => void;
   onConnectionStart?: (
     handleId: string,
@@ -38,6 +39,7 @@ export function VariableBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onVariableChange,
   onConnectionStart,
   onConnectionEnd,
@@ -59,6 +61,7 @@ export function VariableBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">

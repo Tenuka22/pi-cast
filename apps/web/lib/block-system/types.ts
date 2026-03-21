@@ -20,6 +20,8 @@ export type BlockType =
   | "shape"
   | "logic"
   | "variable"
+  | "comparator"
+  | "constraint"
 
 export type EquationType =
   | "linear"
@@ -44,7 +46,7 @@ export type ShapeType = "square" | "circle" | "rectangle"
 
 export type ShapeFillMode = "solid" | "fraction" | "decimal" | "percentage"
 
-export type LogicGateType = "and" | "or" | "xor" | "eq"
+export type LogicGateType = "and" | "or" | "xor" | "eq" | "le" | "ge" | "gt" | "lt"
 
 export interface GridPosition {
   x: number
@@ -63,6 +65,14 @@ export interface EquationToken {
   endIndex: number
 }
 
+export type ConstraintType = 'gte' | 'gt' | 'lte' | 'lt' | 'range'
+
+export interface VariableConstraint {
+  type: ConstraintType
+  min?: number  // For gte, gt, or range minimum
+  max?: number  // For lte, lt, or range maximum
+}
+
 export interface Variable {
   name: string
   value: number
@@ -70,17 +80,18 @@ export interface Variable {
   min?: number
   max?: number
   step?: number
+  constraints?: VariableConstraint
 }
 
 export interface BaseBlock {
-  id: string;
-  type: BlockType;
-  position: GridPosition;
-  dimensions: BlockDimensions;
-  groupId?: string;
-  isLocked?: boolean;
-  createdAt: number;
-  updatedAt: number;
+  id: string
+  type: BlockType
+  position: GridPosition
+  dimensions: BlockDimensions
+  groupId?: string
+  isLocked?: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 export interface EquationBlock extends BaseBlock {
@@ -188,6 +199,23 @@ export interface LogicBlock extends BaseBlock {
   result?: number | boolean // Computed result
 }
 
+export interface ComparatorBlock extends BaseBlock {
+  type: "comparator"
+  operator: LogicGateType // le, ge, gt, lt, eq
+  leftInput: string | null // Connected left operand block ID
+  rightInput: string | null // Connected right operand block ID
+  output: string | null // Connected output block ID
+  result?: boolean // Computed boolean result
+}
+
+export interface ConstraintBlock extends BaseBlock {
+  type: "constraint"
+  targetEquationId?: string // Connected equation block ID
+  variableName: string // Variable to constrain (e.g., 'x')
+  constraint: VariableConstraint // The constraint definition
+  result?: boolean // Whether the constraint is satisfied
+}
+
 export interface VariableBlock extends BaseBlock {
   type: "variable"
   sourceEquationId?: string // Connected equation block
@@ -204,6 +232,8 @@ export type Block =
   | ShapeBlock
   | LogicBlock
   | VariableBlock
+  | ComparatorBlock
+  | ConstraintBlock
 
 // ============================================================================
 // CONNECTION TYPES
@@ -239,6 +269,14 @@ export interface BlockConnection {
     | "logic-to-logic"
     | "logic-to-chart"
     | "logic-to-shape"
+    | "equation-to-comparator"
+    | "control-to-comparator"
+    | "comparator-to-logic"
+    | "comparator-to-chart"
+    | "comparator-to-shape"
+    | "comparator-to-comparator"
+    | "constraint-to-equation"
+    | "constraint-to-chart"
   createdAt: number
 }
 
@@ -416,7 +454,7 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
     case "equation":
       return { width: 16, height: 3 }
     case "chart":
-      return { width: 16, height: 12 }
+      return { width: 60, height: 48 }
     case "control":
       return { width: 6, height: 4 }
     case "description":
@@ -429,6 +467,10 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
       return { width: 4, height: 4 }
     case "variable":
       return { width: 6, height: 4 }
+    case "comparator":
+      return { width: 6, height: 4 }
+    case "constraint":
+      return { width: 6, height: 5 }
     default:
       return { width: 4, height: 2 }
   }
@@ -660,12 +702,36 @@ export function getConnectionType(
     return "equation-to-variable"
   if (sourceBlockType === "equation" && targetBlockType === "shape")
     return "equation-to-shape"
-  if (sourceBlockType === "limit" && targetBlockType === "chart")
-    return "limit-to-chart"
+  if (sourceBlockType === "equation" && targetBlockType === "logic")
+    return "equation-to-logic"
+  if (sourceBlockType === "equation" && targetBlockType === "comparator")
+    return "equation-to-comparator"
   if (sourceBlockType === "control" && targetBlockType === "shape")
     return "control-to-shape"
   if (sourceBlockType === "control" && targetBlockType === "limit")
     return "control-to-limit"
+  if (sourceBlockType === "control" && targetBlockType === "comparator")
+    return "control-to-comparator"
+  if (sourceBlockType === "limit" && targetBlockType === "chart")
+    return "limit-to-chart"
+  if (sourceBlockType === "logic" && targetBlockType === "logic")
+    return "logic-to-logic"
+  if (sourceBlockType === "logic" && targetBlockType === "chart")
+    return "logic-to-chart"
+  if (sourceBlockType === "logic" && targetBlockType === "shape")
+    return "logic-to-shape"
+  if (sourceBlockType === "comparator" && targetBlockType === "logic")
+    return "comparator-to-logic"
+  if (sourceBlockType === "comparator" && targetBlockType === "chart")
+    return "comparator-to-chart"
+  if (sourceBlockType === "comparator" && targetBlockType === "shape")
+    return "comparator-to-shape"
+  if (sourceBlockType === "comparator" && targetBlockType === "comparator")
+    return "comparator-to-comparator"
+  if (sourceBlockType === "constraint" && targetBlockType === "equation")
+    return "constraint-to-equation"
+  if (sourceBlockType === "constraint" && targetBlockType === "chart")
+    return "constraint-to-chart"
   return null
 }
 

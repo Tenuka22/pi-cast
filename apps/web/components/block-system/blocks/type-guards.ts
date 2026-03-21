@@ -14,6 +14,8 @@ import type {
   ShapeBlock,
   LogicBlock,
   VariableBlock,
+  ComparatorBlock,
+  ConstraintBlock,
 } from '@/lib/block-system/types';
 
 export function isEquationBlock(block: Block): block is EquationBlock {
@@ -46,4 +48,12 @@ export function isLogicBlock(block: Block): block is LogicBlock {
 
 export function isVariableBlock(block: Block): block is VariableBlock {
   return block.type === 'variable';
+}
+
+export function isComparatorBlock(block: Block): block is ComparatorBlock {
+  return block.type === 'comparator';
+}
+
+export function isConstraintBlock(block: Block): block is ConstraintBlock {
+  return block.type === 'constraint';
 }

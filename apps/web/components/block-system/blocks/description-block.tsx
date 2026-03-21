@@ -16,6 +16,7 @@ interface DescriptionBlockComponentProps {
   isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
 }
 
 export function DescriptionBlockComponent({
@@ -24,6 +25,7 @@ export function DescriptionBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
 }: DescriptionBlockComponentProps): React.ReactElement {
   const { content, format, title } = block;
   const [isEditing, setIsEditing] = useState(false);
@@ -66,6 +68,7 @@ export function DescriptionBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
       className="p-4"
     >
       {title && (

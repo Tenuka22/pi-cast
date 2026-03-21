@@ -23,6 +23,7 @@ interface EquationBlockComponentProps {
   isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   onConnectionStart?: (
     handleId: string,
     handleType: ConnectionHandleType
@@ -40,6 +41,7 @@ export function EquationBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onConnectionStart,
   onConnectionEnd,
   onVariableChange,
@@ -120,6 +122,7 @@ export function EquationBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div
         className="absolute -top-3 left-3 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs shadow-sm"

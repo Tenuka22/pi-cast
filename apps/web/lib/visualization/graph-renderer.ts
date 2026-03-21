@@ -123,9 +123,8 @@ export function evaluateFunction(
     expr = expr.replace(/\be\b/g, Math.E.toString())
     expr = expr.replace(/\bpi\b/g, Math.PI.toString())
 
-    // Evaluate mathematical expression using Function constructor
-    // Note: This is safe because equation strings come from the application's controlled input
-    return evaluateExpression(expr, variables.x || 0)
+    // Evaluate mathematical expression with correct operator precedence (BODMAS)
+    return evaluateExpression(expr, variables)
   } catch (error) {
     console.error("Error evaluating function:", error)
     return NaN
@@ -137,65 +136,289 @@ export function evaluateFunction(
  * Uses a controlled evaluation approach with explicit math function mapping
  */
 
-// Typed function constructor wrapper for mathematical expressions
-type MathFunction = (
-  x: number,
-  sin: (x: number) => number,
-  cos: (x: number) => number,
-  tan: (x: number) => number,
-  log: (x: number) => number,
-  log10: (x: number) => number,
-  sqrt: (x: number) => number,
-  abs: (x: number) => number,
-  exp: (x: number) => number,
-  floor: (x: number) => number,
-  ceil: (x: number) => number,
-  PI: number,
-  E: number
-) => number;
+type Token =
+  | { type: "number"; value: number }
+  | { type: "ident"; value: string }
+  | { type: "op"; value: string }
+  | { type: "lparen" }
+  | { type: "rparen" }
+  | { type: "comma" };
 
-function createMathFunction(expression: string): MathFunction {
-  // Note: This uses Function constructor with strictly controlled input
-  // The expression comes from application-controlled equation strings
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const fn = new Function(
-    "x",
-    "sin",
-    "cos",
-    "tan",
-    "log",
-    "log10",
-    "sqrt",
-    "abs",
-    "exp",
-    "floor",
-    "ceil",
-    "PI",
-    "E",
-    `return ${expression};`
-  );
-  return fn as MathFunction;
+const UNARY_MINUS = "u-";
+
+const FUNCTION_MAP: Record<string, (x: number) => number> = {
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  log: Math.log10,
+  ln: Math.log,
+  sqrt: Math.sqrt,
+  abs: Math.abs,
+  exp: Math.exp,
+  floor: Math.floor,
+  ceil: Math.ceil,
+};
+
+function isOperatorChar(ch: string): boolean {
+  return ["+", "-", "*", "/", "^"].includes(ch);
 }
 
-function evaluateExpression(expression: string, xValue: number): number {
-  const mathFunc = createMathFunction(expression);
+function tokenizeExpression(expression: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
 
-  const result = mathFunc(
-    xValue,
-    Math.sin,
-    Math.cos,
-    Math.tan,
-    Math.log,
-    Math.log10,
-    Math.sqrt,
-    Math.abs,
-    Math.exp,
-    Math.floor,
-    Math.ceil,
-    Math.PI,
-    Math.E
-  );
-  return typeof result === "number" ? result : Number(result);
+  const s = expression.replace(/\s+/g, "");
+  while (i < s.length) {
+    const ch = s[i]!;
+
+    if (ch === "(") {
+      tokens.push({ type: "lparen" });
+      i++;
+      continue;
+    }
+    if (ch === ")") {
+      tokens.push({ type: "rparen" });
+      i++;
+      continue;
+    }
+    if (ch === ",") {
+      tokens.push({ type: "comma" });
+      i++;
+      continue;
+    }
+
+    if ((ch >= "0" && ch <= "9") || ch === ".") {
+      let j = i + 1;
+      while (j < s.length) {
+        const cj = s[j]!;
+        if ((cj >= "0" && cj <= "9") || cj === ".") j++;
+        else break;
+      }
+      const raw = s.slice(i, j);
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`Invalid number: ${raw}`);
+      tokens.push({ type: "number", value });
+      i = j;
+      continue;
+    }
+
+    if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_") {
+      let j = i + 1;
+      while (j < s.length) {
+        const cj = s[j]!;
+        if (
+          (cj >= "a" && cj <= "z") ||
+          (cj >= "A" && cj <= "Z") ||
+          (cj >= "0" && cj <= "9") ||
+          cj === "_"
+        ) {
+          j++;
+        } else {
+          break;
+        }
+      }
+      tokens.push({ type: "ident", value: s.slice(i, j) });
+      i = j;
+      continue;
+    }
+
+    if (isOperatorChar(ch)) {
+      if (ch === "*" && s[i + 1] === "*") {
+        tokens.push({ type: "op", value: "**" });
+        i += 2;
+        continue;
+      }
+      tokens.push({ type: "op", value: ch });
+      i++;
+      continue;
+    }
+
+    throw new Error(`Unexpected character: ${ch}`);
+  }
+
+  return tokens;
+}
+
+function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> {
+  const output: Array<Token | { type: "func"; value: string }> = [];
+  const stack: Array<Token | { type: "func"; value: string }> = [];
+
+  const precedence: Record<string, number> = {
+    "+": 1,
+    "-": 1,
+    "*": 2,
+    "/": 2,
+    [UNARY_MINUS]: 3,
+    "^": 4,
+    "**": 4,
+  };
+
+  const rightAssociative = new Set(["^", "**", UNARY_MINUS]);
+
+  let prev: Token | null = null;
+  for (let idx = 0; idx < tokens.length; idx++) {
+    const token = tokens[idx]!;
+    if (token.type === "number") {
+      output.push(token);
+      prev = token;
+      continue;
+    }
+    if (token.type === "ident") {
+      const next = tokens[idx + 1];
+      if (next?.type === "lparen") {
+        stack.push({ type: "func", value: token.value });
+      } else {
+        output.push(token);
+      }
+      prev = token;
+      continue;
+    }
+    if (token.type === "comma") {
+      while (stack.length && stack.at(-1)?.type !== "lparen") {
+        output.push(stack.pop()!);
+      }
+      prev = token;
+      continue;
+    }
+    if (token.type === "lparen") {
+      stack.push(token);
+      prev = token;
+      continue;
+    }
+    if (token.type === "rparen") {
+      while (stack.length && stack.at(-1)?.type !== "lparen") {
+        output.push(stack.pop()!);
+      }
+      if (stack.at(-1)?.type !== "lparen") {
+        throw new Error("Mismatched parentheses");
+      }
+      stack.pop();
+      const top = stack.at(-1);
+      if (top && top.type === "func") {
+        output.push(stack.pop()!);
+      }
+      prev = token;
+      continue;
+    }
+    if (token.type === "op") {
+      let op = token.value;
+      if (
+        op === "-" &&
+        (!prev ||
+          prev.type === "op" ||
+          prev.type === "lparen" ||
+          prev.type === "comma")
+      ) {
+        op = UNARY_MINUS;
+      }
+
+      while (stack.length) {
+        const top = stack.at(-1)!;
+        if (top.type !== "op") break;
+
+        const pTop = precedence[top.value] ?? 0;
+        const pOp = precedence[op] ?? 0;
+
+        if (
+          (rightAssociative.has(op) && pOp < pTop) ||
+          (!rightAssociative.has(op) && pOp <= pTop)
+        ) {
+          output.push(stack.pop()!);
+        } else {
+          break;
+        }
+      }
+
+      stack.push({ type: "op", value: op });
+      prev = token;
+      continue;
+    }
+  }
+
+  while (stack.length) {
+    const t = stack.pop()!;
+    if (t.type === "lparen" || t.type === "rparen") {
+      throw new Error("Mismatched parentheses");
+    }
+    output.push(t);
+  }
+
+  return output;
+}
+
+function evaluateRpn(
+  rpn: Array<Token | { type: "func"; value: string }>,
+  variables: Record<string, number>
+): number {
+  const stack: number[] = [];
+  for (const token of rpn) {
+    if (token.type === "number") {
+      stack.push(token.value);
+      continue;
+    }
+    if (token.type === "ident") {
+      const name = token.value.toLowerCase();
+      if (name === "pi") stack.push(Math.PI);
+      else if (name === "e") stack.push(Math.E);
+      else stack.push(variables[name] ?? 0);
+      continue;
+    }
+    if (token.type === "func") {
+      const fn = FUNCTION_MAP[token.value.toLowerCase()];
+      const arg = stack.pop();
+      if (!fn || arg === undefined) throw new Error("Invalid function call");
+      stack.push(fn(arg));
+      continue;
+    }
+    if (token.type === "op") {
+      if (token.value === UNARY_MINUS) {
+        const a = stack.pop();
+        if (a === undefined) throw new Error("Invalid unary operator");
+        stack.push(-a);
+        continue;
+      }
+
+      const b = stack.pop();
+      const a = stack.pop();
+      if (a === undefined || b === undefined) {
+        throw new Error("Invalid binary operator");
+      }
+
+      switch (token.value) {
+        case "+":
+          stack.push(a + b);
+          break;
+        case "-":
+          stack.push(a - b);
+          break;
+        case "*":
+          stack.push(a * b);
+          break;
+        case "/":
+          stack.push(a / b);
+          break;
+        case "^":
+        case "**":
+          stack.push(a ** b);
+          break;
+        default:
+          throw new Error(`Unknown operator: ${token.value}`);
+      }
+      continue;
+    }
+  }
+
+  if (stack.length !== 1) throw new Error("Invalid expression");
+  return stack[0]!;
+}
+
+function evaluateExpression(
+  expression: string,
+  variables: Record<string, number>
+): number {
+  const tokens = tokenizeExpression(expression);
+  const rpn = toRpn(tokens);
+  return evaluateRpn(rpn, variables);
 }
 
 /**

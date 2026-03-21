@@ -216,6 +216,28 @@ export function GridCanvas({
     [isPlaybackMode, onBlockInteract]
   )
 
+  const handleBlockDimensionsChange = useCallback(
+    (blockId: string, dimensions: { width: number; height: number }) => {
+      if (readOnly) return
+      const now = Date.now()
+
+      if (isPlaybackMode) {
+        onBlockModification?.(blockId, { dimensions, updatedAt: now })
+        return
+      }
+
+      const updatedBlocks = blocks.map((b) =>
+        b.id === blockId ? { ...b, dimensions, updatedAt: now } : b
+      )
+
+      if (!externalBlocks) {
+        setInternalBlocks(updatedBlocks)
+      }
+      onBlocksChange?.(updatedBlocks)
+    },
+    [blocks, externalBlocks, isPlaybackMode, onBlockModification, onBlocksChange, readOnly]
+  )
+
   const handleDragStart = useCallback((e: React.MouseEvent, block: Block) => {
     e.stopPropagation()
     e.preventDefault()
@@ -726,6 +748,8 @@ export function GridCanvas({
       isSelected,
       onClick: () => handleBlockClick(block.id),
       onMouseDown: (e: React.MouseEvent) => handleDragStart(e, block),
+      onDimensionsChange: (dimensions: { width: number; height: number }) =>
+        handleBlockDimensionsChange(block.id, dimensions),
       className: cn(
         "transition-shadow",
         isDragging ? "z-50 cursor-grabbing shadow-2xl" : "z-10"

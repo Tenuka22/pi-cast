@@ -28,5 +28,6 @@
     "packages/*"
   ],
   "dependencies": {
+    "function-plot": "^1.25.3"
   }
 }

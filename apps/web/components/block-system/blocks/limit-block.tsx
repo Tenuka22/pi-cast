@@ -24,6 +24,7 @@ interface LimitBlockComponentProps {
   isDragging?: boolean;
   onClick?: () => void;
   onMouseDown?: (e: React.MouseEvent) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   onVariableChange?: (variableName: string, value: number | string) => void;
   onApproachChange?: (approach: LimitApproach) => void;
   variableOptions?: string[];
@@ -42,6 +43,7 @@ export function LimitBlockComponent({
   isDragging = false,
   onClick,
   onMouseDown,
+  onDimensionsChange,
   onVariableChange,
   onApproachChange,
   variableOptions = [],
@@ -65,6 +67,7 @@ export function LimitBlockComponent({
       isDragging={isDragging}
       onClick={onClick}
       onMouseDown={onMouseDown}
+      onDimensionsChange={onDimensionsChange}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
