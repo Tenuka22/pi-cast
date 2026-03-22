@@ -3,6 +3,7 @@
 import { authClient } from "@/lib/auth/auth-client"
 import { Button } from "@workspace/ui/components/button"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function Page() {
   const { data, isPending } = authClient.useSession()
@@ -18,7 +19,16 @@ export default function Page() {
   return (
     <div className="flex min-h-svh flex-col p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Pi-Cast</h1>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo.jpg"
+            alt="Pi-Cast"
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-lg"
+          />
+          <h1 className="text-2xl font-bold">Pi-Cast</h1>
+        </div>
         {data?.user ? (
           <Link href="/dashboard">
             <Button>Dashboard</Button>

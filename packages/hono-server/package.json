@@ -24,7 +24,8 @@
     "@pi-cast/db": "workspace:*",
     "@pi-cast/orpc-handlers": "workspace:*",
     "drizzle-orm": "^0.45.1",
-    "hono": "^4.8.0"
+    "hono": "^4.8.0",
+    "varlock": "^0.6.2"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

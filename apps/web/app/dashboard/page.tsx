@@ -13,6 +13,7 @@ import {
 } from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 export default function DashboardPage() {
   return (
@@ -39,7 +40,16 @@ function DashboardContent() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="flex h-16 items-center justify-between px-6">
-          <h1 className="text-xl font-bold">Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.jpg"
+              alt="Pi-Cast"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-lg"
+            />
+            <h1 className="text-xl font-bold">Dashboard</h1>
+          </div>
           <UserNav />
         </div>
       </header>

@@ -17,6 +17,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { GithubIcon, MailIcon, ShieldCheck, RefreshIcon } from "@hugeicons/core-free-icons"
 import { signIn, sendVerificationOtp, signInWithOTP } from "@/lib/auth/auth-client"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -112,10 +113,19 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center p-6">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-2">
+            <Image
+              src="/logo.jpg"
+              alt="Pi-Cast"
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded-lg"
+            />
+          </div>
           <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
           <CardDescription>
-            {step === "email" 
+            {step === "email"
               ? "Enter your email to receive a verification code"
               : "Enter the 6-digit code sent to your email"}
           </CardDescription>
