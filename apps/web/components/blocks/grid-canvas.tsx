@@ -1,13 +1,13 @@
 /**
  * GridCanvas - Hybrid Canvas + HTML Editor System
- * 
+ *
  * Architecture:
  * - Canvas layer: Grid rendering (performant, scales infinitely)
  * - HTML layer: Interactive nodes (accessible, focusable, editable)
  * - Transform system: Shared pan/zoom state applied to both layers
  * - Ghost dragging: Original stays in place, preview follows cursor
  * - Snapping: Grid + edge/center alignment with tolerance
- * 
+ *
  * Performance:
  * - Uses transform: translate/scale instead of top/left
  * - ResizeObserver for content-aware dimensions
@@ -15,10 +15,10 @@
  * - Document-level event listeners for smooth dragging
  */
 
-"use client";
+"use client"
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { cn } from "@workspace/ui/lib/utils";
+import React, { useState, useCallback, useRef, useEffect } from "react"
+import { cn } from "@workspace/ui/lib/utils"
 import {
   GRID_UNIT,
   type Block,
@@ -37,9 +37,9 @@ import {
   findNearestValidPosition,
   autoArrangeNeighbors,
   getConnectionType,
-} from "@/lib/block-system/types";
-import { evaluateFunction } from "@/lib/visualization/graph-renderer";
-import type { BlockPreset } from "./block-library";
+} from "@/lib/block-system/types"
+import { evaluateFunction } from "@/lib/visualization/graph-renderer"
+import type { BlockPreset } from "./block-library"
 import {
   EquationBlockComponent,
   ChartBlockComponent,
@@ -52,19 +52,20 @@ import {
   ComparatorBlockComponent,
   ConstraintBlockComponent,
   TableBlockComponent,
-} from "./block-components";
-import { ConnectionLayer } from "@/components/connections/connection-layer";
-import { ConnectionPreview } from "@/components/connections/connection-line";
-import { useRecording } from "@/lib/recording-system/use-recording";
-import { RecordingControls } from "@/components/recording/recording-controls";
-import { RecordingStatusBar } from "@/components/recording/recording-status-bar";
+} from "./block-components"
+import { ConnectionLayer } from "@/components/connections/connection-layer"
+import { ConnectionPreview } from "@/components/connections/connection-line"
+import { useRecording } from "@/lib/recording-system/use-recording"
+import { RecordingControls } from "@/components/recording/recording-controls"
+import { RecordingStatusBar } from "@/components/recording/recording-status-bar"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@workspace/ui/components/context-menu";
+} from "@workspace/ui/components/context-menu"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 
 // ============================================================================
 // TYPE GUARDS
@@ -89,47 +90,53 @@ function isValidBlockPreset(value: unknown): value is BlockPreset {
       "constraint",
       "table",
     ].includes(value.type)
-  );
+  )
 }
 
 function isEquationBlock(block: Block): block is EquationBlock {
-  return block.type === "equation";
+  return block.type === "equation"
 }
 
 function isControlBlock(block: Block): block is ControlBlock {
-  return block.type === "control";
+  return block.type === "control"
 }
 
 function isLimitBlock(block: Block): block is LimitBlock {
-  return block.type === "limit";
+  return block.type === "limit"
 }
 
 function isChartBlock(block: Block): block is ChartBlock {
-  return block.type === "chart";
+  return block.type === "chart"
 }
 
-function isShapeBlock(block: Block): block is import("@/lib/block-system/types").ShapeBlock {
-  return block.type === "shape";
+function isShapeBlock(
+  block: Block
+): block is import("@/lib/block-system/types").ShapeBlock {
+  return block.type === "shape"
 }
 
-function isVariableBlock(block: Block): block is import("@/lib/block-system/types").VariableBlock {
-  return block.type === "variable";
+function isVariableBlock(
+  block: Block
+): block is import("@/lib/block-system/types").VariableBlock {
+  return block.type === "variable"
 }
 
 function isLogicBlock(block: Block): block is LogicBlock {
-  return block.type === "logic";
+  return block.type === "logic"
 }
 
-function isTableBlock(block: Block): block is import("@/lib/block-system/types").TableBlock {
-  return block.type === "table";
+function isTableBlock(
+  block: Block
+): block is import("@/lib/block-system/types").TableBlock {
+  return block.type === "table"
 }
 
 function isComparatorBlock(block: Block): block is ComparatorBlock {
-  return block.type === "comparator";
+  return block.type === "comparator"
 }
 
 function isConstraintBlock(block: Block): block is ConstraintBlock {
-  return block.type === "constraint";
+  return block.type === "constraint"
 }
 
 // ============================================================================
@@ -141,9 +148,9 @@ function isConstraintBlock(block: Block): block is ConstraintBlock {
  * Provides coordinate conversion utilities
  */
 interface TransformState {
-  x: number;
-  y: number;
-  scale: number;
+  x: number
+  y: number
+  scale: number
 }
 
 function useTransform(initialScale = 1, minScale = 0.25, maxScale = 3) {
@@ -151,35 +158,42 @@ function useTransform(initialScale = 1, minScale = 0.25, maxScale = 3) {
     x: 0,
     y: 0,
     scale: initialScale,
-  });
+  })
 
-  const transformRef = useRef(transform);
+  const transformRef = useRef(transform)
   useEffect(() => {
-    transformRef.current = transform;
-  }, [transform]);
+    transformRef.current = transform
+  }, [transform])
 
   const setTransform = useCallback(
-    (updates: Partial<TransformState> | ((prev: TransformState) => TransformState)) => {
+    (
+      updates:
+        | Partial<TransformState>
+        | ((prev: TransformState) => TransformState)
+    ) => {
       setTransformState((prev) => {
-        const next = typeof updates === "function" ? updates(prev) : { ...prev, ...updates };
-        next.scale = Math.min(Math.max(next.scale, minScale), maxScale);
-        return next;
-      });
+        const next =
+          typeof updates === "function"
+            ? updates(prev)
+            : { ...prev, ...updates }
+        next.scale = Math.min(Math.max(next.scale, minScale), maxScale)
+        return next
+      })
     },
     [minScale, maxScale]
-  );
+  )
 
   const reset = useCallback(() => {
-    setTransformState({ x: 0, y: 0, scale: initialScale });
-  }, [initialScale]);
+    setTransformState({ x: 0, y: 0, scale: initialScale })
+  }, [initialScale])
 
   const zoomIn = useCallback(() => {
-    setTransform((prev) => ({ ...prev, scale: prev.scale + 0.1 }));
-  }, [setTransform]);
+    setTransform((prev) => ({ ...prev, scale: prev.scale + 0.1 }))
+  }, [setTransform])
 
   const zoomOut = useCallback(() => {
-    setTransform((prev) => ({ ...prev, scale: prev.scale - 0.1 }));
-  }, [setTransform]);
+    setTransform((prev) => ({ ...prev, scale: prev.scale - 0.1 }))
+  }, [setTransform])
 
   const screenToWorld = useCallback(
     (screenX: number, screenY: number) => ({
@@ -187,7 +201,7 @@ function useTransform(initialScale = 1, minScale = 0.25, maxScale = 3) {
       y: (screenY - transformRef.current.y) / transformRef.current.scale,
     }),
     []
-  );
+  )
 
   const worldToScreen = useCallback(
     (worldX: number, worldY: number) => ({
@@ -195,7 +209,7 @@ function useTransform(initialScale = 1, minScale = 0.25, maxScale = 3) {
       y: worldY * transformRef.current.scale + transformRef.current.y,
     }),
     []
-  );
+  )
 
   return {
     transform,
@@ -206,32 +220,32 @@ function useTransform(initialScale = 1, minScale = 0.25, maxScale = 3) {
     screenToWorld,
     worldToScreen,
     transformRef,
-  };
+  }
 }
 
 /**
  * useSnap - Grid and edge snapping system
  */
 interface SnapOptions {
-  gridSize?: number;
-  snapThreshold?: number;
-  enableGridSnap?: boolean;
-  enableEdgeSnap?: boolean;
-  enableCenterSnap?: boolean;
+  gridSize?: number
+  snapThreshold?: number
+  enableGridSnap?: boolean
+  enableEdgeSnap?: boolean
+  enableCenterSnap?: boolean
 }
 
 interface SnapResult {
-  position: GridPosition;
-  snappedToGrid: boolean;
-  snappedToEdge: boolean;
-  snappedToCenter: boolean;
-  guideLines?: GuideLine[];
+  position: GridPosition
+  snappedToGrid: boolean
+  snappedToEdge: boolean
+  snappedToCenter: boolean
+  guideLines?: GuideLine[]
 }
 
 interface GuideLine {
-  type: "vertical" | "horizontal";
-  position: number;
-  source: "edge" | "center";
+  type: "vertical" | "horizontal"
+  position: number
+  source: "edge" | "center"
 }
 
 function useSnap(options: SnapOptions = {}) {
@@ -240,29 +254,35 @@ function useSnap(options: SnapOptions = {}) {
     enableGridSnap = true,
     enableEdgeSnap = true,
     enableCenterSnap = true,
-  } = options;
+  } = options
 
   const snapToGrid = useCallback(
     (position: GridPosition): GridPosition => {
-      if (!enableGridSnap) return position;
+      if (!enableGridSnap) return position
       // Position is already in grid coordinates, just round to nearest integer
       return {
         x: Math.round(position.x),
         y: Math.round(position.y),
-      };
+      }
     },
     [enableGridSnap]
-  );
+  )
 
   const getBlockEdges = useCallback(
     (position: GridPosition, dimensions: BlockDimensions) => [
       { type: "left" as const, value: position.x * GRID_UNIT },
-      { type: "right" as const, value: (position.x + dimensions.width) * GRID_UNIT },
+      {
+        type: "right" as const,
+        value: (position.x + dimensions.width) * GRID_UNIT,
+      },
       { type: "top" as const, value: position.y * GRID_UNIT },
-      { type: "bottom" as const, value: (position.y + dimensions.height) * GRID_UNIT },
+      {
+        type: "bottom" as const,
+        value: (position.y + dimensions.height) * GRID_UNIT,
+      },
     ],
     []
-  );
+  )
 
   const getBlockCenter = useCallback(
     (position: GridPosition, dimensions: BlockDimensions) => ({
@@ -270,7 +290,7 @@ function useSnap(options: SnapOptions = {}) {
       y: (position.y + dimensions.height / 2) * GRID_UNIT,
     }),
     []
-  );
+  )
 
   const snap = useCallback(
     (
@@ -279,25 +299,25 @@ function useSnap(options: SnapOptions = {}) {
       allBlocks: Block[],
       excludeBlockId?: string
     ): SnapResult => {
-      const otherBlocks = allBlocks.filter((b) => b.id !== excludeBlockId);
+      const otherBlocks = allBlocks.filter((b) => b.id !== excludeBlockId)
 
       // Start with grid snapping
-      let snappedPosition = snapToGrid(position);
+      let snappedPosition = snapToGrid(position)
       const snappedToGridResult =
         enableGridSnap &&
-        (snappedPosition.x !== position.x || snappedPosition.y !== position.y);
+        (snappedPosition.x !== position.x || snappedPosition.y !== position.y)
 
       // Find edge and center snapping opportunities
-      const myEdges = getBlockEdges(snappedPosition, dimensions);
-      const myCenter = getBlockCenter(snappedPosition, dimensions);
-      const guideLines: GuideLine[] = [];
-      let snappedToEdge = false;
-      let snappedToCenter = false;
+      const myEdges = getBlockEdges(snappedPosition, dimensions)
+      const myCenter = getBlockCenter(snappedPosition, dimensions)
+      const guideLines: GuideLine[] = []
+      let snappedToEdge = false
+      let snappedToCenter = false
 
       // Check edge snapping
       if (enableEdgeSnap) {
         for (const block of otherBlocks) {
-          const theirEdges = getBlockEdges(block.position, block.dimensions);
+          const theirEdges = getBlockEdges(block.position, block.dimensions)
 
           for (const myEdge of myEdges) {
             for (const theirEdge of theirEdges) {
@@ -305,60 +325,72 @@ function useSnap(options: SnapOptions = {}) {
                 myEdge.type === theirEdge.type &&
                 Math.abs(myEdge.value - theirEdge.value) <= snapThreshold
               ) {
-                snappedToEdge = true;
-                const delta = theirEdge.value - myEdge.value;
+                snappedToEdge = true
+                const delta = theirEdge.value - myEdge.value
 
                 if (myEdge.type === "left" || myEdge.type === "right") {
-                  snappedPosition = { ...snappedPosition, x: snappedPosition.x + delta / GRID_UNIT };
+                  snappedPosition = {
+                    ...snappedPosition,
+                    x: snappedPosition.x + delta / GRID_UNIT,
+                  }
                   guideLines.push({
                     type: "vertical",
                     position: theirEdge.value,
                     source: "edge",
-                  });
+                  })
                 } else {
-                  snappedPosition = { ...snappedPosition, y: snappedPosition.y + delta / GRID_UNIT };
+                  snappedPosition = {
+                    ...snappedPosition,
+                    y: snappedPosition.y + delta / GRID_UNIT,
+                  }
                   guideLines.push({
                     type: "horizontal",
                     position: theirEdge.value,
                     source: "edge",
-                  });
+                  })
                 }
-                break;
+                break
               }
             }
-            if (snappedToEdge) break;
+            if (snappedToEdge) break
           }
-          if (snappedToEdge) break;
+          if (snappedToEdge) break
         }
       }
 
       // Check center alignment snapping (if no edge snap)
       if (!snappedToEdge && enableCenterSnap) {
         for (const block of otherBlocks) {
-          const theirCenter = getBlockCenter(block.position, block.dimensions);
+          const theirCenter = getBlockCenter(block.position, block.dimensions)
 
           if (Math.abs(myCenter.x - theirCenter.x) <= snapThreshold) {
-            snappedToCenter = true;
-            const delta = theirCenter.x - myCenter.x;
-            snappedPosition = { ...snappedPosition, x: snappedPosition.x + delta / GRID_UNIT };
+            snappedToCenter = true
+            const delta = theirCenter.x - myCenter.x
+            snappedPosition = {
+              ...snappedPosition,
+              x: snappedPosition.x + delta / GRID_UNIT,
+            }
             guideLines.push({
               type: "vertical",
               position: theirCenter.x,
               source: "center",
-            });
-            break;
+            })
+            break
           }
 
           if (Math.abs(myCenter.y - theirCenter.y) <= snapThreshold) {
-            snappedToCenter = true;
-            const delta = theirCenter.y - myCenter.y;
-            snappedPosition = { ...snappedPosition, y: snappedPosition.y + delta / GRID_UNIT };
+            snappedToCenter = true
+            const delta = theirCenter.y - myCenter.y
+            snappedPosition = {
+              ...snappedPosition,
+              y: snappedPosition.y + delta / GRID_UNIT,
+            }
             guideLines.push({
               type: "horizontal",
               position: theirCenter.y,
               source: "center",
-            });
-            break;
+            })
+            break
           }
         }
       }
@@ -369,41 +401,49 @@ function useSnap(options: SnapOptions = {}) {
         snappedToEdge,
         snappedToCenter,
         guideLines: guideLines.length > 0 ? guideLines : undefined,
-      };
+      }
     },
-    [snapToGrid, getBlockEdges, getBlockCenter, enableGridSnap, enableEdgeSnap, enableCenterSnap, snapThreshold]
-  );
+    [
+      snapToGrid,
+      getBlockEdges,
+      getBlockCenter,
+      enableGridSnap,
+      enableEdgeSnap,
+      enableCenterSnap,
+      snapThreshold,
+    ]
+  )
 
-  return { snap, snapToGrid };
+  return { snap, snapToGrid }
 }
 
 interface GridCanvasProps {
-  className?: string;
-  onBlocksChange?: (blocks: Block[]) => void;
-  onBlockDrop?: (preset: BlockPreset, position: GridPosition) => void;
+  className?: string
+  onBlocksChange?: (blocks: Block[]) => void
+  onBlockDrop?: (preset: BlockPreset, position: GridPosition) => void
 
   // Node chain props (new tree-based architecture)
-  nodeChains?: Map<string, import("@/lib/block-system/types").NodeChain>;
+  nodeChains?: Map<string, import("@/lib/block-system/types").NodeChain>
   onNodeChainsChange?: (
     chains: Map<string, import("@/lib/block-system/types").NodeChain>
-  ) => void;
-  onConnectBlocks?: (sourceBlockId: string, targetBlockId: string) => void;
-  onDisconnectBlocks?: (sourceBlockId: string, targetBlockId: string) => void;
+  ) => void
+  onConnectBlocks?: (sourceBlockId: string, targetBlockId: string) => void
+  onDisconnectBlocks?: (sourceBlockId: string, targetBlockId: string) => void
 
   // Playback mode props
-  blocks?: Block[];
-  isPlaybackMode?: boolean;
-  onBlockInteract?: () => void;
-  onBlockModification?: (blockId: string, modifications: Partial<Block>) => void;
+  blocks?: Block[]
+  isPlaybackMode?: boolean
+  onBlockInteract?: () => void
+  onBlockModification?: (blockId: string, modifications: Partial<Block>) => void
   onVariableChange?: (
     blockId: string,
     variableName: string,
     value: number
-  ) => void;
-  readOnly?: boolean;
+  ) => void
+  readOnly?: boolean
 
   // Recording permission prop
-  canRecord?: boolean;
+  canRecord?: boolean
 }
 
 /**
@@ -411,16 +451,16 @@ interface GridCanvasProps {
  * The original element stays in place; only the ghost moves
  */
 interface GhostDragState {
-  isDragging: boolean;
-  blockId: string;
-  startPosition: GridPosition;
-  previewPosition: GridPosition; // Snapped preview position
-  offset: { x: number; y: number }; // Click offset in world coordinates
-  dimensions: BlockDimensions;
-  snappedToGrid: boolean;
-  snappedToEdge: boolean;
-  snappedToCenter: boolean;
-  guideLines?: GuideLine[];
+  isDragging: boolean
+  blockId: string
+  startPosition: GridPosition
+  previewPosition: GridPosition // Snapped preview position
+  offset: { x: number; y: number } // Click offset in world coordinates
+  dimensions: BlockDimensions
+  snappedToGrid: boolean
+  snappedToEdge: boolean
+  snappedToCenter: boolean
+  guideLines?: GuideLine[]
 }
 
 export function GridCanvas({
@@ -437,26 +477,26 @@ export function GridCanvas({
   readOnly = false,
   canRecord = true,
 }: GridCanvasProps) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [internalBlocks, setInternalBlocks] = useState<Block[]>([]);
-  const blocks = externalBlocks ?? internalBlocks;
-  const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>();
-  const [gridVisible, setGridVisible] = useState(true);
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const [internalBlocks, setInternalBlocks] = useState<Block[]>([])
+  const blocks = externalBlocks ?? internalBlocks
+  const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>()
+  const [gridVisible, setGridVisible] = useState(true)
 
   // Connection state
-  const [connections, setConnections] = useState<BlockConnection[]>([]);
+  const [connections, setConnections] = useState<BlockConnection[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = useState<
     string | undefined
-  >();
+  >()
   const [contextTarget, setContextTarget] = useState<
     { blockId?: string; connectionId?: string } | undefined
-  >(undefined);
+  >(undefined)
   const [connectionDrag, setConnectionDrag] = useState<{
-    sourceBlockId: string;
-    sourceHandleId: string;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
+    sourceBlockId: string
+    sourceHandleId: string
+    currentX: number
+    currentY: number
+  } | null>(null)
 
   // Transform system (pan + zoom) - shared across all layers
   const {
@@ -468,7 +508,7 @@ export function GridCanvas({
     screenToWorld,
     worldToScreen,
     transformRef,
-  } = useTransform(1, 0.25, 3);
+  } = useTransform(1, 0.25, 3)
 
   // Snapping system
   const { snap } = useSnap({
@@ -477,46 +517,51 @@ export function GridCanvas({
     enableGridSnap: true,
     enableEdgeSnap: true,
     enableCenterSnap: true,
-  });
+  })
 
   // Ghost dragging state - uses ref for mutable state during drag
-  const [ghostDrag, setGhostDrag] = useState<GhostDragState | null>(null);
-  const ghostDragRef = useRef<GhostDragState | null>(null);
-  const isDraggingRef = useRef(false);
+  const [ghostDrag, setGhostDrag] = useState<GhostDragState | null>(null)
+  const ghostDragRef = useRef<GhostDragState | null>(null)
+  const isDraggingRef = useRef(false)
 
   // Panning state
-  const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false)
+  const panStartRef = useRef({ x: 0, y: 0 })
 
   // Sync ref with state
   useEffect(() => {
-    ghostDragRef.current = ghostDrag;
-  }, [ghostDrag]);
+    ghostDragRef.current = ghostDrag
+  }, [ghostDrag])
 
   // Keep Variable Slider blocks in sync when their source equation changes (e.g. new variables added)
   useEffect(() => {
-    if (isPlaybackMode) return;
+    if (isPlaybackMode) return
 
     const equationById = new Map(
       blocks.filter(isEquationBlock).map((b) => [b.id, b] as const)
-    );
+    )
 
-    let didChange = false;
+    let didChange = false
     const nextBlocks = blocks.map((block) => {
-      if (!isVariableBlock(block) || !block.sourceEquationId) return block;
-      const sourceEq = equationById.get(block.sourceEquationId);
-      if (!sourceEq) return block;
+      if (!isVariableBlock(block) || !block.sourceEquationId) return block
+      const sourceEq = equationById.get(block.sourceEquationId)
+      if (!sourceEq) return block
 
-      const eqVars = sourceEq.variables ?? parseEquation(sourceEq.equation).variables;
-      const editableVars = eqVars.filter((v) => !["x", "y", "e", "pi"].includes(v.name));
+      const eqVars =
+        sourceEq.variables ?? parseEquation(sourceEq.equation).variables
+      const editableVars = eqVars.filter(
+        (v) => !["x", "y", "e", "pi"].includes(v.name)
+      )
       const varsToSeed =
         editableVars.length > 0
           ? editableVars
-          : eqVars.filter((v) => !["x", "e", "pi"].includes(v.name));
+          : eqVars.filter((v) => !["x", "e", "pi"].includes(v.name))
 
-      const currentByName = new Map(block.variables.map((v) => [v.name, v] as const));
+      const currentByName = new Map(
+        block.variables.map((v) => [v.name, v] as const)
+      )
       const seededVariables = varsToSeed.map((v) => {
-        const existing = currentByName.get(v.name);
+        const existing = currentByName.get(v.name)
         return {
           name: v.name,
           value: existing?.value ?? v.value,
@@ -527,14 +572,15 @@ export function GridCanvas({
           showInput: existing?.showInput ?? true,
           autoAnimate: existing?.autoAnimate ?? false,
           animationSpeed: existing?.animationSpeed ?? 2000,
-          animationDirection: existing?.animationDirection ?? ("oscillate" as const),
-        };
-      });
+          animationDirection:
+            existing?.animationDirection ?? ("oscillate" as const),
+        }
+      })
 
       const same =
         block.variables.length === seededVariables.length &&
         block.variables.every((v, i) => {
-          const next = seededVariables[i];
+          const next = seededVariables[i]
           return (
             next &&
             v.name === next.name &&
@@ -544,204 +590,220 @@ export function GridCanvas({
             v.step === next.step &&
             v.showSlider === next.showSlider &&
             v.showInput === next.showInput
-          );
-        });
+          )
+        })
 
-      if (same) return block;
-      didChange = true;
-      return { ...block, variables: seededVariables, updatedAt: Date.now() };
-    });
+      if (same) return block
+      didChange = true
+      return { ...block, variables: seededVariables, updatedAt: Date.now() }
+    })
 
-    if (!didChange) return;
-    setInternalBlocks(nextBlocks);
-    onBlocksChange?.(nextBlocks);
-  }, [blocks, isPlaybackMode, onBlocksChange]);
+    if (!didChange) return
+    setInternalBlocks(nextBlocks)
+    onBlocksChange?.(nextBlocks)
+  }, [blocks, isPlaybackMode, onBlocksChange])
 
   // Compute logic/comparator results from connections
   useEffect(() => {
-    if (isPlaybackMode) return;
+    if (isPlaybackMode) return
 
-    const byId = new Map(blocks.map((b) => [b.id, b] as const));
+    const byId = new Map(blocks.map((b) => [b.id, b] as const))
 
     const getNumericValue = (block: Block): number | undefined => {
       if (isComparatorBlock(block)) {
-        return typeof block.result === "number" ? block.result : undefined;
+        return typeof block.result === "number" ? block.result : undefined
       }
       if (isLogicBlock(block)) {
-        return typeof block.result === "number" ? block.result : undefined;
+        return typeof block.result === "number" ? block.result : undefined
       }
       if (isEquationBlock(block)) {
-        const vars = block.variables ?? parseEquation(block.equation).variables;
-        const record: Record<string, number> = {};
-        for (const v of vars) record[v.name] = v.value;
-        const x = record.x ?? 0;
-        const y = evaluateFunction(block.equation, { ...record, x });
-        return Number.isFinite(y) ? y : undefined;
+        const vars = block.variables ?? parseEquation(block.equation).variables
+        const record: Record<string, number> = {}
+        for (const v of vars) record[v.name] = v.value
+        const x = record.x ?? 0
+        const y = evaluateFunction(block.equation, { ...record, x })
+        return Number.isFinite(y) ? y : undefined
       }
-      return undefined;
-    };
+      return undefined
+    }
 
     const getBoolValue = (block: Block): boolean | undefined => {
       if (isConstraintBlock(block)) {
-        return typeof block.result === "boolean" ? block.result : undefined;
+        return typeof block.result === "boolean" ? block.result : undefined
       }
       if (isComparatorBlock(block)) {
-        if (typeof block.result === "boolean") return block.result;
-        if (typeof block.result === "number") return block.result !== 0;
+        if (typeof block.result === "boolean") return block.result
+        if (typeof block.result === "number") return block.result !== 0
       }
       if (isLogicBlock(block)) {
-        if (typeof block.result === "boolean") return block.result;
-        if (typeof block.result === "number") return block.result !== 0;
+        if (typeof block.result === "boolean") return block.result
+        if (typeof block.result === "number") return block.result !== 0
       }
       if (isEquationBlock(block)) {
-        const raw = block.equation ?? "";
-        const normalized = raw.toLowerCase().replace(/\s/g, "");
-        const parts = normalized.split("=");
+        const raw = block.equation ?? ""
+        const normalized = raw.toLowerCase().replace(/\s/g, "")
+        const parts = normalized.split("=")
         // Treat pure numeric equalities like "1=1" as boolean statements.
         // Do NOT treat assignments/functions like "y=mx+c" or "m=mx+c" as boolean.
-        if (parts.length === 2 && parts[0] !== undefined && parts[1] !== undefined) {
-          const [lhs, rhs] = parts as [string, string];
-          const isFunctionDef = lhs === "y";
-          const hasLetters = /[a-z]/i.test(lhs + rhs);
+        if (
+          parts.length === 2 &&
+          parts[0] !== undefined &&
+          parts[1] !== undefined
+        ) {
+          const [lhs, rhs] = parts as [string, string]
+          const isFunctionDef = lhs === "y"
+          const hasLetters = /[a-z]/i.test(lhs + rhs)
           if (!isFunctionDef && !hasLetters) {
-            const vars = block.variables ?? parseEquation(raw).variables;
-            const record: Record<string, number> = {};
-            for (const v of vars) record[v.name] = v.value;
-            const leftVal = evaluateFunction(`y=${lhs}`, record);
-            const rightVal = evaluateFunction(`y=${rhs}`, record);
-            if (!Number.isFinite(leftVal) || !Number.isFinite(rightVal)) return undefined;
-            const epsilon = 1e-9;
-            return Math.abs(leftVal - rightVal) <= epsilon;
+            const vars = block.variables ?? parseEquation(raw).variables
+            const record: Record<string, number> = {}
+            for (const v of vars) record[v.name] = v.value
+            const leftVal = evaluateFunction(`y=${lhs}`, record)
+            const rightVal = evaluateFunction(`y=${rhs}`, record)
+            if (!Number.isFinite(leftVal) || !Number.isFinite(rightVal))
+              return undefined
+            const epsilon = 1e-9
+            return Math.abs(leftVal - rightVal) <= epsilon
           }
         }
 
-        const num = getNumericValue(block);
-        return num === undefined ? undefined : num !== 0;
+        const num = getNumericValue(block)
+        return num === undefined ? undefined : num !== 0
       }
-      return undefined;
-    };
+      return undefined
+    }
 
-    let didChange = false;
+    let didChange = false
     const nextBlocks = blocks.map((block) => {
-      if (!isLogicBlock(block) && !isComparatorBlock(block) && !isEquationBlock(block))
-        return block;
+      if (
+        !isLogicBlock(block) &&
+        !isComparatorBlock(block) &&
+        !isEquationBlock(block)
+      )
+        return block
 
       if (isEquationBlock(block)) {
-        const now = Date.now();
-        const sourceId = block.enabledSourceId;
+        const now = Date.now()
+        const sourceId = block.enabledSourceId
         if (!sourceId) {
           if (block.enabled === false) {
-            didChange = true;
-            return { ...block, enabled: true, updatedAt: now };
+            didChange = true
+            return { ...block, enabled: true, updatedAt: now }
           }
-          return block;
+          return block
         }
-        const sourceBlock = byId.get(sourceId);
-        const enabledValue =
-          sourceBlock ? getBoolValue(sourceBlock) : undefined;
-        const nextEnabled = enabledValue === undefined ? true : enabledValue;
-        if (block.enabled === nextEnabled) return block;
-        didChange = true;
-        return { ...block, enabled: nextEnabled, updatedAt: now };
+        const sourceBlock = byId.get(sourceId)
+        const enabledValue = sourceBlock ? getBoolValue(sourceBlock) : undefined
+        const nextEnabled = enabledValue === undefined ? true : enabledValue
+        if (block.enabled === nextEnabled) return block
+        didChange = true
+        return { ...block, enabled: nextEnabled, updatedAt: now }
       }
 
       if (isLogicBlock(block)) {
         const inputBlocks = (block.inputs || [])
           .map((id) => byId.get(id))
-          .filter((b): b is Block => Boolean(b));
+          .filter((b): b is Block => Boolean(b))
 
-        const now = Date.now();
+        const now = Date.now()
         if (["and", "or", "xor"].includes(block.logicType)) {
-          if (inputBlocks.length < 2) return block.result === undefined ? block : { ...block, result: undefined };
-          const bools = inputBlocks.map(getBoolValue);
-          if (bools.some((b) => b === undefined)) return block;
-          const values = bools as boolean[];
+          if (inputBlocks.length < 2)
+            return block.result === undefined
+              ? block
+              : { ...block, result: undefined }
+          const bools = inputBlocks.map(getBoolValue)
+          if (bools.some((b) => b === undefined)) return block
+          const values = bools as boolean[]
           const result =
             block.logicType === "and"
               ? values.every(Boolean)
               : block.logicType === "or"
                 ? values.some(Boolean)
-                : values.reduce((acc, v) => acc !== v, false);
-          if (block.result === result) return block;
-          didChange = true;
-          return { ...block, result, updatedAt: now };
+                : values.reduce((acc, v) => acc !== v, false)
+          if (block.result === result) return block
+          didChange = true
+          return { ...block, result, updatedAt: now }
         }
 
         // Comparison gate types (eq, le, ge, gt, lt): use first two numeric inputs
-        if (inputBlocks.length < 2) return block.result === undefined ? block : { ...block, result: undefined };
-        const left = getNumericValue(inputBlocks[0]!);
-        const right = getNumericValue(inputBlocks[1]!);
-        if (left === undefined || right === undefined) return block;
-        let result: boolean;
+        if (inputBlocks.length < 2)
+          return block.result === undefined
+            ? block
+            : { ...block, result: undefined }
+        const left = getNumericValue(inputBlocks[0]!)
+        const right = getNumericValue(inputBlocks[1]!)
+        if (left === undefined || right === undefined) return block
+        let result: boolean
         switch (block.logicType) {
           case "eq":
-            result = left === right;
-            break;
+            result = left === right
+            break
           case "le":
-            result = left <= right;
-            break;
+            result = left <= right
+            break
           case "ge":
-            result = left >= right;
-            break;
+            result = left >= right
+            break
           case "gt":
-            result = left > right;
-            break;
+            result = left > right
+            break
           case "lt":
-            result = left < right;
-            break;
+            result = left < right
+            break
           default:
-            return block;
+            return block
         }
-        if (block.result === result) return block;
-        didChange = true;
-        return { ...block, result, updatedAt: now };
+        if (block.result === result) return block
+        didChange = true
+        return { ...block, result, updatedAt: now }
       }
 
       // Comparator block computation (two inputs)
       if (isComparatorBlock(block)) {
         if (!block.leftInput || !block.rightInput) {
-          return block.result === undefined ? block : { ...block, result: undefined };
+          return block.result === undefined
+            ? block
+            : { ...block, result: undefined }
         }
-        const leftBlock = byId.get(block.leftInput);
-        const rightBlock = byId.get(block.rightInput);
-        if (!leftBlock || !rightBlock) return block;
-        const left = getNumericValue(leftBlock);
-        const right = getNumericValue(rightBlock);
-        if (left === undefined || right === undefined) return block;
+        const leftBlock = byId.get(block.leftInput)
+        const rightBlock = byId.get(block.rightInput)
+        if (!leftBlock || !rightBlock) return block
+        const left = getNumericValue(leftBlock)
+        const right = getNumericValue(rightBlock)
+        if (left === undefined || right === undefined) return block
 
-        let result: boolean;
+        let result: boolean
         switch (block.operator) {
           case "eq":
-            result = left === right;
-            break;
+            result = left === right
+            break
           case "le":
-            result = left <= right;
-            break;
+            result = left <= right
+            break
           case "ge":
-            result = left >= right;
-            break;
+            result = left >= right
+            break
           case "gt":
-            result = left > right;
-            break;
+            result = left > right
+            break
           case "lt":
-            result = left < right;
-            break;
+            result = left < right
+            break
           default:
-            return block;
+            return block
         }
 
-        if (block.result === result) return block;
-        didChange = true;
-        return { ...block, result, updatedAt: Date.now() };
+        if (block.result === result) return block
+        didChange = true
+        return { ...block, result, updatedAt: Date.now() }
       }
 
-      return block;
-    });
+      return block
+    })
 
-    if (!didChange) return;
-    setInternalBlocks(nextBlocks);
-    onBlocksChange?.(nextBlocks);
-  }, [blocks, isPlaybackMode, onBlocksChange]);
+    if (!didChange) return
+    setInternalBlocks(nextBlocks)
+    onBlocksChange?.(nextBlocks)
+  }, [blocks, isPlaybackMode, onBlocksChange])
 
   // Recording system integration
   const {
@@ -756,63 +818,62 @@ export function GridCanvas({
     metadata: {
       lessonTitle: "Untitled Lesson",
     },
-  });
+  })
 
   // Auto-animation for control variables (disabled to keep the canvas readable)
   useEffect(() => {
-    return;
-    let animationFrame: number;
+    return
+    let animationFrame: number
     const animate = () => {
-      const now = Date.now();
-      let needsUpdate = false;
+      const now = Date.now()
+      let needsUpdate = false
       const updatedBlocks = blocks.map((block) => {
-        if (!isControlBlock(block)) return block;
+        if (!isControlBlock(block)) return block
 
-        const hasAutoVariables = block.variables.some((v) => v.autoAnimate);
-        if (!hasAutoVariables) return block;
+        const hasAutoVariables = block.variables.some((v) => v.autoAnimate)
+        if (!hasAutoVariables) return block
 
         const updatedVariables = block.variables.map((variable) => {
-          if (!variable.autoAnimate) return variable;
+          if (!variable.autoAnimate) return variable
 
-          const speed = variable.animationSpeed || 2000;
-          const direction = variable.animationDirection || "oscillate";
-          const progress = (now % speed) / speed;
+          const speed = variable.animationSpeed || 2000
+          const direction = variable.animationDirection || "oscillate"
+          const progress = (now % speed) / speed
 
-          let newValue: number;
+          let newValue: number
           if (direction === "oscillate") {
             const oscillateProgress =
-              progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+              progress < 0.5 ? progress * 2 : (1 - progress) * 2
             newValue =
-              variable.min + oscillateProgress * (variable.max - variable.min);
+              variable.min + oscillateProgress * (variable.max - variable.min)
           } else {
-            newValue =
-              variable.min + progress * (variable.max - variable.min);
+            newValue = variable.min + progress * (variable.max - variable.min)
           }
 
           if (Math.abs(newValue - variable.value) > 0.01) {
-            needsUpdate = true;
-            return { ...variable, value: Math.round(newValue * 100) / 100 };
+            needsUpdate = true
+            return { ...variable, value: Math.round(newValue * 100) / 100 }
           }
-          return variable;
-        });
+          return variable
+        })
 
         if (needsUpdate) {
-          return { ...block, variables: updatedVariables, updatedAt: now };
+          return { ...block, variables: updatedVariables, updatedAt: now }
         }
-        return block;
-      });
+        return block
+      })
 
       if (needsUpdate) {
-        setInternalBlocks(updatedBlocks);
-        onBlocksChange?.(updatedBlocks);
+        setInternalBlocks(updatedBlocks)
+        onBlocksChange?.(updatedBlocks)
       }
 
-      animationFrame = requestAnimationFrame(animate);
-    };
+      animationFrame = requestAnimationFrame(animate)
+    }
 
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [blocks, onBlocksChange]);
+    animationFrame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [blocks, onBlocksChange])
 
   // ============================================================================
   // BLOCK INTERACTION HANDLERS
@@ -820,32 +881,32 @@ export function GridCanvas({
 
   const handleBlockClick = useCallback(
     (blockId: string) => {
-      setSelectedBlockId(blockId);
+      setSelectedBlockId(blockId)
       if (isPlaybackMode) {
-        onBlockInteract?.();
+        onBlockInteract?.()
       }
     },
     [isPlaybackMode, onBlockInteract]
-  );
+  )
 
   const handleBlockDimensionsChange = useCallback(
     (blockId: string, dimensions: { width: number; height: number }) => {
-      if (readOnly) return;
-      const now = Date.now();
+      if (readOnly) return
+      const now = Date.now()
 
       if (isPlaybackMode) {
-        onBlockModification?.(blockId, { dimensions, updatedAt: now });
-        return;
+        onBlockModification?.(blockId, { dimensions, updatedAt: now })
+        return
       }
 
       const updatedBlocks = blocks.map((b) =>
         b.id === blockId ? { ...b, dimensions, updatedAt: now } : b
-      );
+      )
 
       if (!externalBlocks) {
-        setInternalBlocks(updatedBlocks);
+        setInternalBlocks(updatedBlocks)
       }
-      onBlocksChange?.(updatedBlocks);
+      onBlocksChange?.(updatedBlocks)
     },
     [
       blocks,
@@ -855,7 +916,7 @@ export function GridCanvas({
       onBlocksChange,
       readOnly,
     ]
-  );
+  )
 
   // ============================================================================
   // GHOST DRAGGING SYSTEM
@@ -866,26 +927,26 @@ export function GridCanvas({
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent, block: Block) => {
-      e.stopPropagation();
-      e.preventDefault();
+      e.stopPropagation()
+      e.preventDefault()
 
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
 
       // Calculate click offset in screen coordinates
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
+      const screenX = e.clientX - rect.left
+      const screenY = e.clientY - rect.top
 
       // Convert to world coordinates (accounting for transform)
-      const worldPos = screenToWorld(screenX, screenY);
+      const worldPos = screenToWorld(screenX, screenY)
 
       // Calculate offset from top-left of block (in world coordinates)
-      const blockWorldX = block.position.x * GRID_UNIT;
-      const blockWorldY = block.position.y * GRID_UNIT;
+      const blockWorldX = block.position.x * GRID_UNIT
+      const blockWorldY = block.position.y * GRID_UNIT
       const offset = {
         x: worldPos.x - blockWorldX,
         y: worldPos.y - blockWorldY,
-      };
+      }
 
       // Initialize ghost drag state
       const dragState: GhostDragState = {
@@ -899,40 +960,40 @@ export function GridCanvas({
         snappedToEdge: false,
         snappedToCenter: false,
         guideLines: undefined,
-      };
+      }
 
-      setGhostDrag(dragState);
-      isDraggingRef.current = true;
+      setGhostDrag(dragState)
+      isDraggingRef.current = true
 
       // Set capture for smooth dragging outside canvas bounds
       // Use 0 as default pointerId for mouse events
-      canvasRef.current?.setPointerCapture?.(0);
+      canvasRef.current?.setPointerCapture?.(0)
     },
     [screenToWorld]
-  );
+  )
 
   const handleDragMove = useCallback(
     (e: React.MouseEvent) => {
       if (!ghostDragRef.current || !isDraggingRef.current || !canvasRef.current)
-        return;
+        return
 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
+      const rect = canvasRef.current.getBoundingClientRect()
+      const screenX = e.clientX - rect.left
+      const screenY = e.clientY - rect.top
 
       // Convert to world coordinates
-      const worldPos = screenToWorld(screenX, screenY);
+      const worldPos = screenToWorld(screenX, screenY)
 
       // Calculate new position based on cursor minus offset
       // This ensures the block doesn't snap to top-left
-      const newX = worldPos.x - ghostDragRef.current.offset.x;
-      const newY = worldPos.y - ghostDragRef.current.offset.y;
+      const newX = worldPos.x - ghostDragRef.current.offset.x
+      const newY = worldPos.y - ghostDragRef.current.offset.y
 
       // Convert to grid coordinates
       const gridPosition: GridPosition = {
         x: newX / GRID_UNIT,
         y: newY / GRID_UNIT,
-      };
+      }
 
       // Apply snapping to preview position
       const snapResult = snap(
@@ -940,7 +1001,7 @@ export function GridCanvas({
         ghostDragRef.current.dimensions,
         blocks,
         ghostDragRef.current.blockId
-      );
+      )
 
       // Update ghost preview (not the actual block yet)
       setGhostDrag((prev) =>
@@ -954,17 +1015,17 @@ export function GridCanvas({
               guideLines: snapResult.guideLines,
             }
           : null
-      );
+      )
     },
     [screenToWorld, snap, blocks]
-  );
+  )
 
   const handleDragEnd = useCallback(() => {
-    if (!ghostDragRef.current) return;
+    if (!ghostDragRef.current) return
 
-    const { blockId, previewPosition, startPosition } = ghostDragRef.current;
-    const block = blocks.find((b) => b.id === blockId);
-    if (!block) return;
+    const { blockId, previewPosition, startPosition } = ghostDragRef.current
+    const block = blocks.find((b) => b.id === blockId)
+    if (!block) return
 
     // Find valid position (avoid collisions)
     const validPosition = findNearestValidPosition(
@@ -972,41 +1033,41 @@ export function GridCanvas({
       block.dimensions,
       blocks,
       blockId
-    );
+    )
 
     // Apply auto-arrangement to neighbors if needed
     const updatedBlock = {
       ...block,
       position: validPosition,
       updatedAt: Date.now(),
-    };
-    const adjustments = autoArrangeNeighbors(updatedBlock, [...blocks]);
+    }
+    const adjustments = autoArrangeNeighbors(updatedBlock, [...blocks])
 
     const newBlocks = blocks.map((b) => {
-      const adjustment = adjustments.find((a) => a.blockId === b.id);
+      const adjustment = adjustments.find((a) => a.blockId === b.id)
       if (adjustment)
-        return { ...b, position: adjustment.newPosition, updatedAt: Date.now() };
-      if (b.id === blockId) return updatedBlock;
-      return b;
-    });
+        return { ...b, position: adjustment.newPosition, updatedAt: Date.now() }
+      if (b.id === blockId) return updatedBlock
+      return b
+    })
 
     // Record block moved event if recording
     if (
       startPosition.x !== validPosition.x ||
       startPosition.y !== validPosition.y
     ) {
-      recordBlockMoved(blockId, startPosition, validPosition);
+      recordBlockMoved(blockId, startPosition, validPosition)
     }
 
     if (!isPlaybackMode) {
-      setInternalBlocks(newBlocks);
+      setInternalBlocks(newBlocks)
     }
-    onBlocksChange?.(newBlocks);
+    onBlocksChange?.(newBlocks)
 
     // Clear drag state
-    setGhostDrag(null);
-    isDraggingRef.current = false;
-  }, [blocks, onBlocksChange, recordBlockMoved, isPlaybackMode]);
+    setGhostDrag(null)
+    isDraggingRef.current = false
+  }, [blocks, onBlocksChange, recordBlockMoved, isPlaybackMode])
 
   // ============================================================================
   // PAN HANDLERS (Middle mouse or Alt+click)
@@ -1015,197 +1076,204 @@ export function GridCanvas({
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     // Middle mouse button or Alt + click to pan
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      e.preventDefault();
-      setIsPanning(true);
+      e.preventDefault()
+      setIsPanning(true)
       panStartRef.current = {
         x: e.clientX - transformRef.current.x,
         y: e.clientY - transformRef.current.y,
-      };
+      }
     }
-  }, []);
+  }, [])
 
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning) {
-      e.preventDefault();
-      setTransform({
-        x: e.clientX - panStartRef.current.x,
-        y: e.clientY - panStartRef.current.y,
-      });
-    }
-  }, [isPanning, setTransform]);
+  const handleCanvasMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (isPanning) {
+        e.preventDefault()
+        setTransform({
+          x: e.clientX - panStartRef.current.x,
+          y: e.clientY - panStartRef.current.y,
+        })
+      }
+    },
+    [isPanning, setTransform]
+  )
 
   const handleCanvasMouseUp = useCallback(() => {
-    setIsPanning(false);
-  }, []);
+    setIsPanning(false)
+  }, [])
 
   // ============================================================================
   // ZOOM HANDLERS
   // ============================================================================
 
-  const handleZoom = useCallback((delta: number) => {
-    setTransform((prev) => {
-      const newZoom = Math.min(Math.max(prev.scale + delta, 0.25), 3);
-      return { ...prev, scale: Math.round(newZoom * 100) / 100 };
-    });
-  }, [setTransform]);
+  const handleZoom = useCallback(
+    (delta: number) => {
+      setTransform((prev) => {
+        const newZoom = Math.min(Math.max(prev.scale + delta, 0.25), 3)
+        return { ...prev, scale: Math.round(newZoom * 100) / 100 }
+      })
+    },
+    [setTransform]
+  )
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        handleZoom(delta);
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? -0.1 : 0.1
+        handleZoom(delta)
       }
     },
     [handleZoom]
-  );
+  )
 
   // ============================================================================
   // DRAG AND DROP FROM LIBRARY
   // ============================================================================
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  }, []);
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "copy"
+  }, [])
 
   const handleCanvasDragStart = useCallback((e: React.DragEvent) => {
     // Prevent HTML5 native drag for blocks on canvas
-    const target = e.target as HTMLElement;
-    const isFromLibrary =
-      target.closest("[data-block-library-item]") !== null;
+    const target = e.target as HTMLElement
+    const isFromLibrary = target.closest("[data-block-library-item]") !== null
     if (!isFromLibrary) {
-      e.preventDefault();
+      e.preventDefault()
     }
-  }, []);
+  }, [])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault();
-      if (!canvasRef.current || readOnly || isPlaybackMode) return;
+      e.preventDefault()
+      if (!canvasRef.current || readOnly || isPlaybackMode) return
 
-      const data = e.dataTransfer.getData("application/json");
-      if (!data) return;
+      const data = e.dataTransfer.getData("application/json")
+      if (!data) return
 
-      let preset: BlockPreset | null = null;
+      let preset: BlockPreset | null = null
       try {
-        const parsed: unknown = JSON.parse(data);
+        const parsed: unknown = JSON.parse(data)
         if (isValidBlockPreset(parsed)) {
-          preset = parsed;
+          preset = parsed
         }
       } catch {
-        return;
+        return
       }
 
-      if (!preset) return;
+      if (!preset) return
 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const scrollLeft = canvasRef.current.scrollLeft || 0;
-      const scrollTop = canvasRef.current.scrollTop || 0;
-      const screenX = e.clientX - rect.left + scrollLeft;
-      const screenY = e.clientY - rect.top + scrollTop;
+      const rect = canvasRef.current.getBoundingClientRect()
+      const scrollLeft = canvasRef.current.scrollLeft || 0
+      const scrollTop = canvasRef.current.scrollTop || 0
+      const screenX = e.clientX - rect.left + scrollLeft
+      const screenY = e.clientY - rect.top + scrollTop
 
       // Convert screen to world coordinates (accounting for pan/zoom)
-      const worldPos = screenToWorld(screenX, screenY);
+      const worldPos = screenToWorld(screenX, screenY)
       const gridPosition: GridPosition = {
         x: Math.round(worldPos.x / GRID_UNIT),
         y: Math.round(worldPos.y / GRID_UNIT),
-      };
+      }
 
-      onBlockDrop?.(preset, gridPosition);
+      onBlockDrop?.(preset, gridPosition)
     },
     [readOnly, isPlaybackMode, onBlockDrop, screenToWorld]
-  );
+  )
 
   // Connection handlers
   const handleConnectionStart = useCallback(
     (blockId: string, handleId: string) => {
-      const canvasRect = canvasRef.current?.getBoundingClientRect();
-      if (!canvasRect) return;
+      const canvasRect = canvasRef.current?.getBoundingClientRect()
+      if (!canvasRect) return
 
       setConnectionDrag({
         sourceBlockId: blockId,
         sourceHandleId: handleId,
         currentX: 0,
         currentY: 0,
-      });
+      })
     },
     []
-  );
+  )
 
   const handleConnectionMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!connectionDrag || !canvasRef.current) return;
+      if (!connectionDrag || !canvasRef.current) return
 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const gridX = (screenX - transform.x) / transform.scale;
-      const gridY = (screenY - transform.y) / transform.scale;
+      const rect = canvasRef.current.getBoundingClientRect()
+      const screenX = e.clientX - rect.left
+      const screenY = e.clientY - rect.top
+      const gridX = (screenX - transform.x) / transform.scale
+      const gridY = (screenY - transform.y) / transform.scale
 
       setConnectionDrag((prev) =>
         prev ? { ...prev, currentX: gridX, currentY: gridY } : null
-      );
+      )
     },
     [connectionDrag, transform.x, transform.y, transform.scale]
-  );
+  )
 
   // Document-level mouse handlers for connection dragging
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!connectionDrag || !canvasRef.current) return;
+      if (!connectionDrag || !canvasRef.current) return
 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const gridX = (screenX - transformRef.current.x) / transformRef.current.scale;
-      const gridY = (screenY - transformRef.current.y) / transformRef.current.scale;
+      const rect = canvasRef.current.getBoundingClientRect()
+      const screenX = e.clientX - rect.left
+      const screenY = e.clientY - rect.top
+      const gridX =
+        (screenX - transformRef.current.x) / transformRef.current.scale
+      const gridY =
+        (screenY - transformRef.current.y) / transformRef.current.scale
 
       setConnectionDrag((prev) =>
         prev ? { ...prev, currentX: gridX, currentY: gridY } : null
-      );
-    };
+      )
+    }
 
     const handleGlobalMouseUp = () => {
       if (connectionDrag) {
-        setConnectionDrag(null);
+        setConnectionDrag(null)
       }
-    };
+    }
 
     if (connectionDrag) {
-      document.addEventListener("mousemove", handleGlobalMouseMove);
-      document.addEventListener("mouseup", handleGlobalMouseUp);
+      document.addEventListener("mousemove", handleGlobalMouseMove)
+      document.addEventListener("mouseup", handleGlobalMouseUp)
       return () => {
-        document.removeEventListener("mousemove", handleGlobalMouseMove);
-        document.removeEventListener("mouseup", handleGlobalMouseUp);
-      };
+        document.removeEventListener("mousemove", handleGlobalMouseMove)
+        document.removeEventListener("mouseup", handleGlobalMouseUp)
+      }
     }
-  }, [connectionDrag, transformRef]);
+  }, [connectionDrag, transformRef])
 
   const handleConnectionEnd = useCallback(
     (targetBlockId: string, targetHandleId: string) => {
-      if (!connectionDrag) return;
+      if (!connectionDrag) return
 
       const sourceBlock = blocks.find(
         (b) => b.id === connectionDrag.sourceBlockId
-      );
-      const targetBlock = blocks.find((b) => b.id === targetBlockId);
+      )
+      const targetBlock = blocks.find((b) => b.id === targetBlockId)
 
-      if (!sourceBlock || !targetBlock) return;
-      if (sourceBlock.id === targetBlock.id) return;
+      if (!sourceBlock || !targetBlock) return
+      if (sourceBlock.id === targetBlock.id) return
 
       const connectionType = getConnectionType(
         sourceBlock.type,
         targetBlock.type
-      );
-      if (!connectionType) return;
+      )
+      if (!connectionType) return
 
       const existingConnection = connections.find(
         (c) =>
           c.sourceBlockId === sourceBlock.id &&
           c.targetBlockId === targetBlock.id
-      );
-      const shouldAddConnection = !existingConnection;
+      )
+      const shouldAddConnection = !existingConnection
 
       if (shouldAddConnection) {
         const newConnection: BlockConnection = {
@@ -1216,9 +1284,9 @@ export function GridCanvas({
           targetHandleId: targetHandleId,
           type: connectionType,
           createdAt: Date.now(),
-        };
+        }
 
-        setConnections((prev) => [...prev, newConnection]);
+        setConnections((prev) => [...prev, newConnection])
       }
 
       const updatedBlocks = blocks.map((block) => {
@@ -1230,7 +1298,7 @@ export function GridCanvas({
                 ...(block.connectedChartIds || []),
                 targetBlock.id,
               ],
-            };
+            }
           } else if (isControlBlock(targetBlock)) {
             return {
               ...block,
@@ -1238,7 +1306,7 @@ export function GridCanvas({
                 ...(block.connectedControlIds || []),
                 targetBlock.id,
               ],
-            };
+            }
           } else if (isLimitBlock(targetBlock)) {
             return {
               ...block,
@@ -1246,7 +1314,7 @@ export function GridCanvas({
                 ...(block.connectedLimitIds || []),
                 targetBlock.id,
               ],
-            };
+            }
           } else if (isEquationBlock(targetBlock)) {
             return {
               ...block,
@@ -1254,7 +1322,7 @@ export function GridCanvas({
                 ...(block.connectedEquationIds || []),
                 targetBlock.id,
               ],
-            };
+            }
           } else if (isVariableBlock(targetBlock)) {
             return {
               ...block,
@@ -1262,18 +1330,18 @@ export function GridCanvas({
                 ...(block.connectedVariableIds || []),
                 targetBlock.id,
               ],
-            };
+            }
           }
         } else if (block.id === sourceBlock.id && isLogicBlock(block)) {
           return {
             ...block,
             output: targetBlock.id,
-          };
+          }
         } else if (block.id === sourceBlock.id && isComparatorBlock(block)) {
           return {
             ...block,
             output: targetBlock.id,
-          };
+          }
         } else if (block.id === targetBlock.id) {
           if (isChartBlock(targetBlock)) {
             const effectiveEquationId =
@@ -1281,16 +1349,19 @@ export function GridCanvas({
                 ? sourceBlock.sourceEquationId
                 : isConstraintBlock(sourceBlock) && sourceBlock.targetEquationId
                   ? sourceBlock.targetEquationId
-                  : sourceBlock.id;
-            
+                  : sourceBlock.id
+
             // Handle limit -> chart connection
             if (isLimitBlock(sourceBlock)) {
               return {
                 ...targetBlock,
-                sourceLimitIds: [...(targetBlock.sourceLimitIds || []), sourceBlock.id],
-              };
+                sourceLimitIds: [
+                  ...(targetBlock.sourceLimitIds || []),
+                  sourceBlock.id,
+                ],
+              }
             }
-            
+
             // Handle equation/variable/constraint -> chart connection
             return {
               ...targetBlock,
@@ -1298,12 +1369,12 @@ export function GridCanvas({
                 ...(targetBlock.sourceEquationIds || []),
                 effectiveEquationId,
               ],
-            };
+            }
           } else if (isControlBlock(targetBlock)) {
             const eqVars = isEquationBlock(sourceBlock)
               ? (sourceBlock.variables ??
                 parseEquation(sourceBlock.equation).variables)
-              : [];
+              : []
 
             const seededVariables = (
               targetBlock.variables?.length ? targetBlock.variables : eqVars
@@ -1318,7 +1389,7 @@ export function GridCanvas({
               autoAnimate: false,
               animationSpeed: 2000,
               animationDirection: "oscillate" as const,
-            }));
+            }))
 
             return {
               ...targetBlock,
@@ -1327,34 +1398,34 @@ export function GridCanvas({
                 sourceBlock.id,
               ],
               variables: seededVariables,
-            };
+            }
           } else if (isLimitBlock(targetBlock)) {
             const eqVars = isEquationBlock(sourceBlock)
               ? (sourceBlock.variables ??
                 parseEquation(sourceBlock.equation).variables)
-              : [];
-            const variableNames = new Set(eqVars.map((v) => v.name));
+              : []
+            const variableNames = new Set(eqVars.map((v) => v.name))
             const nextVariableName = variableNames.has(targetBlock.variableName)
               ? targetBlock.variableName
-              : (eqVars[0]?.name ?? "x");
+              : (eqVars[0]?.name ?? "x")
             return {
               ...targetBlock,
               targetEquationId: sourceBlock.id,
               variableName: nextVariableName,
-            };
+            }
           } else if (isVariableBlock(targetBlock)) {
             const eqVars = isEquationBlock(sourceBlock)
               ? (sourceBlock.variables ??
                 parseEquation(sourceBlock.equation).variables)
-              : [];
+              : []
 
             const editableVars = eqVars.filter(
               (v) => !["x", "y", "e", "pi"].includes(v.name)
-            );
+            )
             const varsToSeed =
               editableVars.length > 0
                 ? editableVars
-                : eqVars.filter((v) => !["x", "e", "pi"].includes(v.name));
+                : eqVars.filter((v) => !["x", "e", "pi"].includes(v.name))
 
             const seededVariables = varsToSeed.map((v) => ({
               name: v.name,
@@ -1367,53 +1438,71 @@ export function GridCanvas({
               autoAnimate: false,
               animationSpeed: 2000,
               animationDirection: "oscillate" as const,
-            }));
+            }))
 
             return {
               ...targetBlock,
               sourceEquationId: sourceBlock.id,
               variables: seededVariables,
-            };
+            }
           } else if (isEquationBlock(targetBlock)) {
             if (targetHandleId.endsWith("-input-enable")) {
-              return { ...targetBlock, enabledSourceId: sourceBlock.id };
+              return { ...targetBlock, enabledSourceId: sourceBlock.id }
             }
           } else if (isLogicBlock(targetBlock)) {
             const nextInputs = Array.from(
               new Set([...(targetBlock.inputs || []), sourceBlock.id])
-            );
+            )
             return {
               ...targetBlock,
               inputs: nextInputs,
-            };
+            }
           } else if (isComparatorBlock(targetBlock)) {
             // Route by handle id so ordering doesn't change meaning
             if (targetHandleId.endsWith("-input-left")) {
-              return { ...targetBlock, leftInput: sourceBlock.id };
+              return { ...targetBlock, leftInput: sourceBlock.id }
             }
             if (targetHandleId.endsWith("-input-right")) {
-              return { ...targetBlock, rightInput: sourceBlock.id };
+              return { ...targetBlock, rightInput: sourceBlock.id }
             }
-          } else if (isConstraintBlock(targetBlock) && isEquationBlock(sourceBlock)) {
-            const vars = sourceBlock.variables ?? parseEquation(sourceBlock.equation).variables;
-            const names = vars.map((v) => v.name);
-            const nextVar =
-              names.includes(targetBlock.variableName) ? targetBlock.variableName : (names[0] ?? "x");
-            return { ...targetBlock, targetEquationId: sourceBlock.id, variableName: nextVar };
-          } else if (isConstraintBlock(targetBlock) && isConstraintBlock(sourceBlock)) {
-            // Chain constraints: propagate equation context forward
-            if (!sourceBlock.targetEquationId) return targetBlock;
+          } else if (
+            isConstraintBlock(targetBlock) &&
+            isEquationBlock(sourceBlock)
+          ) {
+            const vars =
+              sourceBlock.variables ??
+              parseEquation(sourceBlock.equation).variables
+            const names = vars.map((v) => v.name)
+            const nextVar = names.includes(targetBlock.variableName)
+              ? targetBlock.variableName
+              : (names[0] ?? "x")
             return {
               ...targetBlock,
-              targetEquationId: targetBlock.targetEquationId ?? sourceBlock.targetEquationId,
-              variableName: targetBlock.variableName || sourceBlock.variableName || "x",
-            };
-          } else if (isShapeBlock(targetBlock) && isEquationBlock(sourceBlock)) {
+              targetEquationId: sourceBlock.id,
+              variableName: nextVar,
+            }
+          } else if (
+            isConstraintBlock(targetBlock) &&
+            isConstraintBlock(sourceBlock)
+          ) {
+            // Chain constraints: propagate equation context forward
+            if (!sourceBlock.targetEquationId) return targetBlock
+            return {
+              ...targetBlock,
+              targetEquationId:
+                targetBlock.targetEquationId ?? sourceBlock.targetEquationId,
+              variableName:
+                targetBlock.variableName || sourceBlock.variableName || "x",
+            }
+          } else if (
+            isShapeBlock(targetBlock) &&
+            isEquationBlock(sourceBlock)
+          ) {
             // Handle equation -> shape connection for dynamic fill value
             return {
               ...targetBlock,
               sourceValueId: sourceBlock.id,
-            };
+            }
           } else if (isTableBlock(targetBlock)) {
             // Handle equation -> table connection
             if (isEquationBlock(sourceBlock)) {
@@ -1421,21 +1510,24 @@ export function GridCanvas({
                 ...targetBlock,
                 sourceEquationId: sourceBlock.id,
                 variableName: targetBlock.variableName || "x",
-              };
+              }
             }
             // Handle limit -> table connection
             if (isLimitBlock(sourceBlock)) {
               return {
                 ...targetBlock,
                 sourceLimitId: sourceBlock.id,
-              };
+              }
             }
             // Handle constraint -> table connection
             if (isConstraintBlock(sourceBlock)) {
               return {
                 ...targetBlock,
-                sourceConstraintIds: [...(targetBlock.sourceConstraintIds || []), sourceBlock.id],
-              };
+                sourceConstraintIds: [
+                  ...(targetBlock.sourceConstraintIds || []),
+                  sourceBlock.id,
+                ],
+              }
             }
           }
         } else if (
@@ -1447,29 +1539,34 @@ export function GridCanvas({
         ) {
           return {
             ...block,
-            connectedChartIds: [...(block.connectedChartIds || []), targetBlock.id],
-          };
+            connectedChartIds: [
+              ...(block.connectedChartIds || []),
+              targetBlock.id,
+            ],
+          }
         }
-        return block;
-      });
+        return block
+      })
 
-      setInternalBlocks(updatedBlocks);
-      onBlocksChange?.(updatedBlocks);
-      setConnectionDrag(null);
+      setInternalBlocks(updatedBlocks)
+      onBlocksChange?.(updatedBlocks)
+      setConnectionDrag(null)
     },
     [connectionDrag, blocks, connections, onBlocksChange]
-  );
+  )
 
   const handleDeleteConnection = useCallback(
     (connectionId: string) => {
-      const connection = connections.find((c) => c.id === connectionId);
-      if (!connection) return;
+      const connection = connections.find((c) => c.id === connectionId)
+      if (!connection) return
 
-      const sourceBlock = blocks.find((b) => b.id === connection.sourceBlockId);
+      const sourceBlock = blocks.find((b) => b.id === connection.sourceBlockId)
       const backingEquationId =
-        connection.type === "variable-to-chart" && sourceBlock && isVariableBlock(sourceBlock)
+        connection.type === "variable-to-chart" &&
+        sourceBlock &&
+        isVariableBlock(sourceBlock)
           ? sourceBlock.sourceEquationId
-          : undefined;
+          : undefined
 
       const updatedBlocks = blocks.map((block) => {
         if (block.id === connection.sourceBlockId && isEquationBlock(block)) {
@@ -1490,7 +1587,7 @@ export function GridCanvas({
             connectedVariableIds: block.connectedVariableIds?.filter(
               (id) => id !== connection.targetBlockId
             ),
-          };
+          }
         } else if (block.id === connection.targetBlockId) {
           if (isChartBlock(block)) {
             // Handle disconnecting from chart (both equations and limits)
@@ -1504,7 +1601,7 @@ export function GridCanvas({
               sourceLimitIds: block.sourceLimitIds?.filter(
                 (id) => id !== connection.sourceBlockId
               ),
-            };
+            }
           } else if (isControlBlock(block)) {
             return {
               ...block,
@@ -1513,22 +1610,22 @@ export function GridCanvas({
                   id !== connection.sourceBlockId &&
                   (!backingEquationId || id !== backingEquationId)
               ),
-            };
+            }
           } else if (isLimitBlock(block)) {
             return block.targetEquationId === connection.sourceBlockId
               ? { ...block, targetEquationId: undefined }
-              : block;
+              : block
           } else if (isVariableBlock(block)) {
             return block.sourceEquationId === connection.sourceBlockId
               ? { ...block, sourceEquationId: undefined, variables: [] }
-              : block;
+              : block
           } else if (isLogicBlock(block)) {
             return {
               ...block,
               inputs: (block.inputs || []).filter(
                 (id) => id !== connection.sourceBlockId
               ),
-            };
+            }
           } else if (isComparatorBlock(block)) {
             return {
               ...block,
@@ -1540,15 +1637,15 @@ export function GridCanvas({
                 block.rightInput === connection.sourceBlockId
                   ? null
                   : block.rightInput,
-            };
+            }
           } else if (isTableBlock(block)) {
             // Handle disconnecting equation from table
             if (block.sourceEquationId === connection.sourceBlockId) {
-              return { ...block, sourceEquationId: null };
+              return { ...block, sourceEquationId: null }
             }
             // Handle disconnecting limit from table
             if (block.sourceLimitId === connection.sourceBlockId) {
-              return { ...block, sourceLimitId: null };
+              return { ...block, sourceLimitId: null }
             }
             // Handle disconnecting constraint from table
             if (block.sourceConstraintIds?.includes(connection.sourceBlockId)) {
@@ -1557,17 +1654,23 @@ export function GridCanvas({
                 sourceConstraintIds: block.sourceConstraintIds.filter(
                   (id) => id !== connection.sourceBlockId
                 ),
-              };
+              }
             }
           }
 
           // Handle disconnecting equation from shape
-          if (isShapeBlock(block) && block.sourceValueId === connection.sourceBlockId) {
-            return { ...block, sourceValueId: undefined };
+          if (
+            isShapeBlock(block) &&
+            block.sourceValueId === connection.sourceBlockId
+          ) {
+            return { ...block, sourceValueId: undefined }
           }
 
-          if (isEquationBlock(block) && block.enabledSourceId === connection.sourceBlockId) {
-            return { ...block, enabledSourceId: undefined, enabled: true };
+          if (
+            isEquationBlock(block) &&
+            block.enabledSourceId === connection.sourceBlockId
+          ) {
+            return { ...block, enabledSourceId: undefined, enabled: true }
           }
         } else if (
           backingEquationId &&
@@ -1579,36 +1682,36 @@ export function GridCanvas({
             connectedChartIds: block.connectedChartIds?.filter(
               (id) => id !== connection.targetBlockId
             ),
-          };
+          }
         }
 
         if (block.id === connection.sourceBlockId && isLogicBlock(block)) {
           return block.output === connection.targetBlockId
             ? { ...block, output: null }
-            : block;
+            : block
         }
         if (block.id === connection.sourceBlockId && isComparatorBlock(block)) {
           return block.output === connection.targetBlockId
             ? { ...block, output: null }
-            : block;
+            : block
         }
-        return block;
-      });
+        return block
+      })
 
-      setConnections((prev) => prev.filter((c) => c.id !== connectionId));
-      setInternalBlocks(updatedBlocks);
-      onBlocksChange?.(updatedBlocks);
+      setConnections((prev) => prev.filter((c) => c.id !== connectionId))
+      setInternalBlocks(updatedBlocks)
+      onBlocksChange?.(updatedBlocks)
     },
     [connections, blocks, onBlocksChange]
-  );
+  )
 
   const handleDeleteBlock = useCallback(
     (blockId: string) => {
-      const blockToDelete = blocks.find((b) => b.id === blockId);
+      const blockToDelete = blocks.find((b) => b.id === blockId)
       const backingEquationId =
         blockToDelete && isVariableBlock(blockToDelete)
           ? blockToDelete.sourceEquationId
-          : undefined;
+          : undefined
 
       const updatedBlocks = blocks
         .filter((b) => b.id !== blockId)
@@ -1631,7 +1734,7 @@ export function GridCanvas({
               connectedVariableIds: block.connectedVariableIds?.filter(
                 (id) => id !== blockId
               ),
-            };
+            }
           }
 
           if (isChartBlock(block) || isControlBlock(block)) {
@@ -1639,43 +1742,49 @@ export function GridCanvas({
               ...block,
               sourceEquationIds: block.sourceEquationIds?.filter(
                 (id) =>
-                  id !== blockId && (!backingEquationId || id !== backingEquationId)
+                  id !== blockId &&
+                  (!backingEquationId || id !== backingEquationId)
               ),
-            };
+            }
           }
 
           if (isLimitBlock(block)) {
             return block.targetEquationId === blockId
               ? { ...block, targetEquationId: undefined }
-              : block;
+              : block
           }
 
           if (isVariableBlock(block)) {
             return block.sourceEquationId === blockId
               ? { ...block, sourceEquationId: undefined, variables: [] }
-              : block;
+              : block
           }
 
-          return block;
-        });
+          return block
+        })
 
       const updatedConnections = connections.filter(
         (c) => c.sourceBlockId !== blockId && c.targetBlockId !== blockId
-      );
+      )
 
-      setConnections(updatedConnections);
-      setInternalBlocks(updatedBlocks);
-      onBlocksChange?.(updatedBlocks);
+      setConnections(updatedConnections)
+      setInternalBlocks(updatedBlocks)
+      onBlocksChange?.(updatedBlocks)
 
       // Clean up node chain map if provided
       if (nodeChains && onNodeChainsChange) {
-        const nextChains = new Map<string, import("@/lib/block-system/types").NodeChain>(
-          Array.from(nodeChains.entries()).filter((entry) => entry[1].nodeId !== blockId)
-        );
-        onNodeChainsChange(nextChains);
+        const nextChains = new Map<
+          string,
+          import("@/lib/block-system/types").NodeChain
+        >(
+          Array.from(nodeChains.entries()).filter(
+            (entry) => entry[1].nodeId !== blockId
+          )
+        )
+        onNodeChainsChange(nextChains)
       }
 
-      if (selectedBlockId === blockId) setSelectedBlockId(undefined);
+      if (selectedBlockId === blockId) setSelectedBlockId(undefined)
     },
     [
       blocks,
@@ -1685,11 +1794,11 @@ export function GridCanvas({
       onNodeChainsChange,
       selectedBlockId,
     ]
-  );
+  )
 
   const handleConnectionClick = useCallback((connectionId: string) => {
-    setSelectedConnectionId(connectionId);
-  }, []);
+    setSelectedConnectionId(connectionId)
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1697,14 +1806,14 @@ export function GridCanvas({
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedConnectionId
       ) {
-        handleDeleteConnection(selectedConnectionId);
-        setSelectedConnectionId(undefined);
+        handleDeleteConnection(selectedConnectionId)
+        setSelectedConnectionId(undefined)
       }
-    };
+    }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedConnectionId, handleDeleteConnection]);
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedConnectionId, handleDeleteConnection])
 
   // ============================================================================
   // BLOCK RENDERING
@@ -1712,10 +1821,10 @@ export function GridCanvas({
   // ============================================================================
 
   const renderBlock = (block: Block) => {
-    const isSelected = block.id === selectedBlockId;
+    const isSelected = block.id === selectedBlockId
     // During drag, the original block stays in place; only ghost moves
-    const isGhostDragging = ghostDrag?.blockId === block.id;
-    const pos = gridToPixels(block.position);
+    const isGhostDragging = ghostDrag?.blockId === block.id
+    const pos = gridToPixels(block.position)
 
     const commonProps = {
       isSelected,
@@ -1742,7 +1851,7 @@ export function GridCanvas({
         handleConnectionStart(block.id, handleId),
       onConnectionEnd: (handleId: string) =>
         handleConnectionEnd(block.id, handleId),
-    };
+    }
 
     switch (block.type) {
       case "equation":
@@ -1752,8 +1861,8 @@ export function GridCanvas({
             block={block}
             {...commonProps}
             onEquationChange={(newEquation) => {
-              const now = Date.now();
-              const parsed = parseEquation(newEquation);
+              const now = Date.now()
+              const parsed = parseEquation(newEquation)
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isEquationBlock(b)) {
                   return {
@@ -1763,38 +1872,39 @@ export function GridCanvas({
                     variables: parsed.variables,
                     equationType: parsed.equationType,
                     updatedAt: now,
-                  };
+                  }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
       case "chart": {
         const connectedEquations = (block.sourceEquationIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && b.type === "equation"))
-          .filter((eq): eq is EquationBlock => Boolean(eq));
+          .filter((eq): eq is EquationBlock => Boolean(eq))
         const directConstraintIds = connections
           .filter(
-            (c) => c.type === "constraint-to-chart" && c.targetBlockId === block.id
+            (c) =>
+              c.type === "constraint-to-chart" && c.targetBlockId === block.id
           )
-          .map((c) => c.sourceBlockId);
+          .map((c) => c.sourceBlockId)
 
         const connectedConstraints = blocks.filter((b) => {
-          if (!isConstraintBlock(b)) return false;
-          if (directConstraintIds.includes(b.id)) return true;
+          if (!isConstraintBlock(b)) return false
+          if (directConstraintIds.includes(b.id)) return true
           return (
             !!b.targetEquationId &&
             (block.sourceEquationIds ?? []).includes(b.targetEquationId)
-          );
-        }) as ConstraintBlock[];
+          )
+        }) as ConstraintBlock[]
 
         // Get connected limits for showing approach values
         const connectedLimits = (block.sourceLimitIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && b.type === "limit"))
-          .filter((limit): limit is LimitBlock => Boolean(limit));
+          .filter((limit): limit is LimitBlock => Boolean(limit))
 
         return (
           <ChartBlockComponent
@@ -1805,7 +1915,7 @@ export function GridCanvas({
             constraints={connectedConstraints}
             connectedLimits={connectedLimits}
           />
-        );
+        )
       }
       case "control":
         return (
@@ -1814,92 +1924,92 @@ export function GridCanvas({
             block={block}
             {...commonProps}
             onVariableChange={(name, value) => {
-              const now = Date.now();
+              const now = Date.now()
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isControlBlock(b)) {
                   if (name.endsWith("__auto")) {
-                    const varName = name.replace("__auto", "");
+                    const varName = name.replace("__auto", "")
                     const variables = b.variables.map((v) =>
                       v.name === varName
                         ? { ...v, autoAnimate: value === 1 }
                         : v
-                    );
-                    return { ...b, variables, updatedAt: now };
+                    )
+                    return { ...b, variables, updatedAt: now }
                   }
                   if (name.endsWith("__speed")) {
-                    const varName = name.replace("__speed", "");
+                    const varName = name.replace("__speed", "")
                     const numValue =
-                      typeof value === "string" ? parseFloat(value) : value;
+                      typeof value === "string" ? parseFloat(value) : value
                     const variables = b.variables.map((v) =>
                       v.name === varName
                         ? { ...v, animationSpeed: numValue }
                         : v
-                    );
-                    return { ...b, variables, updatedAt: now };
+                    )
+                    return { ...b, variables, updatedAt: now }
                   }
                   if (name.endsWith("__direction")) {
-                    const varName = name.replace("__direction", "");
-                    const directionValue = String(value);
+                    const varName = name.replace("__direction", "")
+                    const directionValue = String(value)
                     const animationDirection: "oscillate" | "loop" =
-                      directionValue === "loop" ? "loop" : "oscillate";
+                      directionValue === "loop" ? "loop" : "oscillate"
                     const variables = b.variables.map((v) =>
                       v.name === varName ? { ...v, animationDirection } : v
-                    );
-                    return { ...b, variables, updatedAt: now };
+                    )
+                    return { ...b, variables, updatedAt: now }
                   }
 
                   const numValue =
-                    typeof value === "string" ? parseFloat(value) : value;
+                    typeof value === "string" ? parseFloat(value) : value
                   const variables = b.variables.map((v) =>
                     v.name === name ? { ...v, value: numValue } : v
-                  );
-                  return { ...b, variables, updatedAt: now };
+                  )
+                  return { ...b, variables, updatedAt: now }
                 }
 
                 if (isEquationBlock(b) && isControlBlock(block)) {
-                  if (!block.sourceEquationIds?.includes(b.id)) return b;
+                  if (!block.sourceEquationIds?.includes(b.id)) return b
                   if (
                     name.endsWith("__auto") ||
                     name.endsWith("__speed") ||
                     name.endsWith("__direction")
                   )
-                    return b;
+                    return b
 
                   const vars =
-                    b.variables ?? parseEquation(b.equation).variables;
-                  if (!vars.some((v) => v.name === name)) return b;
+                    b.variables ?? parseEquation(b.equation).variables
+                  if (!vars.some((v) => v.name === name)) return b
                   const numValue =
-                    typeof value === "string" ? parseFloat(value) : value;
+                    typeof value === "string" ? parseFloat(value) : value
                   const updatedVars = vars.map((v) =>
                     v.name === name ? { ...v, value: numValue } : v
-                  );
-                  return { ...b, variables: updatedVars, updatedAt: now };
+                  )
+                  return { ...b, variables: updatedVars, updatedAt: now }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
       case "description":
-      return (
-        <DescriptionBlockComponent
-          key={block.id}
-          block={block}
-          {...commonProps}
-          onContentChange={(value) => {
-            const updatedBlocks = blocks.map((b) => {
-              if (b.id === block.id && b.type === "description") {
-                return { ...b, content: value, updatedAt: Date.now() };
-              }
-              return b;
-            });
-            setInternalBlocks(updatedBlocks);
-            onBlocksChange?.(updatedBlocks);
-          }}
-        />
-      );
+        return (
+          <DescriptionBlockComponent
+            key={block.id}
+            block={block}
+            {...commonProps}
+            onContentChange={(value) => {
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && b.type === "description") {
+                  return { ...b, content: value, updatedAt: Date.now() }
+                }
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
+            }}
+          />
+        )
       case "limit":
         return (
           <LimitBlockComponent
@@ -1907,123 +2017,141 @@ export function GridCanvas({
             block={block}
             {...commonProps}
             connectedEquation={(() => {
-              if (!isLimitBlock(block) || !block.targetEquationId) return null;
-              const eq = blocks.find((b) => b.id === block.targetEquationId && isEquationBlock(b));
-              if (!eq || !isEquationBlock(eq)) return null;
-              return eq;
+              if (!isLimitBlock(block) || !block.targetEquationId) return null
+              const eq = blocks.find(
+                (b) => b.id === block.targetEquationId && isEquationBlock(b)
+              )
+              if (!eq || !isEquationBlock(eq)) return null
+              return eq
             })()}
             variableOptions={(() => {
               if (!isLimitBlock(block) || !block.targetEquationId)
-                return undefined;
+                return undefined
               const eq = blocks.find(
                 (b) => b.id === block.targetEquationId && isEquationBlock(b)
-              );
-              if (!eq || !isEquationBlock(eq)) return undefined;
-              const vars = eq.variables ?? parseEquation(eq.equation).variables;
-              return vars.map((v) => v.name);
+              )
+              if (!eq || !isEquationBlock(eq)) return undefined
+              const vars = eq.variables ?? parseEquation(eq.equation).variables
+              return vars.map((v) => v.name)
             })()}
             onVariableChange={(varName, value) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isLimitBlock(b)) {
                   if (varName === "variableName" && typeof value === "string") {
-                    return { ...b, variableName: value, updatedAt: Date.now() };
+                    return { ...b, variableName: value, updatedAt: Date.now() }
                   }
                   if (varName === "limitValue" && typeof value === "number") {
-                    return { ...b, limitValue: value, updatedAt: Date.now() };
+                    return { ...b, limitValue: value, updatedAt: Date.now() }
                   }
-                  return b;
+                  return b
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onApproachChange={(approach) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isLimitBlock(b)) {
-                  return { ...b, approach, updatedAt: Date.now() };
+                  return { ...b, approach, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
       case "shape": {
         // Find connected equation (from sourceValueId)
-        const connectedEquation = isShapeBlock(block) && block.sourceValueId
-          ? blocks.find((b) => b.id === block.sourceValueId && b.type === "equation")
-          : undefined
-        
+        const connectedEquation =
+          isShapeBlock(block) && block.sourceValueId
+            ? blocks.find(
+                (b) => b.id === block.sourceValueId && b.type === "equation"
+              )
+            : undefined
+
         // Find connected logic/comparator blocks (from connections)
         const connectedLogicBlock = connections
           .filter((c) => c.targetBlockId === block.id && c.sourceBlockId)
           .map((c) => blocks.find((b) => b.id === c.sourceBlockId))
           .find((b) => b?.type === "logic")
-        
+
         const connectedComparatorBlock = connections
           .filter((c) => c.targetBlockId === block.id && c.sourceBlockId)
           .map((c) => blocks.find((b) => b.id === c.sourceBlockId))
           .find((b) => b?.type === "comparator")
-        
+
         return (
           <ShapeBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
-            connectedEquation={connectedEquation && isEquationBlock(connectedEquation) ? connectedEquation : null}
-            connectedLogic={connectedLogicBlock && isLogicBlock(connectedLogicBlock) ? connectedLogicBlock : null}
-            connectedComparator={connectedComparatorBlock && isComparatorBlock(connectedComparatorBlock) ? connectedComparatorBlock : null}
+            connectedEquation={
+              connectedEquation && isEquationBlock(connectedEquation)
+                ? connectedEquation
+                : null
+            }
+            connectedLogic={
+              connectedLogicBlock && isLogicBlock(connectedLogicBlock)
+                ? connectedLogicBlock
+                : null
+            }
+            connectedComparator={
+              connectedComparatorBlock &&
+              isComparatorBlock(connectedComparatorBlock)
+                ? connectedComparatorBlock
+                : null
+            }
             onFillValueChange={(value) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
-                  return { ...b, fillValue: value, updatedAt: Date.now() };
+                  return { ...b, fillValue: value, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onFillColorChange={(color) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
-                  return { ...b, fillColor: color, updatedAt: Date.now() };
+                  return { ...b, fillColor: color, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onFillModeChange={(mode) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
-                  return { ...b, fillMode: mode, updatedAt: Date.now() };
+                  return { ...b, fillMode: mode, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onShapeTypeChange={(shapeType) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
-                  return { ...b, shapeType, updatedAt: Date.now() };
+                  return { ...b, shapeType, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onGridToggle={() => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isShapeBlock(b)) {
-                  return { ...b, showGrid: !b.showGrid, updatedAt: Date.now() };
+                  return { ...b, showGrid: !b.showGrid, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
         )
@@ -2031,7 +2159,7 @@ export function GridCanvas({
       case "logic":
         return (
           <LogicBlockComponent key={block.id} block={block} {...commonProps} />
-        );
+        )
       case "comparator":
         return (
           <ComparatorBlockComponent
@@ -2039,7 +2167,7 @@ export function GridCanvas({
             block={block}
             {...commonProps}
           />
-        );
+        )
       case "constraint":
         return (
           <ConstraintBlockComponent
@@ -2047,28 +2175,29 @@ export function GridCanvas({
             block={block}
             {...commonProps}
             variableOptions={(() => {
-              if (!isConstraintBlock(block) || !block.targetEquationId) return [];
+              if (!isConstraintBlock(block) || !block.targetEquationId)
+                return []
               const eq = blocks.find(
                 (b) => b.id === block.targetEquationId && b.type === "equation"
-              );
-              if (!eq || !isEquationBlock(eq)) return [];
-              const vars = eq.variables ?? parseEquation(eq.equation).variables;
-              const names = Array.from(new Set(vars.map((v) => v.name))).sort();
-              return names.length ? names : [];
+              )
+              if (!eq || !isEquationBlock(eq)) return []
+              const vars = eq.variables ?? parseEquation(eq.equation).variables
+              const names = Array.from(new Set(vars.map((v) => v.name))).sort()
+              return names.length ? names : []
             })()}
             onConstraintChange={(next) => {
-              const now = Date.now();
+              const now = Date.now()
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isConstraintBlock(b)) {
-                  return { ...b, ...next, updatedAt: now };
+                  return { ...b, ...next, updatedAt: now }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
       case "variable":
         return (
           <VariableBlockComponent
@@ -2076,14 +2205,14 @@ export function GridCanvas({
             block={block}
             {...commonProps}
             onVariableChange={(name, value) => {
-              const now = Date.now();
+              const now = Date.now()
               const updatedBlocks = blocks.map((b) => {
                 // Update the variable slider block itself
                 if (b.id === block.id && isVariableBlock(b)) {
                   const variables = b.variables.map((v) =>
                     v.name === name ? { ...v, value } : v
-                  );
-                  return { ...b, variables, updatedAt: now };
+                  )
+                  return { ...b, variables, updatedAt: now }
                 }
 
                 // If this variable block is connected to an equation, push values into that equation's variables
@@ -2093,37 +2222,40 @@ export function GridCanvas({
                   b.id === block.sourceEquationId &&
                   isEquationBlock(b)
                 ) {
-                  const baseVars = b.variables ?? parseEquation(b.equation).variables;
+                  const baseVars =
+                    b.variables ?? parseEquation(b.equation).variables
                   const variables = baseVars.map((v) =>
                     v.name === name ? { ...v, value } : v
-                  );
-                  return { ...b, variables, updatedAt: now };
+                  )
+                  return { ...b, variables, updatedAt: now }
                 }
 
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
       case "table":
         // Get connected constraints for filtering table values
         const connectedConstraints = (block.sourceConstraintIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
-          .filter((c): c is ConstraintBlock => Boolean(c));
+          .filter((c): c is ConstraintBlock => Boolean(c))
 
         // Get equation from direct connection OR from constraint's target equation
-        let equationFromConstraint: EquationBlock | null = null;
+        let equationFromConstraint: EquationBlock | null = null
         if (!block.sourceEquationId && connectedConstraints.length > 0) {
           // Find equation through constraint's targetEquationId
-          const constraintWithEquation = connectedConstraints.find(c => c.targetEquationId);
+          const constraintWithEquation = connectedConstraints.find(
+            (c) => c.targetEquationId
+          )
           if (constraintWithEquation?.targetEquationId) {
             const eq = blocks.find(
               (b) => b.id === constraintWithEquation.targetEquationId
-            );
+            )
             if (eq && isEquationBlock(eq)) {
-              equationFromConstraint = eq;
+              equationFromConstraint = eq
             }
           }
         }
@@ -2136,37 +2268,41 @@ export function GridCanvas({
             connectedEquation={(() => {
               // Priority: direct equation connection > equation through constraint
               if (block.sourceEquationId) {
-                const eq = blocks.find((b) => b.id === block.sourceEquationId && isEquationBlock(b));
-                if (eq && isEquationBlock(eq)) return eq;
+                const eq = blocks.find(
+                  (b) => b.id === block.sourceEquationId && isEquationBlock(b)
+                )
+                if (eq && isEquationBlock(eq)) return eq
               }
-              return equationFromConstraint;
+              return equationFromConstraint
             })()}
             connectedLimit={(() => {
-              if (!isTableBlock(block) || !block.sourceLimitId) return null;
-              const limit = blocks.find((b) => b.id === block.sourceLimitId && isLimitBlock(b));
-              if (!limit || !isLimitBlock(limit)) return null;
-              return limit;
+              if (!isTableBlock(block) || !block.sourceLimitId) return null
+              const limit = blocks.find(
+                (b) => b.id === block.sourceLimitId && isLimitBlock(b)
+              )
+              if (!limit || !isLimitBlock(limit)) return null
+              return limit
             })()}
             connectedConstraints={connectedConstraints}
             onColumnChange={(columns) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isTableBlock(b)) {
-                  return { ...b, columns, updatedAt: Date.now() };
+                  return { ...b, columns, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onRowChange={(rows) => {
               const updatedBlocks = blocks.map((b) => {
                 if (b.id === block.id && isTableBlock(b)) {
-                  return { ...b, rows, updatedAt: Date.now() };
+                  return { ...b, rows, updatedAt: Date.now() }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
             onSettingsChange={(settings) => {
               const updatedBlocks = blocks.map((b) => {
@@ -2175,17 +2311,17 @@ export function GridCanvas({
                     ...b,
                     ...settings,
                     updatedAt: Date.now(),
-                  };
+                  }
                 }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
             }}
           />
-        );
+        )
     }
-  };
+  }
 
   return (
     <div className={cn("relative flex h-full w-full flex-col", className)}>
@@ -2193,11 +2329,9 @@ export function GridCanvas({
       {!isPlaybackMode && (
         <div className="z-20 flex items-center justify-end gap-4 border-b border-border bg-card p-2 shadow-sm">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={gridVisible}
-              onChange={(e) => setGridVisible(e.target.checked)}
-              className="h-4 w-4 rounded border-input"
+              onCheckedChange={(checked) => setGridVisible(checked)}
             />
             Show Grid
           </label>
@@ -2225,34 +2359,34 @@ export function GridCanvas({
           ref={canvasRef as unknown as React.Ref<HTMLDivElement>}
           className="relative flex-1 overflow-hidden bg-background select-none"
           onContextMenuCapture={(e) => {
-            const target = e.target instanceof Element ? e.target : null;
+            const target = e.target instanceof Element ? e.target : null
             const blockEl = target?.closest("[data-block-id]") as
               | (Element & { dataset?: DOMStringMap })
-              | null;
+              | null
             const connectionEl = target?.closest("[data-connection-id]") as
               | (Element & { dataset?: DOMStringMap })
-              | null;
-            const blockId = blockEl?.dataset?.blockId;
-            const connectionId = connectionEl?.dataset?.connectionId;
+              | null
+            const blockId = blockEl?.dataset?.blockId
+            const connectionId = connectionEl?.dataset?.connectionId
 
-            setContextTarget({ blockId, connectionId });
-            if (blockId) setSelectedBlockId(blockId);
-            if (connectionId) setSelectedConnectionId(connectionId);
+            setContextTarget({ blockId, connectionId })
+            if (blockId) setSelectedBlockId(blockId)
+            if (connectionId) setSelectedConnectionId(connectionId)
           }}
           onClick={() => setSelectedBlockId(undefined)}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={(e) => {
-            handleCanvasMouseMove(e);
-            handleDragMove(e);
-            handleConnectionMove(e);
+            handleCanvasMouseMove(e)
+            handleDragMove(e)
+            handleConnectionMove(e)
           }}
           onMouseUp={() => {
-            handleCanvasMouseUp();
-            handleDragEnd();
+            handleCanvasMouseUp()
+            handleDragEnd()
           }}
           onMouseLeave={() => {
-            handleCanvasMouseUp();
-            handleDragEnd();
+            handleCanvasMouseUp()
+            handleDragEnd()
           }}
           onWheel={handleWheel}
           onDragStart={handleCanvasDragStart}
@@ -2260,212 +2394,221 @@ export function GridCanvas({
           onDrop={handleDrop}
           style={{ userSelect: "none", WebkitUserSelect: "none" }}
         >
-        {/* Zoom/Pan Controls */}
-        {!isPlaybackMode && (
-          <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-lg">
-            <button
-              onClick={() => zoomOut()}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-lg hover:bg-accent"
-              disabled={transform.scale <= 0.25}
-            >
-              −
-            </button>
-            <span className="min-w-[3rem] text-center text-sm font-medium">
-              {Math.round(transform.scale * 100)}%
-            </span>
-            <button
-              onClick={() => zoomIn()}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-lg hover:bg-accent"
-              disabled={transform.scale >= 3}
-            >
-              +
-            </button>
-            <button
-              onClick={resetTransform}
-              className="ml-1 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-xs hover:bg-accent"
-              title="Reset view"
-            >
-              ⟲
-            </button>
-          </div>
-        )}
+          {/* Zoom/Pan Controls */}
+          {!isPlaybackMode && (
+            <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-lg">
+              <button
+                onClick={() => zoomOut()}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-lg hover:bg-accent"
+                disabled={transform.scale <= 0.25}
+              >
+                −
+              </button>
+              <span className="min-w-[3rem] text-center text-sm font-medium">
+                {Math.round(transform.scale * 100)}%
+              </span>
+              <button
+                onClick={() => zoomIn()}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-lg hover:bg-accent"
+                disabled={transform.scale >= 3}
+              >
+                +
+              </button>
+              <button
+                onClick={resetTransform}
+                className="ml-1 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-xs hover:bg-accent"
+                title="Reset view"
+              >
+                ⟲
+              </button>
+            </div>
+          )}
 
-        {/* 
+          {/*
           TRANSFORMED CONTENT LAYER
           Both grid and nodes share the same transform for consistency
         */}
-        <div
-          className="absolute inset-0 origin-top-left"
-          style={{
-            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          {/* Grid Layer (DOM-based for simplicity, can be canvas for better perf) */}
-          {gridVisible && (
-            <div
-              className="pointer-events-none absolute inset-0 opacity-20"
-              style={{
-                backgroundImage: `
+          <div
+            className="absolute inset-0 origin-top-left"
+            style={{
+              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            {/* Grid Layer (DOM-based for simplicity, can be canvas for better perf) */}
+            {gridVisible && (
+              <div
+                className="pointer-events-none absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage: `
                   linear-gradient(to right, oklch(0.542 0.034 322.5 / 0.3) 1px, transparent 1px),
                   linear-gradient(to bottom, oklch(0.542 0.034 322.5 / 0.3) 1px, transparent 1px)
                 `,
-                backgroundSize: `${GRID_UNIT}px ${GRID_UNIT}px`,
-              }}
-            />
-          )}
+                  backgroundSize: `${GRID_UNIT}px ${GRID_UNIT}px`,
+                }}
+              />
+            )}
 
-          {/* HTML Node Layer - Blocks rendered with transform positioning */}
-          {blocks.map(renderBlock)}
-        </div>
+            {/* HTML Node Layer - Blocks rendered with transform positioning */}
+            {blocks.map(renderBlock)}
+          </div>
 
-        {/* 
+          {/*
           GHOST DRAG PREVIEW
           Rendered outside transform to avoid double-scaling
           Shows where the block will be placed (with snapping visual)
         */}
-        {ghostDrag &&
-          (() => {
-            const draggedBlock = blocks.find((b) => b.id === ghostDrag.blockId);
-            if (!draggedBlock) return null;
+          {ghostDrag &&
+            (() => {
+              const draggedBlock = blocks.find(
+                (b) => b.id === ghostDrag.blockId
+              )
+              if (!draggedBlock) return null
 
-            // Convert preview grid position to screen coordinates
-            const screenPos = worldToScreen(
-              ghostDrag.previewPosition.x * GRID_UNIT,
-              ghostDrag.previewPosition.y * GRID_UNIT
-            );
+              // Convert preview grid position to screen coordinates
+              const screenPos = worldToScreen(
+                ghostDrag.previewPosition.x * GRID_UNIT,
+                ghostDrag.previewPosition.y * GRID_UNIT
+              )
 
-            const widthPx = ghostDrag.dimensions.width * GRID_UNIT * transform.scale;
-            const heightPx = ghostDrag.dimensions.height * GRID_UNIT * transform.scale;
+              const widthPx =
+                ghostDrag.dimensions.width * GRID_UNIT * transform.scale
+              const heightPx =
+                ghostDrag.dimensions.height * GRID_UNIT * transform.scale
 
-            return (
-              <div
-                className="pointer-events-none absolute z-50"
-                style={{
-                  left: screenPos.x,
-                  top: screenPos.y,
-                  width: widthPx,
-                  height: heightPx,
-                }}
-              >
-                {/* Ghost outline with snap indicator */}
+              return (
                 <div
-                  className={cn(
-                    "h-full w-full rounded-lg border-2",
-                    ghostDrag.snappedToEdge || ghostDrag.snappedToCenter
-                      ? "border-green-500 bg-green-500/20"
-                      : "border-primary bg-primary/20"
-                  )}
-                />
-              </div>
-            );
-          })()}
+                  className="pointer-events-none absolute z-50"
+                  style={{
+                    left: screenPos.x,
+                    top: screenPos.y,
+                    width: widthPx,
+                    height: heightPx,
+                  }}
+                >
+                  {/* Ghost outline with snap indicator */}
+                  <div
+                    className={cn(
+                      "h-full w-full rounded-lg border-2",
+                      ghostDrag.snappedToEdge || ghostDrag.snappedToCenter
+                        ? "border-green-500 bg-green-500/20"
+                        : "border-primary bg-primary/20"
+                    )}
+                  />
+                </div>
+              )
+            })()}
 
-        {/* Snapping Guide Lines */}
-        {ghostDrag && ghostDrag.guideLines && ghostDrag.guideLines.length > 0 &&
-          (() => {
-            // Guide lines are in world coordinates, need to convert to screen
-            const lines = ghostDrag.guideLines;
-            return (
-              <svg
-                className="pointer-events-none absolute inset-0"
-                style={{ zIndex: 40, width: "100%", height: "100%" }}
-              >
-                {lines.map((line, i) => {
-                  // Convert world position to screen position
-                  const screenPos = line.type === "vertical"
-                    ? worldToScreen(line.position, 0).x
-                    : worldToScreen(0, line.position).y;
+          {/* Snapping Guide Lines */}
+          {ghostDrag &&
+            ghostDrag.guideLines &&
+            ghostDrag.guideLines.length > 0 &&
+            (() => {
+              // Guide lines are in world coordinates, need to convert to screen
+              const lines = ghostDrag.guideLines
+              return (
+                <svg
+                  className="pointer-events-none absolute inset-0"
+                  style={{ zIndex: 40, width: "100%", height: "100%" }}
+                >
+                  {lines.map((line, i) => {
+                    // Convert world position to screen position
+                    const screenPos =
+                      line.type === "vertical"
+                        ? worldToScreen(line.position, 0).x
+                        : worldToScreen(0, line.position).y
 
-                  return line.type === "vertical" ? (
-                    <line
-                      key={i}
-                      x1={screenPos}
-                      y1={0}
-                      x2={screenPos}
-                      y2="100%"
-                      stroke={line.source === "edge" ? "#22c55e" : "#3b82f6"}
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                      opacity="0.6"
-                    />
-                  ) : (
-                    <line
-                      key={i}
-                      x1={0}
-                      y1={screenPos}
-                      x2="100%"
-                      y2={screenPos}
-                      stroke={line.source === "edge" ? "#22c55e" : "#3b82f6"}
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                      opacity="0.6"
-                    />
-                  );
-                })}
-              </svg>
-            );
-          })()}
+                    return line.type === "vertical" ? (
+                      <line
+                        key={i}
+                        x1={screenPos}
+                        y1={0}
+                        x2={screenPos}
+                        y2="100%"
+                        stroke={line.source === "edge" ? "#22c55e" : "#3b82f6"}
+                        strokeWidth="1"
+                        strokeDasharray="4 4"
+                        opacity="0.6"
+                      />
+                    ) : (
+                      <line
+                        key={i}
+                        x1={0}
+                        y1={screenPos}
+                        x2="100%"
+                        y2={screenPos}
+                        stroke={line.source === "edge" ? "#22c55e" : "#3b82f6"}
+                        strokeWidth="1"
+                        strokeDasharray="4 4"
+                        opacity="0.6"
+                      />
+                    )
+                  })}
+                </svg>
+              )
+            })()}
 
-        {/* Connection Layer */}
-        <ConnectionLayer
-          blocks={blocks}
-          connections={connections}
-          selectedConnectionId={selectedConnectionId}
-          onConnectionClick={handleConnectionClick}
-          zoom={transform.scale}
-          pan={{ x: transform.x, y: transform.y }}
-        />
+          {/* Connection Layer */}
+          <ConnectionLayer
+            blocks={blocks}
+            connections={connections}
+            selectedConnectionId={selectedConnectionId}
+            onConnectionClick={handleConnectionClick}
+            zoom={transform.scale}
+            pan={{ x: transform.x, y: transform.y }}
+          />
 
-        {/* Connection Preview (while dragging) */}
-        {connectionDrag &&
-          (() => {
-            const sourceBlock = blocks.find(
-              (b) => b.id === connectionDrag.sourceBlockId
-            );
-            if (!sourceBlock) return null;
+          {/* Connection Preview (while dragging) */}
+          {connectionDrag &&
+            (() => {
+              const sourceBlock = blocks.find(
+                (b) => b.id === connectionDrag.sourceBlockId
+              )
+              if (!sourceBlock) return null
 
-            const startPos = {
-              x:
-                (sourceBlock.position.x * GRID_UNIT +
-                  sourceBlock.dimensions.width * GRID_UNIT) *
-                  transform.scale +
-                transform.x,
-              y:
-                (sourceBlock.position.y * GRID_UNIT +
-                  (sourceBlock.dimensions.height * GRID_UNIT) / 2) *
-                  transform.scale +
-                transform.y,
-            };
+              const startPos = {
+                x:
+                  (sourceBlock.position.x * GRID_UNIT +
+                    sourceBlock.dimensions.width * GRID_UNIT) *
+                    transform.scale +
+                  transform.x,
+                y:
+                  (sourceBlock.position.y * GRID_UNIT +
+                    (sourceBlock.dimensions.height * GRID_UNIT) / 2) *
+                    transform.scale +
+                  transform.y,
+              }
 
-            const endPos = {
-              x: connectionDrag.currentX * transform.scale + transform.x,
-              y: connectionDrag.currentY * transform.scale + transform.y,
-            };
+              const endPos = {
+                x: connectionDrag.currentX * transform.scale + transform.x,
+                y: connectionDrag.currentY * transform.scale + transform.y,
+              }
 
-            return (
-              <svg
-                className="pointer-events-none absolute inset-0"
-                style={{ zIndex: 1000, width: "100%", height: "100%" }}
-              >
-                <ConnectionPreview
-                  startX={startPos.x}
-                  startY={startPos.y}
-                  endX={endPos.x}
-                  endY={endPos.y}
-                  isValid={true}
-                />
-              </svg>
-            );
-          })()}
+              return (
+                <svg
+                  className="pointer-events-none absolute inset-0"
+                  style={{ zIndex: 1000, width: "100%", height: "100%" }}
+                >
+                  <ConnectionPreview
+                    startX={startPos.x}
+                    startY={startPos.y}
+                    endX={endPos.x}
+                    endY={endPos.y}
+                    isValid={true}
+                  />
+                </svg>
+              )
+            })()}
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {contextTarget?.connectionId && (
             <>
               <ContextMenuItem
                 variant="destructive"
-                onClick={() => handleDeleteConnection(contextTarget.connectionId!)}
+                onClick={() =>
+                  handleDeleteConnection(contextTarget.connectionId!)
+                }
               >
                 Delete connection
               </ContextMenuItem>
@@ -2484,19 +2627,20 @@ export function GridCanvas({
       </ContextMenu>
 
       {/* Recording Status Bar */}
-      {canRecord && (recordingState.status === "recording" ||
-        recordingState.status === "paused" ||
-        recordingState.audioSegments.length > 0) && (
-        <RecordingStatusBar
-          isRecording={recordingState.status === "recording"}
-          isPaused={recordingState.status === "paused"}
-          currentTime={recordingState.currentTime}
-          events={recordingState.events}
-          audioSegments={recordingState.audioSegments}
-        />
-      )}
+      {canRecord &&
+        (recordingState.status === "recording" ||
+          recordingState.status === "paused" ||
+          recordingState.audioSegments.length > 0) && (
+          <RecordingStatusBar
+            isRecording={recordingState.status === "recording"}
+            isPaused={recordingState.status === "paused"}
+            currentTime={recordingState.currentTime}
+            events={recordingState.events}
+            audioSegments={recordingState.audioSegments}
+          />
+        )}
     </div>
-  );
+  )
 }
 
-export default GridCanvas;
+export default GridCanvas
