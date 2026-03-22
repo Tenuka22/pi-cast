@@ -1,7 +1,7 @@
 import { ReactNode } from "react"
 import Link from "next/link"
-import { authServerClient } from "@pi-cast/auth-server"
 import { Button } from "@workspace/ui/components/button"
+import { authServerClient } from "@/lib/auth"
 
 interface AuthGuardProps {
   children: ReactNode

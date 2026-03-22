@@ -1,7 +1,4 @@
-"use client"
-
 import { AuthGuard } from "@/components/auth/auth-guard"
-import { UserNav } from "@/components/auth/user-nav"
 import {
   Card,
   CardContent,
@@ -15,6 +12,7 @@ import {
   LockKeyIcon,
   Key01Icon,
 } from "@hugeicons/core-free-icons"
+import { Header } from "./header"
 
 export default function SecurityPage() {
   return (
@@ -27,13 +25,7 @@ export default function SecurityPage() {
 function SecurityContent() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="flex h-16 items-center justify-between px-6">
-          <h1 className="text-xl font-bold">Security Settings</h1>
-          <UserNav />
-        </div>
-      </header>
-
+      <Header />
       <main className="container mx-auto p-6">
         <TwoFactorInfoCard />
       </main>

@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
+import { BETTER_AUTH_COOKIE_PREFIX } from "@pi-cast/auth-client/config"
 import {
   admin,
   emailOTP,
@@ -45,7 +46,6 @@ export function createAuth(config: AuthConfig) {
     RATE_LIMIT_ENABLED,
     RATE_LIMIT_WINDOW_MS,
     RATE_LIMIT_MAX_REQUESTS,
-    BETTER_AUTH_COOKIE_PREFIX,
   } = config
 
   function getTrustedOrigins(): string[] {
