@@ -236,7 +236,16 @@ pi-cast is under active development. Please read our contributing guidelines bef
 
 ## 📄 License
 
-[License information to be added]
+This project is licensed under the **Functional Source License (FSL-1.1-Apache-2.0)** - a source-available license that allows:
+
+✅ **Personal Use** - Use for learning, experimentation, and personal projects
+✅ **Educational Use** - Use in schools, universities, and educational settings
+✅ **Contributions** - Contribute bug fixes, improvements, and features
+✅ **Private Deployment** - Deploy for internal organizational use
+
+❌ **Commercial Use** - Cannot be used for commercial purposes without explicit permission
+
+See the [LICENSE](./LICENSE) file for full terms.
 
 ## 🗺️ Roadmap
 

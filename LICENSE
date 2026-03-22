@@ -1,0 +1,97 @@
+# Functional Source License, Version 1.1, Apache 2.0 Future License
+
+## Abbreviation
+
+FSL-1.1-Apache-2.0
+
+## Notice
+
+Copyright 2024-2025 Tenuka
+
+## Terms and Conditions
+
+### License Grant ("License")
+
+Subject to the "Limitations" below, the "Licensor" grants each "Recipient" a
+non-exclusive, worldwide, non-transferable, royalty-free, limited license to
+use, modify, and distribute the "Software" under the terms of the "Apache
+License 2.0", provided that:
+
+1. The Software may not be used for any **Commercial Purpose** except as
+   explicitly permitted below.
+
+2. Any modifications, derivative works, or distributions of the Software must
+   be made available under the same license terms.
+
+### Permitted Uses
+
+Recipients are expressly permitted to:
+
+1. **Personal Use**: Use the Software for personal, non-commercial learning,
+   experimentation, and projects.
+
+2. **Educational Use**: Use the Software in educational settings, including
+   schools, universities, and self-study.
+
+3. **Contributions**: Contribute bug fixes, improvements, and features to the
+   Software repository.
+
+4. **Forking**: Create forks of the Software for the purpose of making
+   contributions or for personal use.
+
+5. **Private Deployment**: Deploy the Software for private, internal use within
+   a single organization, provided it is not offered as a commercial service.
+
+### Limitations
+
+**Commercial Purpose** means any use of the Software where the Software or a
+product containing the Software is:
+
+1. Offered as a paid service or product.
+2. Used to generate revenue directly or indirectly.
+3. Offered as part of a commercial SaaS (Software as a Service) platform.
+4. Used in a product that competes with the Licensor's commercial offerings.
+5. Licensed, sublicensed, or sold to third parties for commercial use.
+
+**The Software may NOT be used for any Commercial Purpose without explicit
+written permission from the Licensor.**
+
+### Apache License 2.0
+
+Except as limited by the "Commercial Purpose" restriction above, all use of the
+Software is governed by the Apache License, Version 2.0, which can be found at:
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+### Patent Grant
+
+Each Recipient receives a patent license from the Licensor under the terms of
+the Apache License 2.0, subject to the Commercial Purpose restrictions in this
+license.
+
+### Disclaimer of Warranties
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+LICENSORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### No Trademark License
+
+This License does not grant permission to use the trade names, trademarks,
+service marks, or product names of the Licensor, except as required for
+reasonable and customary use in describing the origin of the Software.
+
+### Changing the License
+
+The Licensor reserves the right to change the license terms for future versions
+of the Software. Versions already received under this license will continue to
+be governed by these terms.
+
+## Acceptance
+
+By using, modifying, or distributing this Software, you indicate your
+acceptance of these terms and conditions. If you do not agree with these terms,
+you may not use, modify, or distribute the Software.
