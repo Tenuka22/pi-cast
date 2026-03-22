@@ -36,11 +36,9 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
-          </Avatar>
-        </Button>
+        <Avatar className="h-9 w-9 cursor-pointer rounded-full ring-1 ring-border hover:bg-accent">
+          <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
         <DropdownMenuLabel className="font-normal">
