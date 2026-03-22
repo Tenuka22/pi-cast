@@ -31,24 +31,32 @@ export function UserNav() {
     )
   }
 
-  const userInitial = session.user.name?.charAt(0) || session.user.email?.charAt(0) || "U"
+  const userInitial =
+    session.user.name?.charAt(0) || session.user.email?.charAt(0) || "U"
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Avatar className="h-9 w-9 cursor-pointer rounded-full ring-1 ring-border hover:bg-accent">
-          <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        nativeButton={false}
+        render={
+          <Avatar className="h-9 w-9 cursor-pointer rounded-full ring-1 ring-border hover:bg-accent">
+            <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
+          </Avatar>
+        }
+      ></DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{session.user.name || "User"}</p>
-            <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm leading-none font-medium">
+                {session.user.name || "User"}
+              </p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {session.user.email}
+              </p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push("/dashboard")}>
             Dashboard
           </DropdownMenuItem>
@@ -58,7 +66,9 @@ export function UserNav() {
           <DropdownMenuItem onClick={() => router.push("/dashboard/security")}>
             Security
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/dashboard/organizations")}>
+          <DropdownMenuItem
+            onClick={() => router.push("/dashboard/organizations")}
+          >
             Organizations
           </DropdownMenuItem>
         </DropdownMenuGroup>
