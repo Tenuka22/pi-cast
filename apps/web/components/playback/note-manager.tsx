@@ -1,21 +1,21 @@
 /**
  * Note Manager Component
- * 
+ *
  * Displays and manages timestamped notes for lesson playback.
  * Supports creating, editing, and deleting notes.
  */
 
-'use client';
+"use client"
 
-import { useState, useCallback, useMemo } from 'react';
-import { Button } from '@workspace/ui/components/button';
+import { useState, useCallback, useMemo } from "react"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@workspace/ui/components/card';
+} from "@workspace/ui/components/card"
 import {
   Dialog,
   DialogContent,
@@ -24,40 +24,40 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@workspace/ui/components/dialog';
+} from "@workspace/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu';
-import { Textarea } from '@workspace/ui/components/textarea';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
+} from "@workspace/ui/components/dropdown-menu"
+import { Textarea } from "@workspace/ui/components/textarea"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@workspace/ui/components/tabs';
+} from "@workspace/ui/components/tabs"
 
 export interface LessonNote {
-  id: string;
-  content: string;
-  timestamp: number;
-  isPrivate: boolean;
-  createdAt: number;
-  updatedAt: number;
+  id: string
+  content: string
+  timestamp: number
+  isPrivate: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 interface NoteManagerProps {
-  notes: LessonNote[];
-  currentTime: number;
-  onAddNote: (content: string, timestamp: number, isPrivate: boolean) => void;
-  onUpdateNote: (noteId: string, content: string, isPrivate: boolean) => void;
-  onDeleteNote: (noteId: string) => void;
-  onJumpToTimestamp: (timestamp: number) => void;
+  notes: LessonNote[]
+  currentTime: number
+  onAddNote: (content: string, timestamp: number, isPrivate: boolean) => void
+  onUpdateNote: (noteId: string, content: string, isPrivate: boolean) => void
+  onDeleteNote: (noteId: string) => void
+  onJumpToTimestamp: (timestamp: number) => void
 }
 
 export function NoteManager({
@@ -68,65 +68,65 @@ export function NoteManager({
   onDeleteNote,
   onJumpToTimestamp,
 }: NoteManagerProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<LessonNote | null>(null);
-  const [content, setContent] = useState('');
-  const [isPrivate, setIsPrivate] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingNote, setEditingNote] = useState<LessonNote | null>(null)
+  const [content, setContent] = useState("")
+  const [isPrivate, setIsPrivate] = useState(true)
 
   const formatTime = useCallback((ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const totalSeconds = Math.floor(ms / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }, []);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }, [])
 
   const handleOpenDialog = useCallback(() => {
-    setContent('');
-    setEditingNote(null);
-    setIsPrivate(true);
-    setIsDialogOpen(true);
-  }, []);
+    setContent("")
+    setEditingNote(null)
+    setIsPrivate(true)
+    setIsDialogOpen(true)
+  }, [])
 
   const handleSaveNote = useCallback(() => {
-    if (!content.trim()) return;
+    if (!content.trim()) return
 
     if (editingNote) {
-      onUpdateNote(editingNote.id, content.trim(), isPrivate);
+      onUpdateNote(editingNote.id, content.trim(), isPrivate)
     } else {
-      onAddNote(content.trim(), currentTime, isPrivate);
+      onAddNote(content.trim(), currentTime, isPrivate)
     }
 
-    setIsDialogOpen(false);
-    setContent('');
-    setEditingNote(null);
-  }, [content, currentTime, editingNote, isPrivate, onAddNote, onUpdateNote]);
+    setIsDialogOpen(false)
+    setContent("")
+    setEditingNote(null)
+  }, [content, currentTime, editingNote, isPrivate, onAddNote, onUpdateNote])
 
   const handleEditNote = useCallback((note: LessonNote) => {
-    setEditingNote(note);
-    setContent(note.content);
-    setIsPrivate(note.isPrivate);
-    setIsDialogOpen(true);
-  }, []);
+    setEditingNote(note)
+    setContent(note.content)
+    setIsPrivate(note.isPrivate)
+    setIsDialogOpen(true)
+  }, [])
 
   const sortedNotes = useMemo(
     () => [...notes].sort((a, b) => b.createdAt - a.createdAt),
     [notes]
-  );
+  )
 
   const privateNotes = useMemo(
     () => sortedNotes.filter((n) => n.isPrivate),
     [sortedNotes]
-  );
+  )
 
   const sharedNotes = useMemo(
     () => sortedNotes.filter((n) => !n.isPrivate),
     [sortedNotes]
-  );
+  )
 
   return (
     <Card className="w-full">
@@ -139,19 +139,21 @@ export function NoteManager({
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={handleOpenDialog}>
-                Add Note
-              </Button>
-            </DialogTrigger>
+            <Button
+              render={<DialogTrigger></DialogTrigger>}
+              size="sm"
+              onClick={handleOpenDialog}
+            >
+              Add Note
+            </Button>
             <DialogContent className="sm:max-w-[525px]">
               <DialogHeader>
                 <DialogTitle>
-                  {editingNote ? 'Edit Note' : 'Create Note'}
+                  {editingNote ? "Edit Note" : "Create Note"}
                 </DialogTitle>
                 <DialogDescription>
                   {editingNote
-                    ? 'Update your note'
+                    ? "Update your note"
                     : `Create a note at ${formatTime(currentTime)}`}
                 </DialogDescription>
               </DialogHeader>
@@ -173,24 +175,31 @@ export function NoteManager({
                     type="checkbox"
                     checked={isPrivate}
                     onChange={(e) => setIsPrivate(e.target.checked)}
-                    className="w-4 h-4"
+                    className="h-4 w-4"
                   />
-                  <Label htmlFor="note-private" className="text-sm cursor-pointer">
+                  <Label
+                    htmlFor="note-private"
+                    className="cursor-pointer text-sm"
+                  >
                     Keep this note private
                   </Label>
                 </div>
                 {!editingNote && (
                   <div className="text-xs text-muted-foreground">
-                    Timestamp: <span className="font-mono">{formatTime(currentTime)}</span>
+                    Timestamp:{" "}
+                    <span className="font-mono">{formatTime(currentTime)}</span>
                   </div>
                 )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={handleSaveNote} disabled={!content.trim()}>
-                  {editingNote ? 'Save Changes' : 'Create Note'}
+                  {editingNote ? "Save Changes" : "Create Note"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -201,8 +210,12 @@ export function NoteManager({
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="all">All ({notes.length})</TabsTrigger>
-            <TabsTrigger value="private">Private ({privateNotes.length})</TabsTrigger>
-            <TabsTrigger value="shared">Shared ({sharedNotes.length})</TabsTrigger>
+            <TabsTrigger value="private">
+              Private ({privateNotes.length})
+            </TabsTrigger>
+            <TabsTrigger value="shared">
+              Shared ({sharedNotes.length})
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4">
             <NoteList
@@ -237,16 +250,16 @@ export function NoteManager({
         </Tabs>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 interface NoteListProps {
-  notes: LessonNote[];
-  formatTime: (ms: number) => string;
-  onJump: (timestamp: number) => void;
-  onEdit: (note: LessonNote) => void;
-  onDelete: (noteId: string) => void;
-  emptyMessage: string;
+  notes: LessonNote[]
+  formatTime: (ms: number) => string
+  onJump: (timestamp: number) => void
+  onEdit: (note: LessonNote) => void
+  onDelete: (noteId: string) => void
+  emptyMessage: string
 }
 
 function NoteList({
@@ -259,10 +272,10 @@ function NoteList({
 }: NoteListProps) {
   if (notes.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-8">
+      <p className="py-8 text-center text-sm text-muted-foreground">
         {emptyMessage}
       </p>
-    );
+    )
   }
 
   return (
@@ -278,26 +291,32 @@ function NoteList({
         />
       ))}
     </div>
-  );
+  )
 }
 
 interface NoteItemProps {
-  note: LessonNote;
-  formatTime: (ms: number) => string;
-  onJump: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  note: LessonNote
+  formatTime: (ms: number) => string
+  onJump: () => void
+  onEdit: () => void
+  onDelete: () => void
 }
 
-function NoteItem({ note, formatTime, onJump, onEdit, onDelete }: NoteItemProps) {
+function NoteItem({
+  note,
+  formatTime,
+  onJump,
+  onEdit,
+  onDelete,
+}: NoteItemProps) {
   return (
     <div
-      className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+      className="flex cursor-pointer items-start justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
       onClick={onJump}
     >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
             {formatTime(note.timestamp)}
           </span>
           {note.isPrivate ? (
@@ -306,14 +325,18 @@ function NoteItem({ note, formatTime, onJump, onEdit, onDelete }: NoteItemProps)
             <span className="text-xs text-muted-foreground">🌍 Shared</span>
           )}
         </div>
-        <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-sm break-words whitespace-pre-wrap">
+          {note.content}
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
           Updated {new Date(note.updatedAt).toLocaleDateString()}
         </p>
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+        <DropdownMenuTrigger
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        >
+          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
             <span className="sr-only">Open menu</span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -333,17 +356,27 @@ function NoteItem({ note, formatTime, onJump, onEdit, onDelete }: NoteItemProps)
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onJump(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onJump()
+            }}
+          >
             Jump to timestamp
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
             Edit
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
+              e.stopPropagation()
+              onDelete()
             }}
             className="text-destructive"
           >
@@ -352,5 +385,5 @@ function NoteItem({ note, formatTime, onJump, onEdit, onDelete }: NoteItemProps)
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
+  )
 }

@@ -29,15 +29,20 @@ export default function Page() {
           />
           <h1 className="text-2xl font-bold">Pi-Cast</h1>
         </div>
-        {data?.user ? (
-          <Link href="/dashboard">
-            <Button>Dashboard</Button>
+        <div className="flex items-center gap-2">
+          <Link href="/canvas">
+            <Button variant="outline">Canvas</Button>
           </Link>
-        ) : (
-          <Link href="/login">
-            <Button>Sign In</Button>
-          </Link>
-        )}
+          {data?.user ? (
+            <Link href="/dashboard">
+              <Button>Dashboard</Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button>Sign In</Button>
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="flex flex-1 items-center justify-center">

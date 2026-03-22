@@ -1,11 +1,11 @@
 /**
  * Progress Overview Component
- * 
+ *
  * Displays lesson progress with visual indicators.
  * Shows completed bookmarks, watch time, and completion status.
  */
 
-'use client';
+"use client"
 
 import {
   Card,
@@ -13,25 +13,25 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@workspace/ui/components/card';
-import { Progress } from '@workspace/ui/components/progress';
+} from "@workspace/ui/components/card"
+import { Progress } from "@workspace/ui/components/progress"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@workspace/ui/components/tooltip';
-import type { BookmarkProgress } from '@/lib/lesson-system/use-lesson-progress';
+} from "@workspace/ui/components/tooltip"
+import type { BookmarkProgress } from "@/lib/lesson-system/use-lesson-progress"
 
 interface ProgressOverviewProps {
-  lessonTitle: string;
-  progressPercentage: number;
-  completedBookmarks: number;
-  totalBookmarks: number;
-  totalWatchTime: number; // In minutes
-  isCompleted: boolean;
-  bookmarkProgress?: BookmarkProgress[];
-  onBookmarkClick?: (bookmarkId: string) => void;
+  lessonTitle: string
+  progressPercentage: number
+  completedBookmarks: number
+  totalBookmarks: number
+  totalWatchTime: number // In minutes
+  isCompleted: boolean
+  bookmarkProgress?: BookmarkProgress[]
+  onBookmarkClick?: (bookmarkId: string) => void
 }
 
 export function ProgressOverview({
@@ -45,16 +45,16 @@ export function ProgressOverview({
   onBookmarkClick,
 }: ProgressOverviewProps) {
   const formatWatchTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
+    const hours = Math.floor(minutes / 60)
+    const mins = Math.round(minutes % 60)
 
     if (hours > 0) {
-      return `${hours}h ${mins}m`;
+      return `${hours}h ${mins}m`
     }
-    return `${mins}m`;
-  };
+    return `${mins}m`
+  }
 
-  const completionDate = isCompleted ? new Date().toLocaleDateString() : null;
+  const completionDate = isCompleted ? new Date().toLocaleDateString() : null
 
   return (
     <Card className="w-full">
@@ -63,7 +63,7 @@ export function ProgressOverview({
           <div>
             <CardTitle className="text-lg">{lessonTitle}</CardTitle>
             <CardDescription>
-              {isCompleted ? 'Completed' : 'In Progress'}
+              {isCompleted ? "Completed" : "In Progress"}
               {completionDate && ` on ${completionDate}`}
             </CardDescription>
           </div>
@@ -180,30 +180,30 @@ export function ProgressOverview({
         )}
       </CardContent>
     </Card>
-  );
+  )
 }
 
 interface StatCardProps {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
+  label: string
+  value: string
+  icon: React.ReactNode
 }
 
 function StatCard({ label, value, icon }: StatCardProps) {
   return (
-    <div className="flex flex-col items-center p-3 rounded-lg border bg-card">
-      <div className="text-muted-foreground mb-1">{icon}</div>
+    <div className="flex flex-col items-center rounded-lg border bg-card p-3">
+      <div className="mb-1 text-muted-foreground">{icon}</div>
       <div className="text-lg font-bold">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
-  );
+  )
 }
 
 interface BookmarkProgressItemProps {
-  bookmark: BookmarkProgress;
-  index: number;
-  total: number;
-  onClick?: (bookmarkId: string) => void;
+  bookmark: BookmarkProgress
+  index: number
+  total: number
+  onClick?: (bookmarkId: string) => void
 }
 
 function BookmarkProgressItem({
@@ -213,42 +213,44 @@ function BookmarkProgressItem({
   onClick,
 }: BookmarkProgressItemProps) {
   const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+    const totalSeconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }
 
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger>
           <div
-            className={`flex items-center gap-2 cursor-pointer ${
+            className={`flex cursor-pointer items-center gap-2 ${
               bookmark.isCompleted
-                ? 'text-green-600 dark:text-green-500'
-                : 'text-muted-foreground'
+                ? "text-green-600 dark:text-green-500"
+                : "text-muted-foreground"
             }`}
             onClick={() => onClick?.(bookmark.id)}
           >
             <div
-              className={`w-3 h-3 rounded-full border-2 ${
+              className={`h-3 w-3 rounded-full border-2 ${
                 bookmark.isCompleted
-                  ? 'bg-green-600 border-green-600 dark:bg-green-500 dark:border-green-500'
-                  : 'border-muted-foreground'
+                  ? "border-green-600 bg-green-600 dark:border-green-500 dark:bg-green-500"
+                  : "border-muted-foreground"
               }`}
             />
-            <span className="text-sm flex-1">{bookmark.title}</span>
-            <span className="text-xs font-mono">{formatTime(bookmark.timestamp)}</span>
+            <span className="flex-1 text-sm">{bookmark.title}</span>
+            <span className="font-mono text-xs">
+              {formatTime(bookmark.timestamp)}
+            </span>
           </div>
         </TooltipTrigger>
         <TooltipContent>
           <p>
-            {bookmark.isCompleted ? 'Completed' : 'Not completed'} •{' '}
-            {index + 1} of {total}
+            {bookmark.isCompleted ? "Completed" : "Not completed"} • {index + 1}{" "}
+            of {total}
           </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  );
+  )
 }

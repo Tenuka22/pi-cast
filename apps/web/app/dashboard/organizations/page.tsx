@@ -24,6 +24,9 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { authClient } from "@/lib/auth/auth-client"
+import { useUserRole } from "@/hooks/use-user-role"
+import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import Link from "next/link"
 
 // Types
 interface Organization {
@@ -415,6 +418,7 @@ function OrganizationCard({
 
 // Main Organizations Page Component
 function OrganizationsPageContent() {
+  const { canCreateOrg, isCreator, isAdmin } = useUserRole()
   const [organizations, setOrganizations] = React.useState<Organization[]>([])
   const [membersByOrg, setMembersByOrg] = React.useState<
     Record<string, Member[]>
@@ -577,13 +581,27 @@ function OrganizationsPageContent() {
             Manage your organizations, members, and invitations
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-          {showCreateForm ? "Cancel" : "Create Organization"}
-        </Button>
+        {canCreateOrg ? (
+          <Button onClick={() => setShowCreateForm(!showCreateForm)}>
+            {showCreateForm ? "Cancel" : "Create Organization"}
+          </Button>
+        ) : (
+          <Link href="/dashboard/settings">
+            <Button variant="outline">Become a Creator</Button>
+          </Link>
+        )}
       </div>
 
+      {!canCreateOrg && (
+        <Alert className="mb-8">
+          <AlertDescription>
+            Organization creation is only available for creators and admins. Upgrade to creator to create organizations.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Create Organization Form */}
-      {showCreateForm && (
+      {showCreateForm && canCreateOrg && (
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Create New Organization</CardTitle>
@@ -636,9 +654,15 @@ function OrganizationsPageContent() {
               <p className="mb-4 text-sm text-muted-foreground">
                 Create your first organization to get started
               </p>
-              <Button onClick={() => setShowCreateForm(true)}>
-                Create Organization
-              </Button>
+              {canCreateOrg ? (
+                <Button onClick={() => setShowCreateForm(true)}>
+                  Create Organization
+                </Button>
+              ) : (
+                <Link href="/dashboard/settings">
+                  <Button variant="outline">Become a Creator</Button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>

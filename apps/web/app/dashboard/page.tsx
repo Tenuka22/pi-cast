@@ -50,7 +50,12 @@ function DashboardContent() {
             />
             <h1 className="text-xl font-bold">Dashboard</h1>
           </div>
-          <UserNav />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.push("/canvas")}>
+              Canvas
+            </Button>
+            <UserNav />
+          </div>
         </div>
       </header>
 

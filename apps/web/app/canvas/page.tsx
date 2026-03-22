@@ -10,28 +10,47 @@ import {
   parseEquation,
   createNodeChain,
 } from '@/lib/block-system/types';
+import { useUserRole } from '@/hooks/use-user-role';
+import { AuthGuard } from '@/components/auth/auth-guard';
+import { Alert, AlertDescription } from '@workspace/ui/components/alert';
+import { Button } from '@workspace/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
+import Link from 'next/link';
 
 /**
  * Canvas Page - Main workspace for node tree-based math visualization.
- * 
+ *
  * NODE TREE ARCHITECTURE:
  * - Each block has a nodeChainId that links it to a chain structure
  * - Chains have prev (input) and next (output) pointers
  * - Data flows from source nodes through the chain
  * - Charts can traverse back through the chain to get all inputs
- * 
+ *
  * Features:
  * - Chain-based connections (add to beginning or end of chain)
  * - Visual chain indicators showing data flow
  * - Easy tracking of data through the pipeline
  * - Support for branching (one node -> multiple outputs)
- * 
+ *
  * Example chains:
  * 1. Equation -> Variable Slider -> Limiter -> Chart
  * 2. Equation (x=2) -> Equation (y=3) -> Equation (y=x) -> Chart -> Shape
  * 3. Limiter (x approaching 10) -> Chart (shows all near values)
+ *
+ * Recording Permissions:
+ * - Only admins and creators can record lessons
+ * - Students can use the canvas but cannot record
  */
 export default function CanvasPage() {
+  return (
+    <AuthGuard>
+      <CanvasContent />
+    </AuthGuard>
+  );
+}
+
+function CanvasContent() {
+  const { canRecord, isCreator, isAdmin } = useUserRole();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [nodeChains, setNodeChains] = useState<Map<string, NodeChain>>(new Map());
 
@@ -251,7 +270,25 @@ export default function CanvasPage() {
   return (
     <div className="flex h-screen w-full">
       <BlockLibrary onBlockSelect={handleBlockSelect} />
-      <div className="flex-1">
+      <div className="flex-1 space-y-4">
+        {!canRecord && (
+          <div className="container mx-auto p-4">
+            <Alert variant="default">
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  {isAdmin || isCreator
+                    ? "You can record lessons now."
+                    : "Recording is only available for creators and admins. Upgrade to creator to record lessons."}
+                </span>
+                {!isCreator && !isAdmin && (
+                  <Link href="/dashboard/settings">
+                    <Button variant="outline" size="sm">Become a Creator</Button>
+                  </Link>
+                )}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
         <GridCanvas
           blocks={blocks}
           nodeChains={nodeChains}
@@ -260,6 +297,7 @@ export default function CanvasPage() {
           onBlockDrop={handleBlockDrop}
           onConnectBlocks={connectBlocks}
           onDisconnectBlocks={disconnectBlocks}
+          canRecord={canRecord}
         />
       </div>
     </div>

@@ -34,7 +34,7 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ProfileEditor } from "@/components/profile/profile-editor"
 
-type Tab = "profile" | "account" | "sessions"
+type Tab = "profile" | "account" | "sessions" | "creator"
 
 export default function SettingsPage() {
   return (
@@ -88,12 +88,21 @@ function SettingsContent() {
             <HugeiconsIcon icon={FingerPrintIcon} />
             Sessions
           </Button>
+          <Button
+            variant={activeTab === "creator" ? "default" : "ghost"}
+            onClick={() => setActiveTab("creator")}
+            className="gap-2"
+          >
+            <HugeiconsIcon icon={AiUserIcon} />
+            Creator
+          </Button>
         </div>
 
         {/* Tab Content */}
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "account" && <AccountTab />}
         {activeTab === "sessions" && <SessionsTab />}
+        {activeTab === "creator" && <CreatorTab />}
       </main>
     </div>
   )
@@ -490,6 +499,196 @@ function SessionsTab() {
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function CreatorTab() {
+  const { data: session, refetch } = authClient.useSession()
+  const [isUpgrading, setIsUpgrading] = useState(false)
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const isCreator = session?.user?.role === "creator" || session?.user?.role === "admin"
+  const isAdmin = session?.user?.role === "admin"
+
+  const handleBecomeCreator = async () => {
+    setIsUpgrading(true)
+    setMessage(null)
+
+    try {
+      // Call the creator role request endpoint
+      const response = await fetch("/api/trpc/profileRequestCreatorRole", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.result?.data?.json?.success) {
+        setMessage({
+          type: "success",
+          text: result.result.data.json.message || "Successfully became a creator!",
+        })
+        await refetch()
+      } else {
+        setMessage({
+          type: "error",
+          text: result.error?.message || "Failed to become a creator",
+        })
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to become a creator",
+      })
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Creator Status Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Creator Status</CardTitle>
+          <CardDescription>
+            Manage your creator privileges and access recording features
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isCreator ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3">
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                  ✓ You are a {isAdmin ? "Administrator" : "Creator"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isAdmin
+                    ? "You have full administrative access to all features."
+                    : "You can create and record lessons, upload content, and create organizations."}
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg border p-4">
+                  <h4 className="mb-2 font-semibold">Recording</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Create interactive lessons with audio and event recording
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <h4 className="mb-2 font-semibold">Organizations</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Create and manage organizations for your team or school
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <h4 className="mb-2 font-semibold">Publishing</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Publish lessons for students to discover and learn
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <h4 className="mb-2 font-semibold">Analytics</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Track views, completions, and student engagement
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  ⚡ Student Account
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upgrade to creator to unlock lesson creation and recording features.
+                </p>
+              </div>
+
+              {message && (
+                <div
+                  className={`rounded-md border px-4 py-3 ${
+                    message.type === "success"
+                      ? "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-300"
+                      : "border-destructive/50 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {message.text}
+                </div>
+              )}
+
+              <Button
+                onClick={() => void handleBecomeCreator()}
+                disabled={isUpgrading}
+                className="w-full gap-2"
+                size="lg"
+              >
+                {isUpgrading ? (
+                  <>
+                    <div className="h-4 w-4">
+                      <LoadingSpinner />
+                    </div>
+                    Upgrading...
+                  </>
+                ) : (
+                  <>
+                    <HugeiconsIcon icon={AiUserIcon} />
+                    Become a Creator
+                  </>
+                )}
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Free upgrade • Instant activation • Full access to creation tools
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* What Creators Can Do Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>What Creators Can Do</CardTitle>
+          <CardDescription>
+            Unlock powerful teaching and content creation tools
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Record interactive lessons with synchronized audio and events
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Create organizations and invite team members
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Publish lessons to the platform for students
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Use the full canvas workspace with all block types
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Create bookmarks and structured lesson content
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              Access analytics and student engagement metrics
+            </li>
+          </ul>
         </CardContent>
       </Card>
     </div>

@@ -7,7 +7,8 @@ import {
   organization,
 } from "better-auth/plugins"
 import { createDb } from "../index"
-import * as schema from "../schema"
+import { user, session, account, verification } from "../schema"
+import { eq } from "drizzle-orm"
 
 export interface AuthConfig {
   WEB_CLIENT_URL: string
@@ -60,12 +61,17 @@ export function createAuth(config: AuthConfig) {
     return "lax"
   }
 
+  const ADMIN_EMAIL = "tenukaomaljith2009@gmail.com"
+
   return betterAuth({
     usePlural: true,
     secret: BETTER_AUTH_SECRET,
     baseURL: BETTER_AUTH_URL,
     trustedOrigins: getTrustedOrigins(),
-    database: drizzleAdapter(db, { provider: "sqlite", schema }),
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      schema: { user, session, account, verification },
+    }),
     advanced: {
       cookies: {
         session_token: {
@@ -117,6 +123,27 @@ export function createAuth(config: AuthConfig) {
       enabled: RATE_LIMIT_ENABLED,
       window: RATE_LIMIT_WINDOW_MS,
       max: RATE_LIMIT_MAX_REQUESTS,
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (userData) => {
+            const isAdminEmail = userData.email === ADMIN_EMAIL
+
+            return {
+              data: {
+                ...userData,
+                role: isAdminEmail ? "admin" : userData.role,
+              },
+            }
+          },
+          after: async (user) => {
+            if (user.email === ADMIN_EMAIL) {
+              console.log(`[Auth Hook] Admin user created: ${ADMIN_EMAIL}`)
+            }
+          },
+        },
+      },
     },
   })
 }

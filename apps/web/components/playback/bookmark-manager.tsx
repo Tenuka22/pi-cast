@@ -1,23 +1,23 @@
 /**
  * Bookmark Manager Component
- * 
+ *
  * Displays and manages bookmarks for lesson playback.
  * Supports creating, editing, and deleting bookmarks.
  */
 
-'use client';
+"use client"
 
-import { useState, useCallback } from 'react';
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
+import { useState, useCallback } from "react"
+import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@workspace/ui/components/card';
+} from "@workspace/ui/components/card"
 import {
   Dialog,
   DialogContent,
@@ -26,24 +26,28 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@workspace/ui/components/dialog';
+} from "@workspace/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@workspace/ui/components/dropdown-menu';
-import { Textarea } from '@workspace/ui/components/textarea';
-import type { Bookmark } from '@/lib/recording-system/types';
+} from "@workspace/ui/components/dropdown-menu"
+import { Textarea } from "@workspace/ui/components/textarea"
+import type { Bookmark } from "@/lib/recording-system/types"
 
 interface BookmarkManagerProps {
-  bookmarks: Bookmark[];
-  currentTime: number;
-  onAddBookmark: (title: string, description?: string) => void;
-  onRemoveBookmark: (bookmarkId: string) => void;
-  onJumpToBookmark: (bookmarkId: string) => void;
-  onEditBookmark?: (bookmarkId: string, title: string, description?: string) => void;
+  bookmarks: Bookmark[]
+  currentTime: number
+  onAddBookmark: (title: string, description?: string) => void
+  onRemoveBookmark: (bookmarkId: string) => void
+  onJumpToBookmark: (bookmarkId: string) => void
+  onEditBookmark?: (
+    bookmarkId: string,
+    title: string,
+    description?: string
+  ) => void
 }
 
 export function BookmarkManager({
@@ -54,56 +58,62 @@ export function BookmarkManager({
   onJumpToBookmark,
   onEditBookmark,
 }: BookmarkManagerProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
 
   const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const totalSeconds = Math.floor(ms / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }
 
   const handleOpenDialog = useCallback(() => {
-    setTitle('');
-    setDescription('');
-    setEditingBookmark(null);
-    setIsDialogOpen(true);
-  }, []);
+    setTitle("")
+    setDescription("")
+    setEditingBookmark(null)
+    setIsDialogOpen(true)
+  }, [])
 
   const handleSaveBookmark = useCallback(() => {
-    if (!title.trim()) return;
+    if (!title.trim()) return
 
     if (editingBookmark && onEditBookmark) {
-      onEditBookmark(editingBookmark.id, title.trim(), description.trim() || undefined);
+      onEditBookmark(
+        editingBookmark.id,
+        title.trim(),
+        description.trim() || undefined
+      )
     } else {
-      onAddBookmark(title.trim(), description.trim() || undefined);
+      onAddBookmark(title.trim(), description.trim() || undefined)
     }
 
-    setIsDialogOpen(false);
-    setTitle('');
-    setDescription('');
-    setEditingBookmark(null);
-  }, [title, description, editingBookmark, onAddBookmark, onEditBookmark]);
+    setIsDialogOpen(false)
+    setTitle("")
+    setDescription("")
+    setEditingBookmark(null)
+  }, [title, description, editingBookmark, onAddBookmark, onEditBookmark])
 
   const handleEditBookmark = useCallback((bookmark: Bookmark) => {
-    setEditingBookmark(bookmark);
-    setTitle(bookmark.title);
-    setDescription(bookmark.description || '');
-    setIsDialogOpen(true);
-  }, []);
+    setEditingBookmark(bookmark)
+    setTitle(bookmark.title)
+    setDescription(bookmark.description || "")
+    setIsDialogOpen(true)
+  }, [])
 
-  const sortedBookmarks = [...bookmarks].sort((a, b) => a.timestamp - b.timestamp);
+  const sortedBookmarks = [...bookmarks].sort(
+    (a, b) => a.timestamp - b.timestamp
+  )
 
-  const teacherBookmarks = sortedBookmarks.filter((b) => b.type === 'teacher');
-  const studentBookmarks = sortedBookmarks.filter((b) => b.type === 'student');
+  const teacherBookmarks = sortedBookmarks.filter((b) => b.type === "teacher")
+  const studentBookmarks = sortedBookmarks.filter((b) => b.type === "student")
 
   return (
     <Card className="w-full">
@@ -116,19 +126,21 @@ export function BookmarkManager({
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={handleOpenDialog}>
-                Add Bookmark
-              </Button>
-            </DialogTrigger>
+            <Button
+              render={<DialogTrigger></DialogTrigger>}
+              size="sm"
+              onClick={handleOpenDialog}
+            >
+              Add Bookmark
+            </Button>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editingBookmark ? 'Edit Bookmark' : 'Create Bookmark'}
+                  {editingBookmark ? "Edit Bookmark" : "Create Bookmark"}
                 </DialogTitle>
                 <DialogDescription>
                   {editingBookmark
-                    ? 'Update your bookmark details'
+                    ? "Update your bookmark details"
                     : `Create a bookmark at ${formatTime(currentTime)}`}
                 </DialogDescription>
               </DialogHeader>
@@ -143,7 +155,9 @@ export function BookmarkManager({
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="bookmark-description">Description (optional)</Label>
+                  <Label htmlFor="bookmark-description">
+                    Description (optional)
+                  </Label>
                   <Textarea
                     id="bookmark-description"
                     value={description}
@@ -154,11 +168,14 @@ export function BookmarkManager({
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={handleSaveBookmark} disabled={!title.trim()}>
-                  {editingBookmark ? 'Save Changes' : 'Create Bookmark'}
+                  {editingBookmark ? "Save Changes" : "Create Bookmark"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -180,9 +197,13 @@ export function BookmarkManager({
                     bookmark={bookmark}
                     formatTime={formatTime}
                     onJump={() => onJumpToBookmark(bookmark.id)}
-                    onEdit={onEditBookmark ? () => handleEditBookmark(bookmark) : undefined}
+                    onEdit={
+                      onEditBookmark
+                        ? () => handleEditBookmark(bookmark)
+                        : undefined
+                    }
                     onDelete={onRemoveBookmark}
-                    canEdit={bookmark.type === 'student' || !!onEditBookmark}
+                    canEdit={bookmark.type === "student" || !!onEditBookmark}
                   />
                 ))}
               </div>
@@ -212,23 +233,23 @@ export function BookmarkManager({
           )}
 
           {bookmarks.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="py-4 text-center text-sm text-muted-foreground">
               No bookmarks yet. Add bookmarks to mark important moments.
             </p>
           )}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 interface BookmarkItemProps {
-  bookmark: Bookmark;
-  formatTime: (ms: number) => string;
-  onJump: () => void;
-  onEdit?: () => void;
-  onDelete: (bookmarkId: string) => void;
-  canEdit: boolean;
+  bookmark: Bookmark
+  formatTime: (ms: number) => string
+  onJump: () => void
+  onEdit?: () => void
+  onDelete: (bookmarkId: string) => void
+  canEdit: boolean
 }
 
 function BookmarkItem({
@@ -241,29 +262,31 @@ function BookmarkItem({
 }: BookmarkItemProps) {
   return (
     <div
-      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+      className="flex cursor-pointer items-center justify-between rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
       onClick={onJump}
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <div
-          className="w-1 h-8 rounded-full shrink-0"
-          style={{ backgroundColor: bookmark.color || '#3b82f6' }}
+          className="h-8 w-1 shrink-0 rounded-full"
+          style={{ backgroundColor: bookmark.color || "#3b82f6" }}
         />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{bookmark.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{bookmark.title}</p>
           {bookmark.description && (
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="truncate text-xs text-muted-foreground">
               {bookmark.description}
             </p>
           )}
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             {formatTime(bookmark.timestamp)}
           </p>
         </div>
       </div>
       {canEdit && (
         <DropdownMenu>
-          <DropdownMenuTrigger onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+          <DropdownMenuTrigger
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
               <svg
@@ -284,19 +307,29 @@ function BookmarkItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onJump(); }}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onJump()
+              }}
+            >
               Jump to timestamp
             </DropdownMenuItem>
             {onEdit && (
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit()
+                }}
+              >
                 Edit
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
-                e.stopPropagation();
-                onDelete(bookmark.id);
+                e.stopPropagation()
+                onDelete(bookmark.id)
               }}
               className="text-destructive"
             >
@@ -306,5 +339,5 @@ function BookmarkItem({
         </DropdownMenu>
       )}
     </div>
-  );
+  )
 }

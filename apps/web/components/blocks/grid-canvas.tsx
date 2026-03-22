@@ -401,6 +401,9 @@ interface GridCanvasProps {
     value: number
   ) => void;
   readOnly?: boolean;
+
+  // Recording permission prop
+  canRecord?: boolean;
 }
 
 /**
@@ -432,6 +435,7 @@ export function GridCanvas({
   nodeChains,
   onNodeChainsChange,
   readOnly = false,
+  canRecord = true,
 }: GridCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [internalBlocks, setInternalBlocks] = useState<Block[]>([]);
@@ -2197,19 +2201,21 @@ export function GridCanvas({
             />
             Show Grid
           </label>
-          <RecordingControls
-            isRecording={
-              recordingState.status === "recording" ||
-              recordingState.status === "paused"
-            }
-            isPaused={recordingState.status === "paused"}
-            currentTime={recordingState.currentTime}
-            onStart={() => void startRecording()}
-            onStop={() => void stopRecording()}
-            onPause={pauseRecording}
-            onResume={resumeRecording}
-            onCreateBookmark={createBookmark}
-          />
+          {canRecord && (
+            <RecordingControls
+              isRecording={
+                recordingState.status === "recording" ||
+                recordingState.status === "paused"
+              }
+              isPaused={recordingState.status === "paused"}
+              currentTime={recordingState.currentTime}
+              onStart={() => void startRecording()}
+              onStop={() => void stopRecording()}
+              onPause={pauseRecording}
+              onResume={resumeRecording}
+              onCreateBookmark={createBookmark}
+            />
+          )}
         </div>
       )}
 
@@ -2478,7 +2484,7 @@ export function GridCanvas({
       </ContextMenu>
 
       {/* Recording Status Bar */}
-      {(recordingState.status === "recording" ||
+      {canRecord && (recordingState.status === "recording" ||
         recordingState.status === "paused" ||
         recordingState.audioSegments.length > 0) && (
         <RecordingStatusBar

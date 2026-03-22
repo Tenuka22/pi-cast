@@ -55,7 +55,9 @@ export const profileUpdateMyProfile = base
     // Validate website URL if provided
     if (input.website) {
       try {
-        const url = input.website.startsWith('http') ? input.website : `https://${input.website}`
+        const url = input.website.startsWith("http")
+          ? input.website
+          : `https://${input.website}`
         new URL(url)
       } catch {
         throw new Error("Invalid website URL")
@@ -68,10 +70,37 @@ export const profileUpdateMyProfile = base
     }
 
     // TODO: Implement database update
-    console.log('Update profile for user:', session.user.id, input)
+    console.log("Update profile for user:", session.user.id, input)
 
     return { success: true, message: "Profile updated" }
   })
+
+/**
+ * Request creator role for current user
+ * Users can upgrade themselves to creator role
+ */
+export const profileRequestCreatorRole = base.handler(async ({ context }) => {
+  const session = await getAuthSession(context.headers)
+
+  // Check if already a creator or admin
+  if (session.user.role === "creator" || session.user.role === "admin") {
+    throw new Error("You already have creator or admin privileges")
+  }
+
+  const newRole = session.user.email === adminEmail ? "admin" : "creator"
+
+  // TODO: Implement database update
+  // For now, this is a stub - in production, update the user's role in the database
+  console.log(
+    `Upgrading user ${session.user.id} (${session.user.email}) to ${newRole}`
+  )
+
+  return {
+    success: true,
+    message: `Successfully upgraded to ${newRole}! You can now create and record lessons.`,
+    role: newRole,
+  }
+})
 
 /**
  * Get public profile by username/ID
@@ -86,13 +115,13 @@ export const profileGetPublicProfile = base
     // TODO: Implement database query
     return {
       user: {
-        id: 'user-1',
+        id: "user-1",
         name: input.username,
-        bio: 'Sample bio',
+        bio: "Sample bio",
         location: null,
         website: null,
         image: null,
-        role: 'teacher',
+        role: "teacher",
         createdAt: Date.now(),
       },
       stats: {

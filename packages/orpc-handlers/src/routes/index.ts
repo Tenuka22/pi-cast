@@ -37,4 +37,5 @@ export {
   profileGetPublicProfile,
   profileGetUserLessons,
   profileToggleFollow,
+  profileRequestCreatorRole,
 } from "./profile"
