@@ -55,13 +55,15 @@ const handler = new RPCHandler(rpcHandler, {
 
 // oRPC routes with headers passed to context
 app.use("/api/trpc/*", async (c) => {
+  console.log(c.req.raw.headers)
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api/trpc",
     context: {
       headers: c.req.raw.headers,
       auth,
-      db: createDb(ENV.DATABASE_URL),
+      db: createDb(ENV.DATABASE_URL, ENV.DATABASE_TOKEN),
       userSession: null,
+      request: c.req.raw,
     },
   })
 
@@ -94,3 +96,5 @@ app.onError((err, c) => {
     500
   )
 })
+
+export default app

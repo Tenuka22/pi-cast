@@ -4,8 +4,6 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
     "./config": "./src/config.ts"
   },
   "scripts": {

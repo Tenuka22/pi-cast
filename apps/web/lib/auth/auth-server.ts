@@ -2,22 +2,20 @@
 import {
   BETTER_AUTH_BASE_PATH,
   BETTER_AUTH_COOKIE_PREFIX,
-  BETTER_AUTH_URL,
-} from "@pi-cast/auth-server"
+} from "@pi-cast/auth-client/config"
 import { createAuthClient } from "better-auth/client"
 import type { RequestContext } from "better-auth/client"
 import { headers } from "next/headers"
+import { ENV } from "varlock/env"
 
 export const authServerClient = createAuthClient({
-  baseURL: BETTER_AUTH_URL,
+  baseURL: ENV.BETTER_AUTH_URL,
   basePath: BETTER_AUTH_BASE_PATH,
   fetchOptions: {
-    baseURL: BETTER_AUTH_URL + BETTER_AUTH_BASE_PATH,
+    baseURL: ENV.BETTER_AUTH_URL + BETTER_AUTH_BASE_PATH,
     onRequest: async (context: RequestContext) => {
       const headersList = await headers()
       const cookie = headersList.get("Cookie")
-
-      // Proxy auth-related cookies
       if (cookie) {
         const authCookies = cookie
           .split(";")

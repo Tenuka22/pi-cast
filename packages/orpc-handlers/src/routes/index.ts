@@ -11,6 +11,7 @@ export type AppContext = {
   auth: Auth
   db: Database
   userSession: Auth["$Infer"]["Session"] | null
+  request: Request
 }
 // ---------------------
 // Base oRPC Context

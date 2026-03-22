@@ -11,6 +11,7 @@ import { ENV } from "varlock"
 
 const authConfig: AuthConfig = {
   DATABASE_URL: ENV.DATABASE_URL,
+  DATABASE_TOKEN: ENV.DATABASE_TOKEN,
   WEB_CLIENT_URL,
   BETTER_AUTH_URL,
   BETTER_AUTH_SECRET,

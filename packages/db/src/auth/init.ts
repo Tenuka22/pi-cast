@@ -14,6 +14,7 @@ import { generateUniqueUsername } from "../username"
 export interface AuthConfig {
   WEB_CLIENT_URL: string
   DATABASE_URL: string
+  DATABASE_TOKEN: string
   BETTER_AUTH_URL: string
   BETTER_AUTH_SECRET: string
   GITHUB_CLIENT_ID: string
@@ -32,7 +33,7 @@ export type Auth = ReturnType<typeof createAuth>
  * Create Better Auth instance with comprehensive logging and security
  */
 export function createAuth(config: AuthConfig) {
-  const db = createDb(config.DATABASE_URL)
+  const db = createDb(config.DATABASE_URL, config.DATABASE_TOKEN)
 
   const {
     WEB_CLIENT_URL,
@@ -75,12 +76,13 @@ export function createAuth(config: AuthConfig) {
     }),
     advanced: {
       cookiePrefix: BETTER_AUTH_COOKIE_PREFIX,
+
       cookies: {
         session_token: {
           attributes: {
             secure: Boolean(COOKIE_SECURE),
             sameSite: parseSameSite(COOKIE_SAME_SITE ?? "lax"),
-            httpOnly: true,
+            httpOnly: false,
             path: "/",
           },
         },
@@ -118,7 +120,7 @@ export function createAuth(config: AuthConfig) {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
       freshAge: 60 * 60 * 24,
-      cookieCache: { enabled: true, maxAge: 60 * 5 },
+      cookieCache: { enabled: false },
     },
     rateLimit: {
       enabled: RATE_LIMIT_ENABLED,

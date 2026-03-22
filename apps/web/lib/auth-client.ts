@@ -21,7 +21,7 @@ import {
   emailOTPClient,
 } from "better-auth/client/plugins"
 
-import { BETTER_AUTH_BASE_PATH } from "@pi-cast/auth-client"
+import { BETTER_AUTH_BASE_PATH } from "@pi-cast/auth-client/config"
 
 export const authClient = createAuthClient({
   baseURL: ENV.NEXT_PUBLIC_API_URL,
