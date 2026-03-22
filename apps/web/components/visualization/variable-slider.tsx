@@ -1,13 +1,17 @@
 /**
  * Variable Slider Component
- * 
+ *
  * Interactive slider for adjusting equation variables with infinite range support.
  */
 
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import * as React from 'react';
 import { cn } from '@workspace/ui/lib/utils';
+
+import { Slider } from '@workspace/ui/components/slider';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
 
 interface VariableSliderProps {
   name: string;
@@ -36,24 +40,24 @@ export function VariableSlider({
   showSlider = true,
   className,
 }: VariableSliderProps) {
-  const [inputValue, setInputValue] = useState(value.toString());
+  const [inputValue, setInputValue] = React.useState(value.toString());
 
-  useEffect(() => {
+  React.useEffect(() => {
     setInputValue(value.toString());
   }, [value]);
 
-  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseFloat(e.target.value);
-    if (!isNaN(newValue)) {
-      onChange?.(name, newValue);
+  const handleSliderChange = React.useCallback((newValue: number | readonly number[]) => {
+    const newVal = Array.isArray(newValue) ? newValue[0] ?? 0 : newValue;
+    if (!isNaN(newVal)) {
+      onChange?.(name, newVal);
     }
   }, [name, onChange]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   }, []);
 
-  const handleInputBlur = useCallback(() => {
+  const handleInputBlur = React.useCallback(() => {
     const parsed = parseFloat(inputValue);
     if (!isNaN(parsed)) {
       const clamped = Math.max(min, Math.min(max, parsed));
@@ -64,7 +68,7 @@ export function VariableSlider({
     }
   }, [inputValue, min, max, name, onChange, value]);
 
-  const handleInputKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleInputKeyDown = React.useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleInputBlur();
     }
@@ -76,40 +80,33 @@ export function VariableSlider({
     return Number.isInteger(v) ? v.toString() : v.toFixed(2);
   };
 
-  const sliderPercentage = ((value - min) / (max - min)) * 100;
-
   return (
     <div className={cn('flex flex-col gap-2 p-2', className)}>
       <div className="flex items-center justify-between gap-4">
-        <label className="font-mono text-sm font-medium text-muted-foreground">
+        <Label className="font-mono text-sm font-medium text-muted-foreground">
           {name}
-        </label>
+        </Label>
         {showInput && (
-          <input
+          <Input
             type="number"
             value={inputValue}
             onChange={handleInputChange}
             onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
             step={step}
-            className="h-7 w-24 rounded-md border border-input bg-background px-2 text-right text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 w-24 text-right font-mono"
           />
         )}
       </div>
 
       {showSlider && (
         <div className="relative">
-          <input
-            type="range"
-            value={value}
-            onChange={handleSliderChange}
+          <Slider
+            value={[value]}
+            onValueChange={handleSliderChange}
             min={min}
             max={max}
             step={step}
-            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary hover:accent-primary/80"
-            style={{
-              background: `linear-gradient(to right, oklch(0.518 0.253 323.949) 0%, oklch(0.518 0.253 323.949) ${sliderPercentage}%, oklch(0.542 0.034 322.5) ${sliderPercentage}%, oklch(0.542 0.034 322.5) 100%)`,
-            }}
           />
         </div>
       )}

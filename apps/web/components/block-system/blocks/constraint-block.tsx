@@ -6,7 +6,7 @@
 
 'use client';
 
-import React from 'react';
+import * as React from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import {
   type ConstraintBlock,
@@ -15,6 +15,9 @@ import {
 } from '@/lib/block-system/types';
 import { BlockWrapper } from './block-wrapper';
 import { ConnectionHandles } from '@/components/connections/connection-handles';
+import { Input } from '@workspace/ui/components/input';
+import { NativeSelect } from '@workspace/ui/components/native-select';
+import { Label } from '@workspace/ui/components/label';
 
 interface ConstraintBlockComponentProps {
   block: ConstraintBlock;
@@ -104,33 +107,32 @@ export function ConstraintBlockComponent({
       </div>
       <div className="flex-1 space-y-3 p-4">
         <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+          <Label className="text-xs font-medium text-muted-foreground">
             Variable
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={variableName}
             onChange={(e) => onVariableChange?.('variableName', e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm font-mono"
+            className="w-full font-mono"
             placeholder="x"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+          <Label className="text-xs font-medium text-muted-foreground">
             Constraint
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             value={constraint.type}
             onChange={(e) => handleConstraintTypeChange(e.target.value as ConstraintType)}
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+            className="w-full"
           >
             {Object.entries(CONSTRAINT_LABELS).map(([type, label]) => (
               <option key={type} value={type}>
                 {label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         <div className="flex items-center gap-2">
@@ -139,29 +141,29 @@ export function ConstraintBlockComponent({
             {CONSTRAINT_SYMBOLS[constraint.type]}
           </span>
           {constraint.type !== 'range' ? (
-            <input
+            <Input
               type="number"
               value={constraint.min ?? 0}
               onChange={(e) => handleValueChange(e.target.value)}
-              className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              className="w-20"
               step="any"
             />
           ) : (
             <>
-              <input
+              <Input
                 type="number"
                 value={constraint.min ?? 0}
                 onChange={(e) => handleValueChange(e.target.value)}
-                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-20"
                 step="any"
                 placeholder="min"
               />
               <span className="font-mono text-sm">and</span>
-              <input
+              <Input
                 type="number"
                 value={constraint.max ?? 100}
                 onChange={(e) => handleMaxValueChange(e.target.value)}
-                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-20"
                 step="any"
                 placeholder="max"
               />

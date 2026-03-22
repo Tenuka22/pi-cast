@@ -1,17 +1,31 @@
 /**
  * Lesson Creator Component
- * 
+ *
  * Main interface for creating and editing lessons.
  * Includes block canvas, recording controls, and metadata editing.
  */
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import * as React from 'react';
+import { useForm } from '@tanstack/react-form';
 import { cn } from '@workspace/ui/lib/utils';
 import { useLessonCreation } from '@/lib/lesson-system/use-lesson-creation';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
 import type { LessonCreationData } from '@/lib/lesson-system/types';
+
+import { Button } from '@workspace/ui/components/button';
+import { Card, CardContent } from '@workspace/ui/components/card';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@workspace/ui/components/field';
+import { Input } from '@workspace/ui/components/input';
+import { Textarea } from '@workspace/ui/components/textarea';
+import { NativeSelect } from '@workspace/ui/components/native-select';
 
 function isValidLessonLevel(value: string): value is 'beginner' | 'intermediate' | 'advanced' | 'all' {
   return ['beginner', 'intermediate', 'advanced', 'all'].includes(value);
@@ -28,14 +42,7 @@ interface LessonCreatorProps {
 }
 
 export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProps) {
-  const [showMetadata, setShowMetadata] = useState(false);
-  const [metadata, setMetadata] = useState<Partial<LessonCreationData>>({
-    title: '',
-    description: '',
-    level: 'beginner',
-    visibility: 'private',
-    tags: [],
-  });
+  const [showMetadata, setShowMetadata] = React.useState(false);
 
   const {
     lesson,
@@ -52,23 +59,30 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
     },
   });
 
-  const handleCreateLesson = useCallback(() => {
-    if (!metadata.title) return;
+  const form = useForm({
+    defaultValues: {
+      title: '',
+      description: '',
+      level: 'beginner' as const,
+      visibility: 'private' as const,
+      tags: [] as string[],
+    },
+    onSubmit: async ({ value }) => {
+      const newLesson = createLesson({
+        title: value.title,
+        description: value.description || '',
+        level: value.level,
+        visibility: value.visibility,
+        tags: value.tags || [],
+      });
 
-    const newLesson = createLesson({
-      title: metadata.title,
-      description: metadata.description || '',
-      level: metadata.level || 'beginner',
-      visibility: metadata.visibility || 'private',
-      tags: metadata.tags || [],
-    });
+      if (newLesson && onSave) {
+        onSave(newLesson.id);
+      }
+    },
+  });
 
-    if (newLesson && onSave) {
-      onSave(newLesson.id);
-    }
-  }, [metadata, createLesson, onSave]);
-
-  const handlePublish = useCallback(async () => {
+  const handlePublish = React.useCallback(async () => {
     await publishLesson();
   }, [publishLesson]);
 
@@ -118,123 +132,174 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
 
         <div className="flex items-center gap-2">
           {!lesson ? (
-            <button
-              onClick={handleCreateLesson}
-              disabled={!metadata.title}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
+              type="button"
+              onClick={() => form.handleSubmit()}
+              disabled={!form.getFieldValue('title')}
             >
               Create Lesson
-            </button>
+            </Button>
           ) : (
             <>
-              <button
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => { void saveLesson(); }}
                 disabled={!isDirty || isSaving}
-                className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
                 onClick={() => { void handlePublish(); }}
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
               >
                 Publish
-              </button>
+              </Button>
             </>
           )}
-          <button
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => setShowMetadata(!showMetadata)}
-            className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             {showMetadata ? 'Hide' : 'Edit'} Details
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Metadata Editor */}
       {showMetadata && (
-        <div className="border-b border-border bg-card p-4">
-          <div className="mx-auto max-w-3xl space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Title *</label>
-              <input
-                type="text"
-                value={metadata.title}
-                onChange={(e) => setMetadata((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter lesson title"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">Description</label>
-              <textarea
-                value={metadata.description}
-                onChange={(e) => setMetadata((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe what students will learn"
-                rows={3}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Level</label>
-                <select
-                  value={metadata.level || 'beginner'}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (isValidLessonLevel(value)) {
-                      setMetadata((prev) => ({ ...prev, level: value }));
-                    }
+        <Card className="mx-auto my-4 max-w-3xl border-b border-border">
+          <CardContent className="space-y-4 p-4">
+            <form
+              id="lesson-metadata-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                form.handleSubmit();
+              }}
+            >
+              <FieldGroup>
+                <form.Field
+                  name="title"
+                  children={(field) => {
+                    const isInvalid =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={isInvalid}>
+                        <FieldLabel htmlFor={field.name}>Title *</FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="Enter lesson title"
+                          autoComplete="off"
+                        />
+                        {isInvalid && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
                   }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="all">All Levels</option>
-                </select>
-              </div>
+                />
 
-              <div>
-                <label className="mb-1 block text-sm font-medium">Visibility</label>
-                <select
-                  value={metadata.visibility || 'private'}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (isValidLessonVisibility(value)) {
-                      setMetadata((prev) => ({ ...prev, visibility: value }));
-                    }
+                <form.Field
+                  name="description"
+                  children={(field) => {
+                    const isInvalid =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={isInvalid}>
+                        <FieldLabel htmlFor={field.name}>Description</FieldLabel>
+                        <Textarea
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="Describe what students will learn"
+                          rows={3}
+                        />
+                        {isInvalid && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
                   }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="private">Private</option>
-                  <option value="unlisted">Unlisted</option>
-                  <option value="organization">Organization</option>
-                  <option value="public">Public</option>
-                </select>
-              </div>
-            </div>
+                />
 
-            <div>
-              <label className="mb-1 block text-sm font-medium">Tags</label>
-              <input
-                type="text"
-                value={metadata.tags?.join(', ')}
-                onChange={(e) =>
-                  setMetadata((prev) => ({
-                    ...prev,
-                    tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean),
-                  }))
-                }
-                placeholder="algebra, linear equations, graphing"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Separate tags with commas</p>
-            </div>
-          </div>
-        </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <form.Field
+                    name="level"
+                    children={(field) => (
+                      <Field>
+                        <FieldLabel htmlFor={field.name}>Level</FieldLabel>
+                        <NativeSelect
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value as typeof field.state.value)}
+                        >
+                          <option value="beginner">Beginner</option>
+                          <option value="intermediate">Intermediate</option>
+                          <option value="advanced">Advanced</option>
+                          <option value="all">All Levels</option>
+                        </NativeSelect>
+                      </Field>
+                    )}
+                  />
+
+                  <form.Field
+                    name="visibility"
+                    children={(field) => (
+                      <Field>
+                        <FieldLabel htmlFor={field.name}>Visibility</FieldLabel>
+                        <NativeSelect
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value as typeof field.state.value)}
+                        >
+                          <option value="private">Private</option>
+                          <option value="unlisted">Unlisted</option>
+                          <option value="organization">Organization</option>
+                          <option value="public">Public</option>
+                        </NativeSelect>
+                      </Field>
+                    )}
+                  />
+                </div>
+
+                <form.Field
+                  name="tags"
+                  children={(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value.join(', ')}
+                        onBlur={field.handleBlur}
+                        onChange={(e) =>
+                          field.handleChange(
+                            e.target.value.split(',').map((t) => t.trim()).filter(Boolean)
+                          )
+                        }
+                        placeholder="algebra, linear equations, graphing"
+                      />
+                      <FieldDescription>
+                        Separate tags with commas
+                      </FieldDescription>
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {/* Main Canvas Area */}

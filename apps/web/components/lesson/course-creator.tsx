@@ -1,18 +1,29 @@
 /**
  * Course Creator Component
- * 
+ *
  * Interface for creating and managing courses/playlists.
  */
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import * as React from 'react';
+import { useForm } from '@tanstack/react-form';
 import { cn } from '@workspace/ui/lib/utils';
 import type { Course, CourseLesson } from '@/lib/lesson-system/types';
 
-function isValidLessonLevel(value: string): value is 'beginner' | 'intermediate' | 'advanced' {
-  return ['beginner', 'intermediate', 'advanced'].includes(value);
-}
+import { Button } from '@workspace/ui/components/button';
+import { Card, CardContent } from '@workspace/ui/components/card';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@workspace/ui/components/field';
+import { Input } from '@workspace/ui/components/input';
+import { Textarea } from '@workspace/ui/components/textarea';
+import { NativeSelect } from '@workspace/ui/components/native-select';
+import { Switch } from '@workspace/ui/components/switch';
 
 interface CourseCreatorProps {
   courseId?: string;
@@ -21,225 +32,310 @@ interface CourseCreatorProps {
 }
 
 export function CourseCreator({ courseId, onSave, className }: CourseCreatorProps) {
-  const [course, setCourse] = useState<Partial<Course>>({
-    title: '',
-    description: '',
-    level: 'beginner',
-    isPublished: false,
-    isFree: true,
-    lessons: [],
-    tags: [],
+  const [isDirty, setIsDirty] = React.useState(false);
+  const [lessons, setLessons] = React.useState<CourseLesson[]>([]);
+
+  const form = useForm({
+    defaultValues: {
+      title: '',
+      description: '',
+      level: 'beginner' as const,
+      isFree: true,
+      tags: [] as string[],
+    },
+    onSubmit: async ({ value }) => {
+      if (!value.title) return;
+
+      const now = Date.now();
+      const newCourse: Course = {
+        id: courseId || `course-${now}`,
+        title: value.title,
+        description: value.description || '',
+        level: value.level,
+        tags: value.tags || [],
+        lessons,
+        totalDuration: 0,
+        creatorId: 'current-user',
+        creatorName: 'Current User',
+        enrolledStudents: 0,
+        averageRating: 0,
+        totalRatings: 0,
+        isPublished: value.isFree !== undefined,
+        isFree: value.isFree !== false,
+        createdAt: now,
+        updatedAt: now,
+        publishedAt: value.isFree ? now : undefined,
+      };
+
+      onSave?.(newCourse);
+      setIsDirty(false);
+    },
   });
 
-  const [isDirty, setIsDirty] = useState(false);
-
-  const updateCourse = useCallback((updates: Partial<Course>) => {
-    setCourse((prev) => ({ ...prev, ...updates }));
-    setIsDirty(true);
-  }, []);
-
-  const addLesson = useCallback((lessonId: string, title: string) => {
-    setCourse((prev) => {
+  const addLesson = React.useCallback((lessonId: string, title: string) => {
+    setLessons((prev) => {
       const newLesson: CourseLesson = {
         lessonId,
         title,
-        order: prev.lessons?.length || 0,
+        order: prev.length,
         isLocked: false,
       };
-      return {
-        ...prev,
-        lessons: [...(prev.lessons || []), newLesson],
-      };
+      return [...prev, newLesson];
     });
     setIsDirty(true);
   }, []);
 
-  const removeLesson = useCallback((lessonId: string) => {
-    setCourse((prev) => ({
-      ...prev,
-      lessons: (prev.lessons || []).filter((l) => l.lessonId !== lessonId),
-    }));
+  const removeLesson = React.useCallback((lessonId: string) => {
+    setLessons((prev) => prev.filter((l) => l.lessonId !== lessonId));
     setIsDirty(true);
   }, []);
-
-  const handleSave = useCallback(() => {
-    if (!course.title) return;
-
-    const now = Date.now();
-    const newCourse: Course = {
-      id: courseId || `course-${now}`,
-      title: course.title,
-      description: course.description || '',
-      level: course.level || 'beginner',
-      tags: course.tags || [],
-      lessons: course.lessons || [],
-      totalDuration: 0,
-      creatorId: 'current-user',
-      creatorName: 'Current User',
-      enrolledStudents: 0,
-      averageRating: 0,
-      totalRatings: 0,
-      isPublished: course.isPublished || false,
-      isFree: course.isFree !== false,
-      createdAt: now,
-      updatedAt: now,
-      publishedAt: course.isPublished ? now : undefined,
-    };
-
-    onSave?.(newCourse);
-    setIsDirty(false);
-  }, [course, courseId, onSave]);
 
   return (
     <div className={cn('flex h-screen w-full flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card p-3">
-        <h1 className="text-lg font-semibold">{courseId ? 'Edit Course' : 'Create Course'}</h1>
-        <button
-          onClick={handleSave}
-          disabled={!course.title || !isDirty}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        <h1 className="text-lg font-semibold">
+          {courseId ? 'Edit Course' : 'Create Course'}
+        </h1>
+        <Button
+          type="button"
+          onClick={() => form.handleSubmit()}
+          disabled={!form.getFieldValue('title') || !isDirty}
         >
           Save Course
-        </button>
+        </Button>
       </div>
 
       {/* Course Details */}
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {/* Basic Info */}
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Course Title *</label>
-              <input
-                type="text"
-                value={course.title}
-                onChange={(e) => updateCourse({ title: e.target.value })}
-                placeholder="Enter course title"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <form
+                id="course-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  form.handleSubmit();
+                }}
+              >
+                <FieldGroup>
+                  <form.Field
+                    name="title"
+                    children={(field) => {
+                      const isInvalid =
+                        field.state.meta.isTouched && !field.state.meta.isValid;
+                      return (
+                        <Field data-invalid={isInvalid}>
+                          <FieldLabel htmlFor={field.name}>Course Title *</FieldLabel>
+                          <Input
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            placeholder="Enter course title"
+                          />
+                          {isInvalid && (
+                            <FieldError errors={field.state.meta.errors} />
+                          )}
+                        </Field>
+                      );
+                    }}
+                  />
 
-            <div>
-              <label className="mb-1 block text-sm font-medium">Description</label>
-              <textarea
-                value={course.description}
-                onChange={(e) => updateCourse({ description: e.target.value })}
-                placeholder="Describe what students will learn in this course"
-                rows={4}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
+                  <form.Field
+                    name="description"
+                    children={(field) => {
+                      const isInvalid =
+                        field.state.meta.isTouched && !field.state.meta.isValid;
+                      return (
+                        <Field data-invalid={isInvalid}>
+                          <FieldLabel htmlFor={field.name}>Description</FieldLabel>
+                          <Textarea
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            placeholder="Describe what students will learn in this course"
+                            rows={4}
+                          />
+                          {isInvalid && (
+                            <FieldError errors={field.state.meta.errors} />
+                          )}
+                        </Field>
+                      );
+                    }}
+                  />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Level</label>
-                <select
-                  value={course.level || 'beginner'}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (isValidLessonLevel(value)) {
-                      updateCourse({ level: value });
-                    }
-                  }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <form.Field
+                      name="level"
+                      children={(field) => (
+                        <Field>
+                          <FieldLabel htmlFor={field.name}>Level</FieldLabel>
+                          <NativeSelect
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(e.target.value as typeof field.state.value);
+                              setIsDirty(true);
+                            }}
+                          >
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                          </NativeSelect>
+                        </Field>
+                      )}
+                    />
 
-              <div>
-                <label className="mb-1 block text-sm font-medium">Pricing</label>
-                <select
-                  value={course.isFree ? 'free' : 'paid'}
-                  onChange={(e) => updateCourse({ isFree: e.target.value === 'free' })}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="free">Free</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-            </div>
+                    <form.Field
+                      name="isFree"
+                      children={(field) => (
+                        <Field orientation="horizontal">
+                          <FieldLabel htmlFor={field.name}>Pricing</FieldLabel>
+                          <div className="flex items-center gap-2">
+                            <NativeSelect
+                              id={field.name}
+                              name={field.name}
+                              value={field.state.value ? 'free' : 'paid'}
+                              onBlur={field.handleBlur}
+                              onChange={(e) => {
+                                field.handleChange(e.target.value === 'free');
+                                setIsDirty(true);
+                              }}
+                            >
+                              <option value="free">Free</option>
+                              <option value="paid">Paid</option>
+                            </NativeSelect>
+                            <Switch
+                              checked={field.state.value}
+                              onCheckedChange={(checked) => {
+                                field.handleChange(checked);
+                                setIsDirty(true);
+                              }}
+                            />
+                          </div>
+                        </Field>
+                      )}
+                    />
+                  </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium">Tags</label>
-              <input
-                type="text"
-                value={course.tags?.join(', ')}
-                onChange={(e) =>
-                  updateCourse({
-                    tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean),
-                  })
-                }
-                placeholder="mathematics, algebra, calculus"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
+                  <form.Field
+                    name="tags"
+                    children={(field) => {
+                      const isInvalid =
+                        field.state.meta.isTouched && !field.state.meta.isValid;
+                      return (
+                        <Field data-invalid={isInvalid}>
+                          <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
+                          <Input
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value.join(', ')}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(
+                                e.target.value.split(',').map((t) => t.trim()).filter(Boolean)
+                              );
+                              setIsDirty(true);
+                            }}
+                            placeholder="mathematics, algebra, calculus"
+                          />
+                          {isInvalid && (
+                            <FieldError errors={field.state.meta.errors} />
+                          )}
+                        </Field>
+                      );
+                    }}
+                  />
+                </FieldGroup>
+              </form>
+            </CardContent>
+          </Card>
 
           {/* Lessons */}
-          <div className="rounded-lg border border-border p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Course Lessons</h2>
-              <button
-                onClick={() => addLesson('new-lesson', 'New Lesson')}
-                className="text-sm text-primary hover:underline"
-              >
-                + Add Lesson
-              </button>
-            </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Course Lessons</h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addLesson('new-lesson', 'New Lesson')}
+                >
+                  + Add Lesson
+                </Button>
+              </div>
 
-            {course.lessons && course.lessons.length > 0 ? (
-              <div className="space-y-2">
-                {course.lessons.map((lesson, index) => (
-                  <div
-                    key={lesson.lessonId}
-                    className="flex items-center justify-between rounded-md border border-border bg-background p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="text-sm">{lesson.title}</span>
-                    </div>
-                    <button
-                      onClick={() => removeLesson(lesson.lessonId)}
-                      className="text-sm text-destructive hover:underline"
+              {lessons.length > 0 ? (
+                <div className="space-y-2">
+                  {lessons.map((lesson, index) => (
+                    <div
+                      key={lesson.lessonId}
+                      className="flex items-center justify-between rounded-md border border-border bg-background p-3"
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No lessons yet. Add lessons to build your course.
-              </div>
-            )}
-          </div>
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm">{lesson.title}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLesson(lesson.lessonId)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No lessons yet. Add lessons to build your course.
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Publishing */}
-          <div className="rounded-lg border border-border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold">Publish Course</h2>
-                <p className="text-xs text-muted-foreground">
-                  Make your course visible to students
-                </p>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={course.isPublished}
-                  onChange={(e) => updateCourse({ isPublished: e.target.checked })}
-                  className="peer sr-only"
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Publish Course</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Make your course visible to students
+                  </p>
+                </div>
+                <form.Field
+                  name="isFree"
+                  children={(field) => (
+                    <Switch
+                      checked={field.state.value}
+                      onCheckedChange={(checked) => {
+                        field.handleChange(checked);
+                        setIsDirty(true);
+                      }}
+                    />
+                  )}
                 />
-                <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-background after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-full" />
-              </label>
-            </div>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

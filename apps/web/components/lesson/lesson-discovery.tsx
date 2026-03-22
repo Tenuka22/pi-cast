@@ -4,23 +4,30 @@
  * Homepage with featured lessons, search, and browsing.
  */
 
-"use client"
+"use client";
 
-import React, { useState, useMemo } from "react"
-import { cn } from "@workspace/ui/lib/utils"
-import type { Lesson, Category } from "@/lib/lesson-system/types"
+import * as React from "react";
+import { cn } from "@workspace/ui/lib/utils";
+import type { Lesson, Category } from "@/lib/lesson-system/types";
+
+import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
+import { Card, CardContent } from "@workspace/ui/components/card";
+import { Badge } from "@workspace/ui/components/badge";
+import { NativeSelect } from "@workspace/ui/components/native-select";
+import { ScrollArea } from "@workspace/ui/components/scroll-area";
 
 function isValidSortBy(
   value: string
 ): value is "popular" | "newest" | "rating" {
-  return ["popular", "newest", "rating"].includes(value)
+  return ["popular", "newest", "rating"].includes(value);
 }
 
 interface LessonDiscoveryProps {
-  lessons?: Lesson[]
-  categories?: Category[]
-  onLessonClick?: (lesson: Lesson) => void
-  className?: string
+  lessons?: Lesson[];
+  categories?: Category[];
+  onLessonClick?: (lesson: Lesson) => void;
+  className?: string;
 }
 
 // Mock data for demonstration
@@ -67,7 +74,7 @@ const MOCK_LESSONS: Lesson[] = [
     blocks: [],
     bookmarks: [],
   },
-]
+];
 
 const MOCK_CATEGORIES: Category[] = [
   {
@@ -102,7 +109,7 @@ const MOCK_CATEGORIES: Category[] = [
     isFeatured: false,
     lessonCount: 19,
   },
-]
+];
 
 export function LessonDiscovery({
   lessons,
@@ -110,69 +117,73 @@ export function LessonDiscovery({
   onLessonClick,
   className,
 }: LessonDiscoveryProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>()
-  const [selectedLevel, setSelectedLevel] = useState<string | undefined>()
-  const [sortBy, setSortBy] = useState<"popular" | "newest" | "rating">(
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [selectedCategory, setSelectedCategory] = React.useState<string | undefined>();
+  const [selectedLevel, setSelectedLevel] = React.useState<string | undefined>();
+  const [sortBy, setSortBy] = React.useState<"popular" | "newest" | "rating">(
     "popular"
-  )
+  );
 
-  const displayLessons = lessons || MOCK_LESSONS
-  const displayCategories = categories || MOCK_CATEGORIES
+  const displayLessons = lessons || MOCK_LESSONS;
+  const displayCategories = categories || MOCK_CATEGORIES;
 
   // Filter and sort lessons
-  const filteredLessons = useMemo(() => {
-    let filtered = [...displayLessons]
+  const filteredLessons = React.useMemo(() => {
+    let filtered = [...displayLessons];
 
     // Search filter
     if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (lesson) =>
           lesson.title.toLowerCase().includes(query) ||
           lesson.description.toLowerCase().includes(query) ||
           lesson.tags.some((tag) => tag.toLowerCase().includes(query))
-      )
+      );
     }
 
     // Category filter
     if (selectedCategory) {
       filtered = filtered.filter(
         (lesson) => lesson.categoryId === selectedCategory
-      )
+      );
     }
 
     // Level filter
     if (selectedLevel) {
-      filtered = filtered.filter((lesson) => lesson.level === selectedLevel)
+      filtered = filtered.filter((lesson) => lesson.level === selectedLevel);
     }
 
     // Sort
     switch (sortBy) {
       case "popular":
-        filtered.sort((a, b) => b.views - a.views)
-        break
+        filtered.sort((a, b) => b.views - a.views);
+        break;
       case "newest":
-        filtered.sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0))
-        break
+        filtered.sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
+        break;
       case "rating":
-        filtered.sort((a, b) => b.averageRating - a.averageRating)
-        break
+        filtered.sort((a, b) => b.averageRating - a.averageRating);
+        break;
     }
 
-    return filtered
-  }, [displayLessons, searchQuery, selectedCategory, selectedLevel, sortBy])
+    return filtered;
+  }, [displayLessons, searchQuery, selectedCategory, selectedLevel, sortBy]);
 
   // Get featured lessons
-  const featuredLessons = useMemo(() => {
+  const featuredLessons = React.useMemo(() => {
     return [...displayLessons]
       .filter(
         (lesson) =>
           lesson.status === "published" && lesson.visibility === "public"
       )
       .sort((a, b) => b.views - a.views)
-      .slice(0, 3)
-  }, [displayLessons])
+      .slice(0, 3);
+  }, [displayLessons]);
+
+  const handleSearch = () => {
+    // Search logic can be added here
+  };
 
   return (
     <div className={cn("flex min-h-screen flex-col", className)}>
@@ -189,16 +200,19 @@ export function LessonDiscovery({
           {/* Search Bar */}
           <div className="mx-auto max-w-2xl">
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search lessons..."
-                className="flex-1 rounded-md border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
               />
-              <button className="rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                Search
-              </button>
+              <Button onClick={handleSearch}>Search</Button>
             </div>
           </div>
         </div>
@@ -209,36 +223,30 @@ export function LessonDiscovery({
         {/* Categories */}
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold">Browse Categories</h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory(undefined)}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm transition-colors",
-                !selectedCategory
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-accent"
-              )}
-            >
-              All
-            </button>
-            {displayCategories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={cn(
-                  "rounded-full px-4 py-2 text-sm transition-colors",
-                  selectedCategory === category.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted hover:bg-accent"
-                )}
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={!selectedCategory ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(undefined)}
               >
-                {category.name}
-                <span className="ml-2 text-xs opacity-60">
-                  ({category.lessonCount})
-                </span>
-              </button>
-            ))}
-          </div>
+                All
+              </Button>
+              {displayCategories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                >
+                  {category.name}
+                  <span className="ml-2 text-xs opacity-60">
+                    ({category.lessonCount})
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </ScrollArea>
         </div>
 
         {/* Featured Lessons */}
@@ -269,32 +277,32 @@ export function LessonDiscovery({
             </h2>
             <div className="flex items-center gap-4">
               {/* Level Filter */}
-              <select
+              <NativeSelect
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value || undefined)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-[150px]"
               >
                 <option value="">All Levels</option>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
-              </select>
+              </NativeSelect>
 
               {/* Sort */}
-              <select
+              <NativeSelect
                 value={sortBy}
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = e.target.value;
                   if (isValidSortBy(value)) {
-                    setSortBy(value)
+                    setSortBy(value);
                   }
                 }}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-[150px]"
               >
                 <option value="popular">Most Popular</option>
                 <option value="newest">Newest</option>
                 <option value="rating">Highest Rated</option>
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
@@ -316,7 +324,7 @@ export function LessonDiscovery({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Lesson Card Component
@@ -324,31 +332,36 @@ function LessonCard({
   lesson,
   onClick,
 }: {
-  lesson: Lesson
-  onClick: () => void
+  lesson: Lesson;
+  onClick: () => void;
 }) {
+  const getLevelVariant = (level: string): "default" | "secondary" | "destructive" | "outline" | "ghost" | "link" => {
+    switch (level) {
+      case "beginner":
+        return "default";
+      case "intermediate":
+        return "secondary";
+      case "advanced":
+        return "destructive";
+      default:
+        return "outline";
+    }
+  };
+
   return (
-    <button
+    <Card
+      className="cursor-pointer transition-shadow hover:shadow-md"
       onClick={onClick}
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-shadow hover:shadow-md"
     >
       {/* Thumbnail */}
       <div className="aspect-video w-full bg-gradient-to-br from-primary/20 to-primary/5" />
 
       {/* Content */}
-      <div className="flex flex-1 flex-col p-4">
+      <CardContent className="p-4">
         <div className="mb-2 flex items-center gap-2">
-          <span
-            className={cn(
-              "rounded px-2 py-0.5 text-xs font-medium",
-              lesson.level === "beginner" && "bg-green-100 text-green-800",
-              lesson.level === "intermediate" &&
-                "bg-yellow-100 text-yellow-800",
-              lesson.level === "advanced" && "bg-red-100 text-red-800"
-            )}
-          >
+          <Badge variant={getLevelVariant(lesson.level)}>
             {lesson.level.charAt(0).toUpperCase() + lesson.level.slice(1)}
-          </span>
+          </Badge>
           {lesson.averageRating > 0 && (
             <span className="flex items-center gap-1 text-xs text-yellow-600">
               ★ {lesson.averageRating.toFixed(1)}
@@ -365,9 +378,9 @@ function LessonCard({
           <span>{lesson.creatorName}</span>
           <span>{lesson.views.toLocaleString()} views</span>
         </div>
-      </div>
-    </button>
-  )
+      </CardContent>
+    </Card>
+  );
 }
 
-export default LessonDiscovery
+export default LessonDiscovery;

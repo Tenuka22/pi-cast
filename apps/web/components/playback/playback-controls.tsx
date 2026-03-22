@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import * as React from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -21,6 +21,13 @@ import {
   FlagIcon,
 } from '@hugeicons/core-free-icons';
 import type { PlaybackState, PlaybackSpeed, Bookmark } from '@/lib/recording-system/types';
+
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import { Slider } from '@workspace/ui/components/slider';
+import { Card, CardContent } from '@workspace/ui/components/card';
+import { Popover, PopoverContent } from '@workspace/ui/components/popover';
 
 interface PlaybackControlsProps {
   state: PlaybackState;
@@ -56,11 +63,11 @@ export function PlaybackControls({
   onAddBookmark,
   className,
 }: PlaybackControlsProps) {
-  const [showBookmarkInput, setShowBookmarkInput] = useState(false);
-  const [bookmarkTitle, setBookmarkTitle] = useState('');
-  const [bookmarkDescription, setBookmarkDescription] = useState('');
-  const [showBookmarks, setShowBookmarks] = useState(false);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [showBookmarkInput, setShowBookmarkInput] = React.useState(false);
+  const [bookmarkTitle, setBookmarkTitle] = React.useState('');
+  const [bookmarkDescription, setBookmarkDescription] = React.useState('');
+  const [showBookmarks, setShowBookmarks] = React.useState(false);
+  const [volumeOpen, setVolumeOpen] = React.useState(false);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -91,18 +98,19 @@ export function PlaybackControls({
     }
   };
 
-  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const progress = parseFloat(e.target.value);
+  const handleProgressChange = (value: number | readonly number[]) => {
+    const progress = Array.isArray(value) ? value[0] ?? 0 : value;
     const newTime = (progress / 100) * state.duration;
     onSeek(newTime);
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const volume = parseFloat(e.target.value);
+  const handleVolumeChange = (value: number | readonly number[]) => {
+    const volume = Array.isArray(value) ? value[0] ?? 0 : value;
     onSetVolume(volume);
   };
 
   const progress = state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
+  const currentVolume = state.isMuted ? 0 : state.volume;
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -111,16 +119,13 @@ export function PlaybackControls({
         <span className="font-mono text-xs text-muted-foreground w-12 text-right">
           {formatTime(state.currentTime)}
         </span>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={progress}
-          onChange={handleProgressChange}
-          className="flex-1 h-2 cursor-pointer appearance-none rounded-lg bg-muted accent-primary hover:accent-primary/80"
-          style={{
-            background: `linear-gradient(to right, oklch(0.518 0.253 323.949) 0%, oklch(0.518 0.253 323.949) ${progress}%, oklch(0.542 0.034 322.5) ${progress}%, oklch(0.542 0.034 322.5) 100%)`,
-          }}
+        <Slider
+          value={[progress]}
+          onValueChange={handleProgressChange}
+          min={0}
+          max={100}
+          step={0.1}
+          className="flex-1"
         />
         <span className="font-mono text-xs text-muted-foreground w-12">
           {formatTime(state.duration)}
@@ -132,193 +137,205 @@ export function PlaybackControls({
         {/* Main Playback Controls */}
         <div className="flex items-center gap-1">
           {/* Rewind 10s */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onSeekRelative(-10000)}
-            className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent transition-colors"
             title="Rewind 10s"
           >
             <HugeiconsIcon icon={BackwardIcon} className="h-5 w-5" />
             <span className="ml-1 text-xs">10</span>
-          </button>
+          </Button>
 
           {/* Play/Pause */}
           {state.status === 'playing' ? (
-            <button
+            <Button
+              size="icon"
               onClick={onPause}
-              className="flex items-center justify-center rounded-md bg-primary p-3 text-primary-foreground hover:bg-primary/90 transition-colors"
               title="Pause"
             >
               <HugeiconsIcon icon={PauseIcon} className="h-5 w-5" />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              size="icon"
               onClick={onPlay}
-              className="flex items-center justify-center rounded-md bg-primary p-3 text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Play"
               disabled={state.status === 'idle' || state.status === 'stopped'}
+              title="Play"
             >
               <HugeiconsIcon icon={PlayIcon} className="h-5 w-5" />
-            </button>
+            </Button>
           )}
 
           {/* Stop */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onStop}
-            className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent transition-colors"
             title="Stop"
           >
             <HugeiconsIcon icon={StopIcon} className="h-5 w-5" />
-          </button>
+          </Button>
 
           {/* Forward 10s */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onSeekRelative(10000)}
-            className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent transition-colors"
             title="Forward 10s"
           >
             <span className="mr-1 text-xs">10</span>
             <HugeiconsIcon icon={ForwardIcon} className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Speed Control */}
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onCycleSpeed}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
             title="Change playback speed"
           >
             {state.speed}x
-          </button>
+          </Button>
         </div>
 
         {/* Volume Control */}
-        <div className="relative flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowVolumeSlider(!showVolumeSlider);
-                if (state.isMuted) {
-                  onUnmute();
-                } else {
-                  onMute();
-                }
-              }}
-              className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent transition-colors"
-              title={state.isMuted ? 'Unmute' : 'Mute'}
-            >
-              <HugeiconsIcon icon={state.isMuted ? VolumeMuteIcon : VolumeHighIcon} className="h-5 w-5" />
-            </button>
-            {showVolumeSlider && (
-              <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 rounded-md border border-border bg-card p-2 shadow-lg">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={state.isMuted ? 0 : state.volume}
-                  onChange={handleVolumeChange}
-                  className="h-24 w-2 cursor-pointer appearance-none rounded-lg bg-muted accent-primary"
-                  style={{
-                    background: `linear-gradient(to top, oklch(0.518 0.253 323.949) 0%, oklch(0.518 0.253 323.949) ${state.isMuted ? 0 : state.volume * 100}%, oklch(0.542 0.034 322.5) ${state.isMuted ? 0 : state.volume * 100}%, oklch(0.542 0.034 322.5) 100%)`,
+        <div className="flex items-center gap-2">
+          <Popover open={volumeOpen} onOpenChange={setVolumeOpen}>
+            <Button
+              variant="ghost"
+              size="icon"
+              render={
+                <button
+                  onClick={() => {
+                    if (state.isMuted) {
+                      onUnmute();
+                    } else {
+                      onMute();
+                    }
                   }}
+                  title={state.isMuted ? 'Unmute' : 'Mute'}
+                >
+                  <HugeiconsIcon icon={state.isMuted ? VolumeMuteIcon : VolumeHighIcon} className="h-5 w-5" />
+                </button>
+              }
+            />
+            <PopoverContent className="w-32" side="top" align="center">
+              <div className="flex flex-col items-center gap-2">
+                <Label>Volume</Label>
+                <Slider
+                  orientation="vertical"
+                  value={[currentVolume * 100]}
+                  onValueChange={handleVolumeChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="h-32"
                 />
               </div>
-            )}
-          </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Bookmarks */}
         <div className="relative flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowBookmarkInput(!showBookmarkInput)}
-            className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
             title="Add bookmark"
           >
             <HugeiconsIcon icon={BookmarkIcon} className="h-4 w-4" />
             Add
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowBookmarks(!showBookmarks)}
-            className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
             title="View bookmarks"
           >
             <HugeiconsIcon icon={FlagIcon} className="h-4 w-4" />
             <span className="text-xs">{bookmarks.length}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Bookmark Input */}
       {showBookmarkInput && (
-        <div className="flex items-center gap-2 rounded-md border border-border bg-card p-2 shadow-lg">
-          <HugeiconsIcon icon={BookmarkIcon} className="h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={bookmarkTitle}
-            onChange={(e) => setBookmarkTitle(e.target.value)}
-            onKeyDown={handleBookmarkKeyDown}
-            placeholder="Bookmark title..."
-            className="h-8 w-48 rounded-md border border-input bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            autoFocus
-          />
-          <input
-            type="text"
-            value={bookmarkDescription}
-            onChange={(e) => setBookmarkDescription(e.target.value)}
-            onKeyDown={handleBookmarkKeyDown}
-            placeholder="Description (optional)"
-            className="h-8 w-64 rounded-md border border-input bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <button
-            onClick={handleAddBookmark}
-            disabled={!bookmarkTitle.trim()}
-            className="rounded-md bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Add
-          </button>
-          <button
-            onClick={() => {
-              setShowBookmarkInput(false);
-              setBookmarkTitle('');
-              setBookmarkDescription('');
-            }}
-            className="rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-accent"
-          >
-            Cancel
-          </button>
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="flex items-center gap-2 p-2">
+            <HugeiconsIcon icon={BookmarkIcon} className="h-4 w-4 text-muted-foreground" />
+            <Input
+              value={bookmarkTitle}
+              onChange={(e) => setBookmarkTitle(e.target.value)}
+              onKeyDown={handleBookmarkKeyDown}
+              placeholder="Bookmark title..."
+              className="h-8 w-48"
+              autoFocus
+            />
+            <Input
+              value={bookmarkDescription}
+              onChange={(e) => setBookmarkDescription(e.target.value)}
+              onKeyDown={handleBookmarkKeyDown}
+              placeholder="Description (optional)"
+              className="h-8 w-64"
+            />
+            <Button
+              onClick={handleAddBookmark}
+              disabled={!bookmarkTitle.trim()}
+              size="sm"
+            >
+              Add
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowBookmarkInput(false);
+                setBookmarkTitle('');
+                setBookmarkDescription('');
+              }}
+            >
+              Cancel
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Bookmarks List */}
       {showBookmarks && bookmarks.length > 0 && (
-        <div className="rounded-md border border-border bg-card p-2 shadow-lg">
-        <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold">Bookmarks</span>
-          </div>
-          <div className="flex max-h-32 flex-col gap-1 overflow-auto">
-            {bookmarks.map((bookmark) => (
-              <button
-                key={bookmark.id}
-                onClick={() => {
-                  onJumpToBookmark(bookmark.id);
-                  setShowBookmarks(false);
-                }}
-                className="flex items-center justify-between rounded-md border border-border bg-background p-2 text-left hover:bg-accent transition-colors"
-              >
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{bookmark.title}</span>
-                  {bookmark.description && (
-                    <span className="text-xs text-muted-foreground">{bookmark.description}</span>
-                  )}
-                </div>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {formatTime(bookmark.timestamp)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="p-2">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">Bookmarks</span>
+            </div>
+            <div className="flex max-h-32 flex-col gap-1 overflow-auto">
+              {bookmarks.map((bookmark) => (
+                <Button
+                  key={bookmark.id}
+                  variant="ghost"
+                  className="justify-between"
+                  onClick={() => {
+                    onJumpToBookmark(bookmark.id);
+                    setShowBookmarks(false);
+                  }}
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium">{bookmark.title}</span>
+                    {bookmark.description && (
+                      <span className="text-xs text-muted-foreground">{bookmark.description}</span>
+                    )}
+                  </div>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {formatTime(bookmark.timestamp)}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

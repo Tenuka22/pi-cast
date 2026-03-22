@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import * as React from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -17,6 +17,10 @@ import {
   RecordIcon,
   FlagIcon,
 } from '@hugeicons/core-free-icons';
+
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Card, CardContent } from '@workspace/ui/components/card';
 
 interface RecordingControlsProps {
   isRecording: boolean;
@@ -41,9 +45,9 @@ export function RecordingControls({
   onCreateBookmark,
   className,
 }: RecordingControlsProps) {
-  const [showBookmarkInput, setShowBookmarkInput] = useState(false);
-  const [bookmarkTitle, setBookmarkTitle] = useState('');
-  const [bookmarkDescription, setBookmarkDescription] = useState('');
+  const [showBookmarkInput, setShowBookmarkInput] = React.useState(false);
+  const [bookmarkTitle, setBookmarkTitle] = React.useState('');
+  const [bookmarkDescription, setBookmarkDescription] = React.useState('');
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -93,93 +97,88 @@ export function RecordingControls({
       <div className="flex items-center gap-1">
         {!isRecording ? (
           // Start button
-          <button
+          <Button
             onClick={onStart}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-            title="Start recording"
+            className="gap-2"
           >
             <HugeiconsIcon icon={RecordIcon} className="h-4 w-4" />
             Start Recording
-          </button>
+          </Button>
         ) : (
           <>
             {/* Pause/Resume button */}
-            <button
+            <Button
               onClick={isPaused ? onResume : onPause}
-              className={cn(
-                'flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors',
-                isPaused
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-yellow-500 text-white hover:bg-yellow-600'
-              )}
-              title={isPaused ? 'Resume recording' : 'Pause recording'}
+              variant={isPaused ? 'default' : 'secondary'}
+              className="gap-2"
             >
               <HugeiconsIcon icon={isPaused ? PlayIcon : PauseIcon} className="h-4 w-4" />
               {isPaused ? 'Resume' : 'Pause'}
-            </button>
+            </Button>
 
             {/* Stop button */}
-            <button
+            <Button
               onClick={onStop}
-              className="flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
-              title="Stop recording"
+              variant="destructive"
+              className="gap-2"
             >
               <HugeiconsIcon icon={StopIcon} className="h-4 w-4" />
               Stop
-            </button>
+            </Button>
 
             {/* Bookmark button */}
-            <button
+            <Button
+              variant="outline"
+              className="gap-2"
               onClick={() => setShowBookmarkInput(!showBookmarkInput)}
-              className="flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
-              title="Add bookmark"
             >
               <HugeiconsIcon icon={BookmarkIcon} className="h-4 w-4" />
               Bookmark
-            </button>
+            </Button>
           </>
         )}
       </div>
 
       {/* Bookmark Input */}
       {showBookmarkInput && (
-        <div className="flex items-center gap-2 rounded-md border border-border bg-card p-2 shadow-lg">
-          <HugeiconsIcon icon={FlagIcon} className="h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={bookmarkTitle}
-            onChange={(e) => setBookmarkTitle(e.target.value)}
-            onKeyDown={handleBookmarkKeyDown}
-            placeholder="Bookmark title..."
-            className="h-8 w-48 rounded-md border border-input bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            autoFocus
-          />
-          <input
-            type="text"
-            value={bookmarkDescription}
-            onChange={(e) => setBookmarkDescription(e.target.value)}
-            onKeyDown={handleBookmarkKeyDown}
-            placeholder="Description (optional)"
-            className="h-8 w-64 rounded-md border border-input bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <button
-            onClick={handleCreateBookmark}
-            disabled={!bookmarkTitle.trim()}
-            className="rounded-md bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Add
-          </button>
-          <button
-            onClick={() => {
-              setShowBookmarkInput(false);
-              setBookmarkTitle('');
-              setBookmarkDescription('');
-            }}
-            className="rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-accent"
-          >
-            Cancel
-          </button>
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="flex items-center gap-2 p-2">
+            <HugeiconsIcon icon={FlagIcon} className="h-4 w-4 text-muted-foreground" />
+            <Input
+              value={bookmarkTitle}
+              onChange={(e) => setBookmarkTitle(e.target.value)}
+              onKeyDown={handleBookmarkKeyDown}
+              placeholder="Bookmark title..."
+              className="h-8 w-48"
+              autoFocus
+            />
+            <Input
+              value={bookmarkDescription}
+              onChange={(e) => setBookmarkDescription(e.target.value)}
+              onKeyDown={handleBookmarkKeyDown}
+              placeholder="Description (optional)"
+              className="h-8 w-64"
+            />
+            <Button
+              onClick={handleCreateBookmark}
+              disabled={!bookmarkTitle.trim()}
+              size="sm"
+            >
+              Add
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowBookmarkInput(false);
+                setBookmarkTitle('');
+                setBookmarkDescription('');
+              }}
+            >
+              Cancel
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
