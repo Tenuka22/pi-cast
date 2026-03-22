@@ -1,7 +1,6 @@
 import { Hono } from "hono"
 import { HTTPException } from "hono/http-exception"
-import { RPCHandler } from "@orpc/server/fetch"
-import { getProfile, getVerifiedProfile, getAdminData, getPublicData } from "@pi-cast/orpc-handlers/routes"
+import { rpcHandler } from "@pi-cast/orpc-handlers/routes/handlers"
 import {
   createLogger,
   requestLogger,
@@ -14,6 +13,11 @@ import { corsMiddleware } from "./middlewares/cors"
 import { secureHeadersMiddleware } from "./middlewares/secure-headers"
 import { BETTER_AUTH_BASE_PATH } from "./lib/constants"
 import authRoute from "./routes/auth"
+import { onError } from "@orpc/server"
+import { RPCHandler } from "@orpc/server/fetch"
+import { auth } from "@/lib/auth"
+import { createDb } from "@pi-cast/db"
+import { ENV } from "varlock"
 
 const logger = createLogger({ prefix: "[Hono]" })
 
@@ -41,20 +45,23 @@ app.get("/health", (c) => {
 // Auth routes - separate Better Auth handler
 app.route(BETTER_AUTH_BASE_PATH, authRoute)
 
-// Create oRPC handler with individual procedures
-const rpcHandler = new RPCHandler({
-  getProfile,
-  getVerifiedProfile,
-  getAdminData,
-  getPublicData,
+const handler = new RPCHandler(rpcHandler, {
+  interceptors: [
+    onError((error) => {
+      console.error(error)
+    }),
+  ],
 })
 
 // oRPC routes with headers passed to context
 app.use("/api/trpc/*", async (c) => {
-  const { matched, response } = await rpcHandler.handle(c.req.raw, {
+  const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api/trpc",
     context: {
       headers: c.req.raw.headers,
+      auth,
+      db: createDb(ENV.DATABASE_URL),
+      userSession: null,
     },
   })
 

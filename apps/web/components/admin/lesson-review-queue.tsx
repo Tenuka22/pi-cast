@@ -95,15 +95,15 @@ export function LessonReviewQueue({
     setCurrentPage(1);
   }, []);
 
-  const handleStatusFilter = useCallback((value: string) => {
-    if (value === 'all' || value === 'draft' || value === 'published' || value === 'archived') {
+  const handleStatusFilter = useCallback((value: string | null) => {
+    if (value && (value === 'all' || value === 'draft' || value === 'published' || value === 'archived')) {
       setStatusFilter(value);
     }
     setCurrentPage(1);
   }, []);
 
-  const handleVisibilityFilter = useCallback((value: string) => {
-    if (value === 'all' || value === 'public' || value === 'private' || value === 'organization' || value === 'unlisted') {
+  const handleVisibilityFilter = useCallback((value: string | null) => {
+    if (value && (value === 'all' || value === 'public' || value === 'private' || value === 'organization' || value === 'unlisted')) {
       setVisibilityFilter(value);
     }
     setCurrentPage(1);

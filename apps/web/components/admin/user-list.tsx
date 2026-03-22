@@ -98,15 +98,15 @@ export function AdminUserList({
     setCurrentPage(1);
   }, []);
 
-  const handleStatusFilter = useCallback((value: string) => {
-    if (value === 'all' || value === 'active' || value === 'banned') {
+  const handleStatusFilter = useCallback((value: string | null) => {
+    if (value && (value === 'all' || value === 'active' || value === 'banned')) {
       setStatusFilter(value);
     }
     setCurrentPage(1);
   }, []);
 
-  const handleRoleFilter = useCallback((value: string) => {
-    if (value === 'all' || value === 'student' || value === 'teacher' || value === 'admin') {
+  const handleRoleFilter = useCallback((value: string | null) => {
+    if (value && (value === 'all' || value === 'student' || value === 'teacher' || value === 'admin')) {
       setRoleFilter(value);
     }
     setCurrentPage(1);

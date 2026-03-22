@@ -1,4 +1,3 @@
-import "server-only"
 import { headers } from "next/headers"
 import { createAuthClient } from "better-auth/client"
 import type { RequestContext } from "better-auth/client"
@@ -31,7 +30,7 @@ export const authServerClient = createAuthClient({
           .filter(
             (c: string) =>
               c.startsWith(`${BETTER_AUTH_COOKIE_PREFIX}.`) ||
-              c.startsWith(`__Secure-${BETTER_AUTH_COOKIE_PREFIX}.`),
+              c.startsWith(`__Secure-${BETTER_AUTH_COOKIE_PREFIX}.`)
           )
           .join("; ")
 

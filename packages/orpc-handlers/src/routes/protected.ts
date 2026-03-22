@@ -1,59 +1,39 @@
-import { auth } from "@pi-cast/db"
-import { base, createGetAuthSession, createGetOptionalAuthSession } from "@pi-cast/orpc-handlers"
+import { oAuth, oAuthAdmin, oAuthVerified } from "."
 
-// Create auth session helpers
-const getAuthSession = createGetAuthSession(auth)
-const getOptionalAuthSession = createGetOptionalAuthSession(auth)
-
-// Optional: create auth helper with email verification required
-const getAuthSessionWithVerifiedEmail = createGetAuthSession(auth, {
-  requireEmailVerified: true,
-})
-
-// Optional: create auth helper with role requirement
-const getAuthSessionWithAdminRole = createGetAuthSession(auth, {
-  requiredRoles: ["admin"],
-})
-
-// Example protected procedures
-export const getProfile = base
+export const getProfile = oAuth
   .route({ method: "GET", path: "/profile" })
   .handler(async ({ context }) => {
-    const session = await getAuthSession(context.headers)
+    const session = context.userSession
+
     return {
-      user: session.user,
-      session: session.session,
+      user: session?.user,
+      session: session?.session,
     }
   })
 
-// Protected route - requires verified email
-export const getVerifiedProfile = base
+export const getVerifiedProfile = oAuthVerified
   .route({ method: "GET", path: "/profile/verified" })
   .handler(async ({ context }) => {
-    const session = await getAuthSessionWithVerifiedEmail(context.headers)
+    const session = context.userSession
+    if (!session) {
+      throw new Error("Session is null")
+    }
+
     return {
       user: session.user,
     }
   })
 
-// Protected route - requires admin role
-export const getAdminData = base
+export const getAdminData = oAuthAdmin
   .route({ method: "GET", path: "/admin" })
   .handler(async ({ context }) => {
-    const session = await getAuthSessionWithAdminRole(context.headers)
+    const session = context.userSession
+    if (!session) {
+      throw new Error("Session is null")
+    }
+
     return {
       message: "Admin data accessed",
       user: session.user,
-    }
-  })
-
-// Optional auth route - session is optional
-export const getPublicData = base
-  .route({ method: "GET", path: "/public" })
-  .handler(async ({ context }) => {
-    const session = await getOptionalAuthSession(context.headers)
-    return {
-      isAuthenticated: !!session,
-      user: session?.user ?? null,
     }
   })

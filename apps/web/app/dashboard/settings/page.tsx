@@ -33,6 +33,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ProfileEditor } from "@/components/profile/profile-editor"
+import { requestCreatorRole } from "@/app/actions/profile-actions"
 
 type Tab = "profile" | "account" | "sessions" | "creator"
 
@@ -61,7 +62,7 @@ function SettingsContent() {
         </div>
       </header>
 
-      <main className="container mx-auto p-6 space-y-6">
+      <main className="container mx-auto space-y-6 p-6">
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b pb-2">
           <Button
@@ -111,7 +112,12 @@ function SettingsContent() {
 function ProfileTab() {
   const { data: session, refetch } = authClient.useSession()
 
-  const handleSaveProfile = async (data: { bio?: string; location?: string; website?: string; image?: string }) => {
+  const handleSaveProfile = async (data: {
+    bio?: string
+    location?: string
+    website?: string
+    image?: string
+  }) => {
     try {
       // Update name and image via updateUser
       await updateUser({
@@ -124,7 +130,7 @@ function ProfileTab() {
 
       await refetch()
     } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update profile')
+      throw err instanceof Error ? err : new Error("Failed to update profile")
     }
   }
 
@@ -135,7 +141,7 @@ function ProfileTab() {
   return (
     <ProfileEditor
       initialData={{
-        name: session.user.name || '',
+        name: session.user.name || "",
         email: session.user.email,
         bio: null, // TODO: Get from profile
         location: null,
@@ -166,7 +172,9 @@ function AccountTab() {
 
     try {
       await changeEmail({ newEmail: email })
-      setSuccess("Email change initiated. Please check your inbox to verify the new email.")
+      setSuccess(
+        "Email change initiated. Please check your inbox to verify the new email."
+      )
     } catch {
       setError("Failed to change email. Please try again.")
     } finally {
@@ -201,7 +209,10 @@ function AccountTab() {
           <CardDescription>Update your email address</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={(e) => void handleEmailChange(e)} className="space-y-4">
+          <form
+            onSubmit={(e) => void handleEmailChange(e)}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="email">New Email</Label>
               <Input
@@ -256,8 +267,9 @@ function AccountTab() {
                 <p className="text-sm font-medium text-destructive">
                   This action cannot be undone
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This will permanently delete your account and all associated data.
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This will permanently delete your account and all associated
+                  data.
                 </p>
               </div>
 
@@ -295,7 +307,9 @@ function AccountTab() {
                 <Button
                   variant="destructive"
                   onClick={() => void handleDeleteAccount()}
-                  disabled={isDeleting || deleteConfirmText !== session?.user?.email}
+                  disabled={
+                    isDeleting || deleteConfirmText !== session?.user?.email
+                  }
                   className="gap-2"
                 >
                   <HugeiconsIcon icon={WasteIcon} />
@@ -352,7 +366,8 @@ function SessionsTab() {
 
   const handleRevokeAllOtherSessions = async () => {
     const currentSessionId = session?.session?.id
-    const sessionsToRevoke = sessions?.filter((s) => s.id !== currentSessionId) || []
+    const sessionsToRevoke =
+      sessions?.filter((s) => s.id !== currentSessionId) || []
 
     for (const sessionToRevoke of sessionsToRevoke) {
       try {
@@ -419,7 +434,9 @@ function SessionsTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Active Sessions</CardTitle>
-              <CardDescription>Manage your active sessions across devices</CardDescription>
+              <CardDescription>
+                Manage your active sessions across devices
+              </CardDescription>
             </div>
             {sessions && sessions.length > 1 && (
               <Button
@@ -441,8 +458,13 @@ function SessionsTab() {
 
           {!sessions || sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <HugeiconsIcon icon={FingerPrintIcon} className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground">No active sessions found</p>
+              <HugeiconsIcon
+                icon={FingerPrintIcon}
+                className="mb-4 h-12 w-12 text-muted-foreground"
+              />
+              <p className="text-sm text-muted-foreground">
+                No active sessions found
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -473,7 +495,10 @@ function SessionsTab() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Last active: {sessionItem.lastActiveAt ? formatDate(sessionItem.lastActiveAt) : "N/A"}
+                          Last active:{" "}
+                          {sessionItem.lastActiveAt
+                            ? formatDate(sessionItem.lastActiveAt)
+                            : "N/A"}
                         </p>
                         {sessionItem.ipAddress && (
                           <p className="text-xs text-muted-foreground">
@@ -508,9 +533,13 @@ function SessionsTab() {
 function CreatorTab() {
   const { data: session, refetch } = authClient.useSession()
   const [isUpgrading, setIsUpgrading] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: "success" | "error"
+    text: string
+  } | null>(null)
 
-  const isCreator = session?.user?.role === "creator" || session?.user?.role === "admin"
+  const isCreator =
+    session?.user?.role === "creator" || session?.user?.role === "admin"
   const isAdmin = session?.user?.role === "admin"
 
   const handleBecomeCreator = async () => {
@@ -519,32 +548,29 @@ function CreatorTab() {
 
     try {
       // Call the creator role request endpoint
-      const response = await fetch("/api/trpc/profileRequestCreatorRole", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      })
+      const result = await requestCreatorRole()
 
-      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || "Failed to become a creator")
+      }
 
-      if (response.ok && result.result?.data?.json?.success) {
+      if (result.data?.success) {
         setMessage({
           type: "success",
-          text: result.result.data.json.message || "Successfully became a creator!",
+          text: result.data.message || "Successfully became a creator!",
         })
         await refetch()
       } else {
         setMessage({
           type: "error",
-          text: result.error?.message || "Failed to become a creator",
+          text: "Failed to become a creator",
         })
       }
     } catch (error) {
       setMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Failed to become a creator",
+        text:
+          error instanceof Error ? error.message : "Failed to become a creator",
       })
     } finally {
       setIsUpgrading(false)
@@ -568,7 +594,7 @@ function CreatorTab() {
                 <p className="text-sm font-medium text-green-700 dark:text-green-300">
                   ✓ You are a {isAdmin ? "Administrator" : "Creator"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {isAdmin
                     ? "You have full administrative access to all features."
                     : "You can create and record lessons, upload content, and create organizations."}
@@ -608,8 +634,9 @@ function CreatorTab() {
                 <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                   ⚡ Student Account
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upgrade to creator to unlock lesson creation and recording features.
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Upgrade to creator to unlock lesson creation and recording
+                  features.
                 </p>
               </div>
 
@@ -646,8 +673,9 @@ function CreatorTab() {
                 )}
               </Button>
 
-              <p className="text-xs text-muted-foreground text-center">
-                Free upgrade • Instant activation • Full access to creation tools
+              <p className="text-center text-xs text-muted-foreground">
+                Free upgrade • Instant activation • Full access to creation
+                tools
               </p>
             </div>
           )}
@@ -694,5 +722,3 @@ function CreatorTab() {
     </div>
   )
 }
-
-

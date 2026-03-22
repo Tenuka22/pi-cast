@@ -7,8 +7,8 @@ import {
   organization,
 } from "better-auth/plugins"
 import { createDb } from "../index"
-import { user, session, account, verification } from "../schema"
-import { eq } from "drizzle-orm"
+import { user, session, account, verification, userProfile } from "../schema"
+import { generateUniqueUsername } from "../username"
 
 export interface AuthConfig {
   WEB_CLIENT_URL: string
@@ -45,6 +45,7 @@ export function createAuth(config: AuthConfig) {
     RATE_LIMIT_ENABLED,
     RATE_LIMIT_WINDOW_MS,
     RATE_LIMIT_MAX_REQUESTS,
+    BETTER_AUTH_COOKIE_PREFIX,
   } = config
 
   function getTrustedOrigins(): string[] {
@@ -73,9 +74,9 @@ export function createAuth(config: AuthConfig) {
       schema: { user, session, account, verification },
     }),
     advanced: {
+      cookiePrefix: BETTER_AUTH_COOKIE_PREFIX,
       cookies: {
         session_token: {
-          name: "session_token",
           attributes: {
             secure: Boolean(COOKIE_SECURE),
             sameSite: parseSameSite(COOKIE_SAME_SITE ?? "lax"),
@@ -124,6 +125,7 @@ export function createAuth(config: AuthConfig) {
       window: RATE_LIMIT_WINDOW_MS,
       max: RATE_LIMIT_MAX_REQUESTS,
     },
+
     databaseHooks: {
       user: {
         create: {
@@ -140,6 +142,19 @@ export function createAuth(config: AuthConfig) {
           after: async (user) => {
             if (user.email === ADMIN_EMAIL) {
               console.log(`[Auth Hook] Admin user created: ${ADMIN_EMAIL}`)
+            }
+
+            try {
+              const username = await generateUniqueUsername(db, user.email)
+              await db.insert(userProfile).values({
+                userId: user.id,
+                username,
+              })
+              console.log(
+                `[Auth Hook] Profile created for user ${user.id} with username: ${username}`
+              )
+            } catch (error) {
+              console.error("[Auth Hook] Failed to create user profile:", error)
             }
           },
         },

@@ -11,7 +11,6 @@ import {
   createNodeChain,
 } from '@/lib/block-system/types';
 import { useUserRole } from '@/hooks/use-user-role';
-import { AuthGuard } from '@/components/auth/auth-guard';
 import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
@@ -42,11 +41,7 @@ import Link from 'next/link';
  * - Students can use the canvas but cannot record
  */
 export default function CanvasPage() {
-  return (
-    <AuthGuard>
-      <CanvasContent />
-    </AuthGuard>
-  );
+  return <CanvasContent />;
 }
 
 function CanvasContent() {

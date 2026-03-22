@@ -378,7 +378,6 @@ const profileResponse = await fetch('http://localhost:3001/api/trpc/getProfile',
 
 if (profileResponse.ok) {
   const profile = await profileResponse.json();
-  console.log('Profile:', profile);
 } else {
   const error = await profileResponse.json();
   console.error('Error:', error.message);

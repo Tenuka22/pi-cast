@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./routes": "./src/routes/index.ts",
+    "./routes/handlers": "./src/routes/handlers.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {

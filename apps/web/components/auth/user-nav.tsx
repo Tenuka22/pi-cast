@@ -37,7 +37,6 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        nativeButton={false}
         render={
           <Avatar className="h-9 w-9 cursor-pointer rounded-full ring-1 ring-border hover:bg-accent">
             <AvatarFallback>{userInitial.toUpperCase()}</AvatarFallback>
