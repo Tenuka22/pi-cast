@@ -351,7 +351,6 @@ const client = createORPCClient<AppRouter>({
 // Get user profile
 try {
   const profile = await client.getProfile();
-  console.log('User:', profile.name);
 } catch (error) {
   if (error.code === 'UNAUTHORIZED') {
     // Redirect to login

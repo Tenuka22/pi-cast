@@ -55,7 +55,6 @@ const handler = new RPCHandler(rpcHandler, {
 
 // oRPC routes with headers passed to context
 app.use("/api/trpc/*", async (c) => {
-  console.log(c.req.raw.headers)
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api/trpc",
     context: {

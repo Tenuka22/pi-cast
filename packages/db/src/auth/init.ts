@@ -10,6 +10,7 @@ import {
 import { createDb } from "../index"
 import { user, session, account, verification, userProfile } from "../schema"
 import { generateUniqueUsername } from "../username"
+import { openAPI } from "better-auth/plugins"
 
 export interface AuthConfig {
   WEB_CLIENT_URL: string
@@ -21,6 +22,7 @@ export interface AuthConfig {
   GITHUB_CLIENT_SECRET: string
   TRUSTED_ORIGINS?: string
   COOKIE_SECURE?: boolean
+  COOKIE_HTTP?: boolean
   COOKIE_SAME_SITE?: string
   RATE_LIMIT_ENABLED?: boolean
   RATE_LIMIT_WINDOW_MS?: number
@@ -47,6 +49,7 @@ export function createAuth(config: AuthConfig) {
     RATE_LIMIT_ENABLED,
     RATE_LIMIT_WINDOW_MS,
     RATE_LIMIT_MAX_REQUESTS,
+    COOKIE_HTTP,
   } = config
 
   function getTrustedOrigins(): string[] {
@@ -82,13 +85,14 @@ export function createAuth(config: AuthConfig) {
           attributes: {
             secure: Boolean(COOKIE_SECURE),
             sameSite: parseSameSite(COOKIE_SAME_SITE ?? "lax"),
-            httpOnly: false,
+            httpOnly: Boolean(COOKIE_HTTP),
             path: "/",
           },
         },
       },
     },
     plugins: [
+      openAPI(),
       emailOTP({
         otpLength: 6,
         expiresIn: 60 * 5, // 5 minutes

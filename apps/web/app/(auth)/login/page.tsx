@@ -14,8 +14,17 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { GithubIcon, MailIcon, ShieldCheck, RefreshIcon } from "@hugeicons/core-free-icons"
-import { signIn, sendVerificationOtp, signInWithOTP } from "@/lib/auth/auth-client"
+import {
+  GithubIcon,
+  MailIcon,
+  ShieldCheck,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons"
+import {
+  signIn,
+  sendVerificationOtp,
+  signInWithOTP,
+} from "@/lib/auth/auth-client"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 
@@ -39,7 +48,10 @@ export default function LoginPage() {
       setMessage("Verification code sent! Check your email.")
       setStep("otp")
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to send code. Please try again."
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to send code. Please try again."
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -52,16 +64,12 @@ export default function LoginPage() {
     setError("")
     setMessage("")
 
-    console.log("[Login] Attempting OTP sign-in", { email, otp })
-    
     const { error, data } = await signInWithOTP({
       email,
       otp,
       callbackURL: "/dashboard",
     })
-    
-    console.log("[Login] OTP sign-in response", { error, data })
-    
+
     if (error) {
       setError(error.message || "Invalid code. Please try again.")
       setIsLoading(false)
@@ -82,7 +90,10 @@ export default function LoginPage() {
       await sendVerificationOtp({ email, type: "sign-in" })
       setMessage("Verification code resent! Check your email.")
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to resend code. Please try again."
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to resend code. Please try again."
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -114,7 +125,7 @@ export default function LoginPage() {
     <div className="flex min-h-svh items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-2">
+          <div className="mb-2 flex justify-center">
             <Image
               src="/logo.jpg"
               alt="Pi-Cast"
@@ -143,7 +154,10 @@ export default function LoginPage() {
           )}
 
           {step === "email" ? (
-            <form onSubmit={(e) => void handleSendCode(e)} className="space-y-4">
+            <form
+              onSubmit={(e) => void handleSendCode(e)}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -163,7 +177,10 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-            <form onSubmit={(e) => void handleSignInWithOTP(e)} className="space-y-4">
+            <form
+              onSubmit={(e) => void handleSignInWithOTP(e)}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="otp">Verification Code</Label>
                 <Input
@@ -183,11 +200,12 @@ export default function LoginPage() {
                   disabled={isLoading}
                   maxLength={6}
                   autoFocus
-                  className="text-center tracking-[0.5em] text-lg font-mono"
+                  className="text-center font-mono text-lg tracking-[0.5em]"
                 />
               </div>
-              <div className="text-xs text-center text-muted-foreground">
-                Code sent to <span className="font-medium text-foreground">{email}</span>
+              <div className="text-center text-xs text-muted-foreground">
+                Code sent to{" "}
+                <span className="font-medium text-foreground">{email}</span>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 <HugeiconsIcon icon={ShieldCheck} size={16} className="mr-2" />
@@ -212,7 +230,11 @@ export default function LoginPage() {
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  <HugeiconsIcon icon={RefreshIcon} size={16} className="mr-1" />
+                  <HugeiconsIcon
+                    icon={RefreshIcon}
+                    size={16}
+                    className="mr-1"
+                  />
                   Resend
                 </Button>
               </div>
@@ -224,7 +246,9 @@ export default function LoginPage() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with
+              </span>
             </div>
           </div>
 

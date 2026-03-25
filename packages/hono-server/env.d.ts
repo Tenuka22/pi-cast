@@ -42,6 +42,12 @@ export type CoercedEnvSchema = {
   COOKIE_SECURE?: boolean;
   
   /**
+   * **COOKIE_HTTP**  
+   * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M23%2023a7%207%200%201%201%207-7a7.01%207.01%200%200%201-7%207m0-12a5%205%200%201%200%205%205a5.006%205.006%200%200%200-5-5%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%2216%22%20r%3D%227%22%20fill%3D%22%23808080%22%2F%3E%3C%2Fsvg%3E)   
+   */
+  COOKIE_HTTP?: boolean;
+  
+  /**
    * **COOKIE_SAME_SITE**  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M7.885%2010.23L12%203.463l4.116%206.769zm9.606%2011q-1.558%200-2.64-1.081t-1.082-2.64t1.082-2.649t2.64-1.09t2.649%201.09t1.09%202.649t-1.09%202.64t-2.649%201.082m-13.722-.5v-6.462h6.462v6.462z%22%2F%3E%3C%2Fsvg%3E)   
    */
@@ -97,7 +103,7 @@ export type CoercedEnvSchema = {
 
 declare module 'varlock/env' {
   export interface TypedEnvSchema extends Readonly<CoercedEnvSchema> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<CoercedEnvSchema, 'WEB_CLIENT_URL' | 'TRUSTED_ORIGINS' | 'RATE_LIMIT_ENABLED' | 'RATE_LIMIT_WINDOW_MS' | 'RATE_LIMIT_MAX_REQUESTS' | 'COOKIE_SECURE' | 'COOKIE_SAME_SITE'>> {}
+  export interface PublicTypedEnvSchema extends Readonly<Pick<CoercedEnvSchema, 'WEB_CLIENT_URL' | 'TRUSTED_ORIGINS' | 'RATE_LIMIT_ENABLED' | 'RATE_LIMIT_WINDOW_MS' | 'RATE_LIMIT_MAX_REQUESTS' | 'COOKIE_SECURE' | 'COOKIE_HTTP' | 'COOKIE_SAME_SITE'>> {}
 }
 
 

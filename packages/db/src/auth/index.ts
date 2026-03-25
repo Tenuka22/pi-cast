@@ -9,7 +9,7 @@ const authConfig: AuthConfig = {
   GITHUB_CLIENT_ID: "abc123def456ghi789",
   GITHUB_CLIENT_SECRET: "ghijklmnop987654321",
   TRUSTED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000",
-  COOKIE_SECURE: false,
+  COOKIE_SECURE: true,
   COOKIE_SAME_SITE: "lax",
   RATE_LIMIT_ENABLED: true,
   RATE_LIMIT_WINDOW_MS: 60000,
