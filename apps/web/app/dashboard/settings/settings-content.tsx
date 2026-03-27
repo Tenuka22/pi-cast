@@ -520,9 +520,9 @@ function CreatorTab() {
     text: string
   } | null>(null)
 
-  const isCreator =
-    session?.user?.role === "creator" || session?.user?.role === "admin"
-  const isAdmin = session?.user?.role === "admin"
+  const userRole = (session?.user as { role?: string } | undefined)?.role
+  const isCreator = userRole === "creator" || userRole === "admin"
+  const isAdmin = userRole === "admin"
 
   const handleBecomeCreator = async () => {
     setIsUpgrading(true)

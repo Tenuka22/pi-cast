@@ -174,11 +174,7 @@ export default function NotesPage() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs value={activeTab} onValueChange={(v) => {
-          if (v === 'all' || v === 'private' || v === 'shared') {
-            setActiveTab(v);
-          }
-        }}>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
             <TabsTrigger value="private">Private ({stats.private})</TabsTrigger>

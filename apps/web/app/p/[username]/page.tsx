@@ -13,6 +13,7 @@ import { notFound } from "next/navigation"
 import { ProfileClient } from "./profile-client"
 import { cache } from "react"
 import { orpc } from "@/lib/server-orpc-client"
+import type { PublicProfile, LessonItem } from "@/lib/api/schemas"
 
 interface PageProps {
   params: Promise<{
@@ -25,7 +26,7 @@ interface PageProps {
  */
 const fetchPublicProfileByUsername = cache(async (username: string) => {
   try {
-    const result = await orpc.profileGetPublicProfile({ username })
+    const result = await orpc.profileGetPublicProfile(username)
     return result
   } catch (error) {
     console.error("Error fetching public profile:", error)
@@ -36,23 +37,41 @@ const fetchPublicProfileByUsername = cache(async (username: string) => {
 /**
  * Fetch public profile data from oRPC handler by user ID
  */
-const fetchPublicProfileByUserId = cache(async (userId: string) => {
+const fetchPublicProfileByUserId = cache(async (userId: string): Promise<PublicProfile | null> => {
   try {
-    const result = await orpc.profileGetUserLessons({ userId })
+    const result = await orpc.profileGetUserLessons(userId)
 
     // Get user info from my profile endpoint to get basic details
     // This is a workaround - in production you'd have a getUserById endpoint
     return {
       user: {
+        userId,
         id: userId,
-        // We'll need to fetch user details separately
+        name: "",
+        username: null,
+        bio: null,
+        location: null,
+        website: null,
+        image: null,
+        role: null,
+        createdAt: Date.now(),
+        followersCount: 0,
+        followingCount: 0,
+        lessonsCount: result?.lessons?.length || 0,
+        stats: {
+          followers: 0,
+          following: 0,
+          lessons: result?.lessons?.length || 0,
+        },
       },
-      lessons: result?.lessons || [],
+      lessons: (result?.lessons || []).map((lesson) => ({
+        ...lesson,
+        level: lesson.level as "beginner" | "intermediate" | "advanced" | null,
+      })) as LessonItem[],
       isFollowing: false,
       isFollowedByCurrentUser: false,
     }
-  } catch (error) {
-    console.error("Error fetching public profile by ID:", error)
+  } catch {
     return null
   }
 })
@@ -64,7 +83,7 @@ const getCurrentUser = cache(async () => {
   try {
     const result = await orpc.profileGetMyProfile()
     return result
-  } catch (error) {
+  } catch {
     return null
   }
 })
@@ -77,7 +96,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const identifier = isIdLookup ? username.slice(3) : username
 
   // Fetch profile data
-  let profileData
+  let profileData: PublicProfile | null
   if (isIdLookup) {
     profileData = await fetchPublicProfileByUserId(identifier)
   } else {
@@ -92,21 +111,30 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const currentUser = await getCurrentUser()
 
   // Check if current user is viewing their own profile
-  const isOwner = currentUser && currentUser.id === profileData.user.id
+  const isOwner = currentUser && (currentUser as { user?: { id?: string } }).user?.id === profileData.user.id
 
   // Check if current user can edit (creator, teacher, or admin)
   const canEdit = Boolean(
     isOwner &&
     currentUser &&
-    ["creator", "teacher", "admin"].includes(currentUser.role || "")
+    ["creator", "teacher", "admin"].includes((currentUser as { user?: { role?: string } }).user?.role || "")
   )
 
   // Check if user needs to set username
   const needsUsername = !profileData.user.username
 
+  // Transform profile data to match ProfileData type (stricter lesson level typing)
+  const transformedProfileData = {
+    ...profileData,
+    lessons: profileData.lessons.map((lesson) => ({
+      ...lesson,
+      level: lesson.level as "beginner" | "intermediate" | "advanced" | null,
+    })),
+  }
+
   return (
     <ProfileClient
-      profileData={profileData}
+      profileData={transformedProfileData}
       currentUser={currentUser}
       isOwner={!!isOwner}
       canEdit={canEdit}

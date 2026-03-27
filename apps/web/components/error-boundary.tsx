@@ -1,8 +1,7 @@
 "use client"
 
-import { Component, type ErrorInfo, type ReactNode } from "react"
-import { Button } from "@workspace/ui/components/button"
-import { getErrorMessage } from "@pi-cast/orpc-handlers"
+import { Component, ErrorInfo, ReactNode } from "react"
+import { getErrorMessage } from "@/lib/errors"
 
 interface Props {
   children: ReactNode
@@ -13,24 +12,21 @@ interface Props {
 interface State {
   hasError: boolean
   error: Error | null
-  errorInfo: ErrorInfo | null
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
-    errorInfo: null,
   }
 
-  public static getDerivedStateFromError(error: Error): Partial<State> {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error }
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("[ErrorBoundary] Uncaught error:", error, errorInfo)
+    console.error("ErrorBoundary caught an error:", error, errorInfo)
     this.props.onError?.(error, errorInfo)
-    this.setState({ error, errorInfo })
   }
 
   public render() {
@@ -40,14 +36,21 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 p-8">
-          <h2 className="text-lg font-semibold">Something went wrong</h2>
-          <p className="text-sm text-muted-foreground">
-            {getErrorMessage(this.state.error)}
-          </p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Try again
-          </Button>
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-lg">
+            <h2 className="mb-2 text-xl font-semibold text-destructive">
+              Something went wrong
+            </h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {getErrorMessage(this.state.error)}
+            </p>
+            <button
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
         </div>
       )
     }
@@ -56,18 +59,4 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export function withErrorBoundary<P extends object>(
-  WrappedComponent: React.ComponentType<P>,
-  options?: {
-    fallback?: ReactNode
-    onError?: (error: Error, errorInfo: ErrorInfo) => void
-  }
-): React.FC<P> {
-  return function WithErrorBoundary(props: P) {
-    return (
-      <ErrorBoundary fallback={options?.fallback} onError={options?.onError}>
-        <WrappedComponent {...props} />
-      </ErrorBoundary>
-    )
-  }
-}
+export default ErrorBoundary

@@ -1,37 +1,19 @@
-"use client"
-
-import {
-  authClient,
-  signIn,
-  signOut,
-  signUp,
-  useSession,
-  getSession,
-  updateUser,
-  changeEmail,
-  deleteUser,
-  listSessions,
-  revokeSession,
-  revokeOtherSessions,
-  organization,
-  sendVerificationOtp,
-  signInWithOTP,
-} from "../auth-client"
-
+/**
+ * Better Auth Client
+ * Re-export from browser.ts for consistent imports
+ */
 export {
   authClient,
+  useSession,
   signIn,
   signOut,
-  signUp,
-  useSession,
-  getSession,
+  sendVerificationOtp,
+  signInWithOTP,
   updateUser,
   changeEmail,
   deleteUser,
   listSessions,
   revokeSession,
-  revokeOtherSessions,
+  getSession,
   organization,
-  sendVerificationOtp,
-  signInWithOTP,
-}
+} from "./browser"

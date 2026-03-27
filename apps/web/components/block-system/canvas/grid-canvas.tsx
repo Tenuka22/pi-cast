@@ -8,7 +8,6 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
-import { Checkbox } from '@workspace/ui/components/checkbox';
 import {
   GRID_UNIT,
   type Block,
@@ -1176,10 +1175,12 @@ export function GridCanvas({
       {/* Top Toolbar - Hidden in playback mode */}
       {!isPlaybackMode && (
         <div className="z-20 flex items-center justify-end gap-4 border-b border-border bg-card p-2 shadow-sm">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-            <Checkbox
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
               checked={gridVisible}
-              onCheckedChange={(checked) => setGridVisible(checked as boolean)}
+              onChange={(e) => setGridVisible(e.target.checked)}
+              className="h-4 w-4 rounded border-input"
             />
             Show Grid
           </label>

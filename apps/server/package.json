@@ -1,0 +1,42 @@
+{
+  "name": "@pi-cast/server",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --var \"__VARLOCK_ENV:$(varlock load --format json-full)\"",
+    "deploy": "wrangler deploy --var \"__VARLOCK_ENV:$(varlock load --format json-full)\"",
+    "build": "varlock run -- tsc",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "typecheck": "tsc --noEmit",
+    "auth:generate": "varlock run -- bun x auth@latest generate --y --config='./src/auth/auth.config.ts' --output='./src/db/auth.schema.ts'",
+    "db:generate": "varlock run -- bunx drizzle-kit generate",
+    "db:migrate": "echo Y | wrangler d1 migrations apply pi-cast-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply pi-cast-db --remote",
+    "generate:api-client": "orval --config orval.config.ts"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.2.3",
+    "@pi-cast/constants": "workspace:*",
+    "@scalar/hono-api-reference": "^0.8.0",
+    "better-auth": "^1.5.5",
+    "better-auth-cloudflare": "^0.1.0",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
+    "hono": "^4.8.0",
+    "varlock": "^0.6.2",
+    "wrangler": "^4.76.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250320.0",
+    "@types/node": "^25.1.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3"
+  }
+}

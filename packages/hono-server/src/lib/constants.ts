@@ -1,9 +1,0 @@
-import { ENV } from "varlock/env"
-
-export const WEB_CLIENT_URL = ENV.WEB_CLIENT_URL
-export const BETTER_AUTH_URL = ENV.BETTER_AUTH_URL
-export const BETTER_AUTH_SECRET = ENV.BETTER_AUTH_SECRET
-export const BETTER_AUTH_BASE_PATH = "/api/auth"
-
-export const GITHUB_CLIENT_ID = ENV.GITHUB_CLIENT_ID
-export const GITHUB_CLIENT_SECRET = ENV.GITHUB_CLIENT_SECRET

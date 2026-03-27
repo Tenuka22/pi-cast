@@ -1,0 +1,17 @@
+name = "pi-cast-server"
+main = "src/index.ts"
+compatibility_date = "2026-03-27"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BETTER_AUTH_URL = "http://localhost:8787"
+
+[[d1_databases]]
+binding = "DATABASE"
+database_name = "pi-cast-db"
+database_id = "b569c316-9afb-47d8-990b-dce2e6b11224"
+
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "auth-kv"
+preview_id = ""

@@ -9,7 +9,7 @@ import { orpc } from "@/lib/server-orpc-client"
 
 export async function toggleFollow(userId: string) {
   try {
-    const result = await orpc.profileToggleFollow({ userId })
+    const result = await orpc.profileToggleFollow(userId)
     return { success: true, data: result }
   } catch (error) {
     return {

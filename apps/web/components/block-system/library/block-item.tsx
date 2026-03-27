@@ -6,10 +6,7 @@
 
 'use client';
 
-import * as React from 'react';
-
-import { Button } from '@workspace/ui/components/button';
-import { Badge } from '@workspace/ui/components/badge';
+import React from 'react';
 
 interface BlockItemProps {
   title: string;
@@ -25,19 +22,18 @@ export function BlockItem({
   onDragStart,
 }: BlockItemProps): React.ReactElement {
   return (
-    <Button
-      variant="ghost"
-      className="flex w-full flex-col items-start gap-1 p-2 text-left hover:border-primary/50"
+    <button
       onClick={onClick}
       onDragStart={onDragStart}
       draggable
       data-block-library-item
+      className="flex w-full flex-col gap-1 rounded-md border border-border p-2 text-left transition-colors hover:bg-accent hover:border-primary/50"
     >
       <span className="text-sm font-medium">{title}</span>
-      <Badge variant="outline" className="truncate text-xs font-mono">
+      <span className="truncate text-xs font-mono text-muted-foreground">
         {equation}
-      </Badge>
-    </Button>
+      </span>
+    </button>
   );
 }
 

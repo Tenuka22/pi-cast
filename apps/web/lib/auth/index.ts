@@ -4,5 +4,5 @@
  * Exports all authentication utilities.
  */
 
-export { useSession, getSession, signIn, signOut } from './auth-client';
-export { authServerClient } from './auth-server';
+export { useSession, signIn, signOut, sendVerificationOtp, signInWithOTP, updateUser, changeEmail, deleteUser, listSessions, revokeSession, authClient, getSession, organization } from './browser'
+export { authServerClient } from './server'

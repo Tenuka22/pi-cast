@@ -8,6 +8,17 @@ import { useMemo } from "react"
  */
 export type UserRole = "student" | "creator" | "admin"
 
+interface UserWithRole {
+  id: string
+  createdAt: Date
+  updatedAt: Date
+  email: string
+  emailVerified: boolean
+  name: string
+  image?: string | null
+  role?: "admin" | "teacher" | "user" | "creator" | "student" | null
+}
+
 /**
  * Hook to check user role and permissions
  *
@@ -22,7 +33,7 @@ export type UserRole = "student" | "creator" | "admin"
  */
 export function useUserRole() {
   const { data: session } = useSession()
-  const user = session?.user
+  const user = session?.user as UserWithRole | undefined
 
   const role: UserRole = useMemo(() => {
     if (!user?.role) return "student"

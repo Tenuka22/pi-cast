@@ -109,9 +109,6 @@ export function ProfileClient({
   const [user, setUser] = useState<ProfileUser>(profileData.user)
   const [lessons] = useState<Lesson[]>(profileData.lessons)
   const [isFollowing, setIsFollowing] = useState(profileData.isFollowing)
-  const [isFollowedByCurrentUser, setIsFollowedByCurrentUser] = useState(
-    profileData.isFollowedByCurrentUser
-  )
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isFollowingLoading, setIsFollowingLoading] = useState(false)
 
@@ -251,17 +248,6 @@ export function ProfileClient({
     }
   }
 
-  const validateWebsite = (url: string) => {
-    if (!url) return true
-    try {
-      const fullUrl = url.startsWith("http") ? url : `https://${url}`
-      new URL(fullUrl)
-      return true
-    } catch {
-      return false
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Username Prompt Banner - Show for owners without username */}
@@ -271,7 +257,7 @@ export function ProfileClient({
             <div className="flex items-center gap-2">
               <span className="text-yellow-800">⚠️</span>
               <p className="font-medium text-yellow-800">
-                You haven't set a username yet
+                You haven&apos;t set a username yet
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -342,7 +328,7 @@ export function ProfileClient({
                     <DialogHeader>
                       <DialogTitle>Edit Profile</DialogTitle>
                       <DialogDescription>
-                        Update your profile information. Click save when you're
+                        Update your profile information. Click save when you&apos;re
                         done.
                       </DialogDescription>
                     </DialogHeader>
@@ -359,10 +345,7 @@ export function ProfileClient({
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="edit-username">
-                          Username{" "}
-                          {needsUsername && (
-                            <span className="text-red-500">*</span>
-                          )}
+                          Username{needsUsername && <span className="text-red-500">*</span>}
                         </Label>
                         <Input
                           id="edit-username"
@@ -449,7 +432,7 @@ export function ProfileClient({
                       >
                         Cancel
                       </Button>
-                      <Button onClick={handleSaveProfile}>Save Changes</Button>
+                      <Button onClick={(e) => { e.preventDefault(); void handleSaveProfile(); }}>Save Changes</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -458,7 +441,10 @@ export function ProfileClient({
               {/* Follow button (not for owners) */}
               {!isOwner && currentUser && (
                 <Button
-                  onClick={handleFollowToggle}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    void handleFollowToggle()
+                  }}
                   disabled={isFollowingLoading}
                   variant={isFollowing ? "outline" : "default"}
                 >

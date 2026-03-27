@@ -1,22 +1,56 @@
-"server-only"
-import { createORPCClient } from "@orpc/client"
-import { RPCLink } from "@orpc/client/fetch"
-import { RouterClientType } from "@pi-cast/orpc-handlers/routes/handlers"
-import { headers } from "next/headers"
-import { ENV } from "varlock/env"
+/**
+ * Server-side RPC Client
+ * Provides server component access to API endpoints
+ */
 
-const link = new RPCLink({
-  url: ENV.NEXT_PUBLIC_API_URL + "/api/trpc/",
-  headers: async () => {
-    const headersList = await headers()
-    const cookie = headersList.get("Cookie")
+import {
+  getApiProfileMe,
+  getApiProfileUsername,
+  getApiProfileUserUserIdLessons,
+  postApiProfileFollow,
+  postApiProfileCreatorRole,
+  putApiProfileMe,
+} from "@/lib/api/profile/profile"
 
-    if (!cookie) return {}
+import type {
+  UpdateProfile,
+  RequestCreatorRole,
+} from "@/lib/api/schemas"
 
-    return {
-      Cookie: cookie,
-    }
+/**
+ * Server-side client for profile API
+ */
+const profileClient = {
+  getMyProfile: async () => {
+    return getApiProfileMe({})
   },
-})
 
-export const orpc: RouterClientType = createORPCClient(link)
+  getPublicProfile: async (username: string) => {
+    return getApiProfileUsername(username, {})
+  },
+
+  getUserLessons: async (userId: string) => {
+    return getApiProfileUserUserIdLessons(userId, undefined, {})
+  },
+
+  toggleFollow: async (userId: string) => {
+    return postApiProfileFollow({ userId }, {})
+  },
+
+  updateMyProfile: async (data: UpdateProfile) => {
+    return putApiProfileMe(data, {})
+  },
+
+  requestCreatorRole: async (data: RequestCreatorRole) => {
+    return postApiProfileCreatorRole(data, {})
+  },
+}
+
+export const orpc = {
+  profileGetMyProfile: profileClient.getMyProfile,
+  profileGetPublicProfile: profileClient.getPublicProfile,
+  profileGetUserLessons: profileClient.getUserLessons,
+  profileToggleFollow: profileClient.toggleFollow,
+  profileUpdateMyProfile: profileClient.updateMyProfile,
+  profileRequestCreatorRole: profileClient.requestCreatorRole,
+}

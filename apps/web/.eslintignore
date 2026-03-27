@@ -1,0 +1,5 @@
+components/block-system
+lib/recording-system
+lib/visualization
+tests
+**/*.test.ts

@@ -418,7 +418,7 @@ function OrganizationCard({
 
 // Main Organizations Page Component
 function OrganizationsPageContent() {
-  const { canCreateOrg, isCreator, isAdmin } = useUserRole()
+  const { canCreateOrg } = useUserRole()
   const [organizations, setOrganizations] = React.useState<Organization[]>([])
   const [membersByOrg, setMembersByOrg] = React.useState<
     Record<string, Member[]>

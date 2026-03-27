@@ -181,11 +181,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={(v) => {
-        if (v === 'overview' || v === 'users' || v === 'lessons') {
-          setActiveTab(v);
-        }
-      }}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users ({users.length})</TabsTrigger>

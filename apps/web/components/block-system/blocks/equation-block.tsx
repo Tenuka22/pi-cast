@@ -6,7 +6,7 @@
 
 'use client';
 
-import * as React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import {
   type EquationBlock,
@@ -16,7 +16,6 @@ import {
 } from '@/lib/block-system/types';
 import { BlockWrapper } from './block-wrapper';
 import { ConnectionHandles } from '@/components/connections/connection-handles';
-import { Input } from '@workspace/ui/components/input';
 
 interface EquationBlockComponentProps {
   block: EquationBlock;
@@ -51,21 +50,21 @@ export function EquationBlockComponent({
   connectingFromType,
 }: EquationBlockComponentProps): React.ReactElement {
   const { equation, tokens, variables } = block;
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editValue, setEditValue] = React.useState(equation);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(equation);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Parse equation on-the-fly if variables/tokens aren't available
   const parsedTokens = tokens || (editValue ? parseEquation(editValue).tokens : []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
   }, [isEditing]);
 
-  const handleDoubleClick = React.useCallback(
+  const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
       setIsEditing(true);
@@ -74,7 +73,7 @@ export function EquationBlockComponent({
     [equation]
   );
 
-  const handleBlur = React.useCallback(() => {
+  const handleBlur = useCallback(() => {
     setIsEditing(false);
     // Save the equation if it changed
     if (editValue !== equation && editValue.trim()) {
@@ -82,7 +81,7 @@ export function EquationBlockComponent({
     }
   }, [editValue, equation, onEquationChange]);
 
-  const handleKeyDown = React.useCallback(
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         // Save on Enter
@@ -138,13 +137,14 @@ export function EquationBlockComponent({
         onDoubleClick={handleDoubleClick}
       >
         {isEditing ? (
-          <Input
+          <input
             ref={inputRef}
+            type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="w-full font-mono text-lg"
+            className="w-full rounded border border-primary bg-card px-2 py-1 font-mono text-lg focus:outline-none"
             placeholder="Enter equation (e.g., y = mx + c)"
           />
         ) : (

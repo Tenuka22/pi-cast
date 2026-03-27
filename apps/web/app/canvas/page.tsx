@@ -13,8 +13,8 @@ import {
 import { useUserRole } from '@/hooks/use-user-role';
 import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import { Button } from '@workspace/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card';
 import Link from 'next/link';
+import { connectNodeChains, disconnectNodeChains } from '@/lib/block-system/types';
 
 /**
  * Canvas Page - Main workspace for node tree-based math visualization.
@@ -183,20 +183,6 @@ function CanvasContent() {
   };
 
   /**
-   * Create a new node chain for a block
-   */
-  const createNodeChainForBlock = useCallback((block: Block): NodeChain => {
-    const chain = createNodeChain(
-      block.id,
-      block.type,
-      block.position,
-      block.dimensions
-    );
-    setNodeChains((prev) => new Map(prev).set(chain.id, chain));
-    return chain;
-  }, []);
-
-  /**
    * Connect two blocks in a chain (source -> target)
    * This creates a directional data flow from source to target
    */
@@ -207,7 +193,6 @@ function CanvasContent() {
       const targetChain = Array.from(newChains.values()).find((c) => c.nodeId === targetBlockId);
 
       if (sourceChain && targetChain) {
-        const { connectNodeChains } = require('@/lib/block-system/types') as typeof import('@/lib/block-system/types');
         connectNodeChains(sourceChain, targetChain, newChains);
       }
 
@@ -225,7 +210,6 @@ function CanvasContent() {
       const targetChain = Array.from(newChains.values()).find((c) => c.nodeId === targetBlockId);
 
       if (sourceChain && targetChain) {
-        const { disconnectNodeChains } = require('@/lib/block-system/types') as typeof import('@/lib/block-system/types');
         disconnectNodeChains(sourceChain, targetChain, newChains);
       }
 

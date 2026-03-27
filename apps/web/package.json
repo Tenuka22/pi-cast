@@ -12,16 +12,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "api:gen": "orval --config orval.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react": "^1.1.6",
-    "@orpc/client": "^1.7.0",
-    "@pi-cast/auth-client": "workspace:*",
-    "@pi-cast/orpc-handlers": "workspace:*",
+    "@pi-cast/constants": "workspace:*",
     "@tanstack/react-form": "^1.28.5",
+    "@tanstack/react-query": "^5.95.2",
     "@varlock/nextjs-integration": "^0.2.3",
     "@workspace/ui": "workspace:*",
     "better-auth": "^1.5.5",
@@ -48,6 +48,7 @@
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.39.2",
     "jsdom": "^29.0.1",
+    "orval": "^7.9.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
