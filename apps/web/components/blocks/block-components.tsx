@@ -927,8 +927,16 @@ export function ChartBlockComponent({
           <span className="font-mono text-sm font-semibold">📈</span>
           <span className="text-xs text-muted-foreground">
             {/* Count equations from both direct connections and calculated data */}
-            {(connectedEquations.length + (calculatedData?.equation ? 1 : 0)) || 0} equation
-            {(connectedEquations.length + (calculatedData?.equation ? 1 : 0)) !== 1 ? "s" : ""} connected
+            {calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0 ? (
+              <span className="text-purple-600">
+                ✓ Piecewise function ({calculatedData.piecewisePieces.length} pieces)
+              </span>
+            ) : (
+              <>
+                {connectedEquations.length || 0} equation
+                {connectedEquations.length !== 1 ? "s" : ""} connected
+              </>
+            )}
             {connectedLimits.length > 0 && (
               <span className="ml-2">
                 • {connectedLimits.length} limit
@@ -2932,6 +2940,9 @@ export function TableBlockComponent({
             {connectedEquation && (
               <span className="text-xs text-green-600">✓ Equation connected</span>
             )}
+            {calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0 && (
+              <span className="text-xs text-purple-600">✓ Piecewise function ({calculatedData.piecewisePieces.length} pieces)</span>
+            )}
             {connectedConstraints.length > 0 && (
               <span className="text-xs text-primary">
                 {connectedConstraints.length} constraint
@@ -2963,7 +2974,7 @@ export function TableBlockComponent({
       </div>
 
       <div className="flex-1 overflow-auto p-2">
-        {!connectedEquation && connectedConstraints.length === 0 ? (
+        {!connectedEquation && !calculatedData?.piecewisePieces?.length && connectedConstraints.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <div className="text-center">
               <p>Connect an equation to display values</p>
@@ -2972,7 +2983,7 @@ export function TableBlockComponent({
               </p>
             </div>
           </div>
-        ) : !connectedEquation && connectedConstraints.length > 0 ? (
+        ) : !connectedEquation && !calculatedData?.piecewisePieces?.length && connectedConstraints.length > 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <div className="text-center">
               <p>Constraint connected but no equation found</p>
