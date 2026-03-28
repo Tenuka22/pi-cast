@@ -841,19 +841,27 @@ export function GridCanvas({
   // but we don't re-run this effect when that happens.
   // ============================================================================
   const prevBlocksRef = useRef<string>('')
-  
+  const prevConnectionsRef = useRef<string>('')
+
   useEffect(() => {
     if (isPlaybackMode || !nodeChains || !onNodeChainsChange) return
 
     // Create a signature of block data to detect actual changes
     const blocksSignature = blocks.map(b => `${b.id}-${b.updatedAt}`).join(',')
-    const prevSignature = prevBlocksRef.current
-    
-    // Skip if blocks haven't actually changed (prevents infinite loop)
-    if (blocksSignature === prevSignature) {
+    const prevBlocksSignature = prevBlocksRef.current
+
+    // Create a signature of connections to detect connection changes
+    const connectionsSignature = connections.map(c => 
+      `${c.sourceBlockId}-${c.targetBlockId}-${c.type}`
+    ).sort().join('|')
+    const prevConnectionsSignature = prevConnectionsRef.current
+
+    // Skip if blocks AND connections haven't actually changed (prevents infinite loop)
+    if (blocksSignature === prevBlocksSignature && connectionsSignature === prevConnectionsSignature) {
       return
     }
     prevBlocksRef.current = blocksSignature
+    prevConnectionsRef.current = connectionsSignature
 
     const state = calculationStateRef.current
     const allBlocks = new Map(blocks.map((b) => [b.id, b] as const))
@@ -876,6 +884,7 @@ export function GridCanvas({
           chainId,
           nodeChains,
           allBlocks,
+          connections,
           state
         )
 
@@ -890,7 +899,7 @@ export function GridCanvas({
           changedChainIds.add(chainId)
         }
       } catch (error) {
-        console.error('Error calculating node chain:', chainId, error)
+        // Silently handle calculation errors
       }
     }
 
@@ -906,10 +915,9 @@ export function GridCanvas({
           chainId,
           nodeChains,
           allBlocksMap,
+          connections,
           state
         )
-
-        console.log('[Calculation] Updating chain', chainId, 'type:', chain.type, 'with calculatedData:', calculatedData)
 
         nextChains.set(chainId, {
           ...chain,
@@ -919,7 +927,7 @@ export function GridCanvas({
       onNodeChainsChange(nextChains)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks, nodeChains, onNodeChainsChange, isPlaybackMode])
+  }, [blocks, nodeChains, onNodeChainsChange, isPlaybackMode, connections])
 
   // Invalidate calculation cache when blocks change significantly
   useEffect(() => {
@@ -2719,21 +2727,15 @@ export function GridCanvas({
         )
       }
       case "piecewise-builder": {
-        // Get connected limiters from connections
+        // Get connected limiters from connections (source of truth)
         const connectedLimiterIds = connections
           .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-limiter-to-builder'))
           .map((c) => c.sourceBlockId)
 
-        console.log('[Piecewise Builder] block.id:', block.id)
-        console.log('[Piecewise Builder] block.connectedLimiterIds:', (block as any).connectedLimiterIds)
-        console.log('[Piecewise Builder] connectedLimiterIds from connections:', connectedLimiterIds)
-
         // Get calculated pieces from node chain
         const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
         const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
-        
-        console.log('[Piecewise Builder] calculatedData:', calculatedData)
-        
+
         const calculatedPieces = calculatedData?.piecewisePieces || []
 
         return (

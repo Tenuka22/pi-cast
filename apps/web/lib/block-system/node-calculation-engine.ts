@@ -28,6 +28,7 @@ import type {
   Variable,
   PiecewisePiece,
   VariableConstraint,
+  BlockConnection,
 } from "@/lib/block-system/types"
 import { parseEquation } from "@/lib/block-system/types"
 import { evaluateFunction } from "@/lib/visualization/graph-renderer"
@@ -248,7 +249,8 @@ export function calculateNode(
   block: Block,
   prevData: NodeData | null,
   allBlocks: Map<string, Block>,
-  allChains: Map<string, NodeChain>
+  allChains: Map<string, NodeChain>,
+  connections: BlockConnection[] = []
 ): NodeData {
   const timestamp = Date.now()
 
@@ -274,7 +276,7 @@ export function calculateNode(
     }
 
     case "piecewise-builder": {
-      return calculatePiecewiseBuilderNode(block as PiecewiseBuilderBlock, prevData, allBlocks, timestamp)
+      return calculatePiecewiseBuilderNode(block as PiecewiseBuilderBlock, prevData, allBlocks, connections, timestamp)
     }
 
     case "chart":
@@ -497,12 +499,18 @@ function calculatePiecewiseBuilderNode(
   block: PiecewiseBuilderBlock,
   prevData: NodeData | null,
   allBlocks: Map<string, Block>,
+  connections: BlockConnection[],
   timestamp: number
 ): NodeData {
   const pieces: PiecewisePiece[] = []
 
+  // Get connected limiter IDs from connections (source of truth)
+  const connectedLimiterIds = connections
+    .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-limiter-to-builder'))
+    .map((c) => c.sourceBlockId)
+
   // Collect pieces from all connected limiters
-  for (const limiterId of block.connectedLimiterIds) {
+  for (const limiterId of connectedLimiterIds) {
     const limiterBlock = allBlocks.get(limiterId)
 
     if (limiterBlock && limiterBlock.type === "piecewise-limiter") {
@@ -748,6 +756,7 @@ export function getInputChains(
  * @param outputChainId - The chain ID of the output node
  * @param allChains - All node chains in the canvas
  * @param allBlocks - All blocks in the canvas
+ * @param connections - All connections (used for piecewise-builder)
  * @param state - Calculation state for caching (optional)
  * @returns Calculated NodeData with all accumulated information
  */
@@ -755,6 +764,7 @@ export function calculateOutputNode(
   outputChainId: string,
   allChains: Map<string, NodeChain>,
   allBlocks: Map<string, Block>,
+  connections: BlockConnection[],
   state?: CalculationState
 ): NodeData {
   // Check cache first
@@ -769,7 +779,6 @@ export function calculateOutputNode(
 
   if (!sortedChains) {
     // Cycle detected, return empty data
-    console.error("Cycle detected in node chain:", outputChainId)
     return { timestamp: Date.now() }
   }
 
@@ -785,7 +794,7 @@ export function calculateOutputNode(
     if (!block) continue
 
     // Calculate node data
-    const nodeData = calculateNode(chain, block, accumulatedData, allBlocks, allChains)
+    const nodeData = calculateNode(chain, block, accumulatedData, allBlocks, allChains, connections)
 
     // Track dependency versions
     if (state) {
