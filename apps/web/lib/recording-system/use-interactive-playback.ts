@@ -179,7 +179,7 @@ export function useInteractivePlayback({
                   break;
                 }
                 case 'limit': {
-                  const newBlock: LimitBlock = { ...baseBlock, type: 'limit', variableName: 'x', limitValue: 0, approach: 'both', limitType: 'both' };
+                  const newBlock: LimitBlock = { ...baseBlock, type: 'limit', variableName: 'x', limitValue: 0, approach: 'both', limitType: 'both', isInfinite: false, infiniteDirection: 'positive' };
                   newBlocks = [...newBlocks, newBlock];
                   break;
                 }

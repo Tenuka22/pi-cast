@@ -1365,11 +1365,16 @@ export function LimitBlockComponent({
   connectingFromType,
   connectedEquation,
 }: LimitBlockComponentProps) {
-  const { variableName, limitValue, limitType } = block
+  const { variableName, limitValue, limitType, isInfinite, infiniteDirection } = block
 
   // Display symbol based on limit type (fixed, cannot be changed)
   const limitSymbol = limitType === 'left' ? '⁻' : limitType === 'right' ? '⁺' : '↔'
   const limitLabel = limitType === 'left' ? 'Left Limit' : limitType === 'right' ? 'Right Limit' : 'Two-Sided Limit'
+  
+  // Get the display value (infinity or finite number)
+  const displayValue = isInfinite 
+    ? (infiniteDirection === 'positive' ? '∞' : '-∞')
+    : limitValue.toString()
 
   // Calculate limit result from connected equation
   const limitResult = useMemo(() => {
@@ -1439,19 +1444,64 @@ export function LimitBlockComponent({
         </div>
         <div className="space-y-2">
           <Label className="text-xs">Approaches</Label>
-          <Input
-            type="number"
-            value={limitValue}
-            onChange={(e) =>
-              onVariableChange?.("limitValue", parseFloat(e.target.value) || 0)
-            }
-            className="h-8"
-            step="any"
-          />
+          <div className="flex gap-2">
+            <Button
+              variant={!isInfinite ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() => onVariableChange?.("isInfinite", isInfinite ? 0 : 1)}
+            >
+              Finite
+            </Button>
+            <Button
+              variant={isInfinite ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() => onVariableChange?.("isInfinite", isInfinite ? 0 : 1)}
+            >
+              Infinite
+            </Button>
+          </div>
         </div>
+        {isInfinite ? (
+          <div className="space-y-2">
+            <Label className="text-xs">Direction</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={infiniteDirection === "positive" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => onVariableChange?.("infiniteDirection", "positive")}
+              >
+                +∞
+              </Button>
+              <Button
+                variant={infiniteDirection === "negative" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => onVariableChange?.("infiniteDirection", "negative")}
+              >
+                -∞
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label className="text-xs">Value</Label>
+            <Input
+              type="number"
+              value={limitValue}
+              onChange={(e) =>
+                onVariableChange?.("limitValue", parseFloat(e.target.value) || 0)
+              }
+              className="h-8"
+              step="any"
+            />
+          </div>
+        )}
         <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
           <span className="font-mono">
-            {variableName} → {limitValue}{limitSymbol}
+            {variableName} → {displayValue}{limitSymbol}
           </span>
         </div>
 
@@ -2414,43 +2464,82 @@ export function TableBlockComponent({
       // Generate limit approach values with more precision steps
       const limitValue = connectedLimit.limitValue
       const approach = connectedLimit.approach
+      const isInfinite = connectedLimit.isInfinite
+      const infiniteDirection = connectedLimit.infiniteDirection || 'positive'
       const stepSizes = [0.001, 0.01, 0.05, 0.1, 0.5, 1] // Multiple step sizes for detailed approach
       const stepsPerSize = 3 // How many values per step size
 
       const generateSide = (direction: "left" | "right") => {
         const sideRows: import("@/lib/block-system/types").TableRow[] = []
-        
-        for (const stepSize of stepSizes) {
-          for (let i = stepsPerSize; i >= 1; i--) {
-            const x =
-              direction === "left"
-                ? limitValue - i * stepSize
-                : limitValue + i * stepSize
-            variables[variableName] = x
-            const y = evaluateEquationAtX(equation, variables)
-            sideRows.push({
-              id: `row-${direction}-${stepSize}-${i}`,
-              values: { 
-                x: parseFloat(x.toFixed(6)), 
-                y: parseFloat(y.toFixed(6)),
-                step: stepSize,
-              },
-            })
+
+        if (isInfinite) {
+          // For infinite limits, generate increasingly large values
+          const baseValue = infiniteDirection === 'positive' ? 10 : -10
+          const multiplier = infiniteDirection === 'positive' ? 1 : -1
+          
+          for (const stepSize of stepSizes) {
+            for (let i = 1; i <= stepsPerSize; i++) {
+              const x = baseValue * multiplier * i * (1 / stepSize)
+              variables[variableName] = x
+              const y = evaluateEquationAtX(equation, variables)
+              sideRows.push({
+                id: `row-${direction}-inf-${stepSize}-${i}`,
+                values: {
+                  x: parseFloat(x.toFixed(6)),
+                  y: parseFloat(y.toFixed(6)),
+                  step: stepSize,
+                },
+              })
+            }
           }
-        }
-        
-        // Sort by distance from limit (closest last for each side)
-        const getNumericValue = (row: import("@/lib/block-system/types").TableRow, key: string): number => {
-          const val = row.values[key]
-          if (typeof val === 'number') return val
-          if (typeof val === 'string') return parseFloat(val) || 0
-          return 0
-        }
-        
-        if (direction === "left") {
-          sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
+          
+          // Sort by x value
+          const getNumericValue = (row: import("@/lib/block-system/types").TableRow, key: string): number => {
+            const val = row.values[key]
+            if (typeof val === 'number') return val
+            if (typeof val === 'string') return parseFloat(val) || 0
+            return 0
+          }
+          
+          if (infiniteDirection === 'positive') {
+            sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
+          } else {
+            sideRows.sort((a, b) => getNumericValue(b, 'x') - getNumericValue(a, 'x'))
+          }
         } else {
-          sideRows.sort((a, b) => getNumericValue(b, 'x') - getNumericValue(a, 'x'))
+          // For finite limits, generate approach values
+          for (const stepSize of stepSizes) {
+            for (let i = stepsPerSize; i >= 1; i--) {
+              const x =
+                direction === "left"
+                  ? limitValue - i * stepSize
+                  : limitValue + i * stepSize
+              variables[variableName] = x
+              const y = evaluateEquationAtX(equation, variables)
+              sideRows.push({
+                id: `row-${direction}-${stepSize}-${i}`,
+                values: {
+                  x: parseFloat(x.toFixed(6)),
+                  y: parseFloat(y.toFixed(6)),
+                  step: stepSize,
+                },
+              })
+            }
+          }
+
+          // Sort by distance from limit (closest last for each side)
+          const getNumericValue = (row: import("@/lib/block-system/types").TableRow, key: string): number => {
+            const val = row.values[key]
+            if (typeof val === 'number') return val
+            if (typeof val === 'string') return parseFloat(val) || 0
+            return 0
+          }
+
+          if (direction === "left") {
+            sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
+          } else {
+            sideRows.sort((a, b) => getNumericValue(b, 'x') - getNumericValue(a, 'x'))
+          }
         }
 
         return sideRows
@@ -2459,22 +2548,24 @@ export function TableBlockComponent({
       if (approach === "left" || approach === "both") {
         generatedRows.push(...generateSide("left"))
       }
-      
+
       if (approach === "right" || approach === "both") {
         generatedRows.push(...generateSide("right"))
       }
 
-      // Add the limit point itself at the end
-      variables[variableName] = limitValue
-      const yAtLimit = evaluateEquationAtX(equation, variables)
-      generatedRows.push({
-        id: "row-limit",
-        values: {
-          x: parseFloat(limitValue.toFixed(6)),
-          y: parseFloat(yAtLimit.toFixed(6)),
-          step: 0,
-        },
-      })
+      // Add the limit point itself at the end (only for finite limits)
+      if (!isInfinite) {
+        variables[variableName] = limitValue
+        const yAtLimit = evaluateEquationAtX(equation, variables)
+        generatedRows.push({
+          id: "row-limit",
+          values: {
+            x: parseFloat(limitValue.toFixed(6)),
+            y: parseFloat(yAtLimit.toFixed(6)),
+            step: 0,
+          },
+        })
+      }
     } else {
       // Default: generate a simple table from -5 to 5
       for (let x = -5; x <= 5; x++) {

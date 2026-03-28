@@ -99,7 +99,9 @@ function CanvasContent() {
         const variableName = preset.data.variableName ?? "x"
         const limitValue = preset.data.limitValue ?? 0
         const approach = preset.data.approach ?? "both"
-        const limitType = preset.data.limitType ?? approach // Default limitType to approach
+        const limitType = preset.data.limitType ?? approach
+        const isInfinite = preset.data.isInfinite ?? false
+        const infiniteDirection = preset.data.infiniteDirection ?? "positive"
         return {
           ...baseBlock,
           type: "limit",
@@ -107,6 +109,8 @@ function CanvasContent() {
           limitValue,
           approach,
           limitType,
+          isInfinite,
+          infiniteDirection,
         }
       }
       case "shape": {

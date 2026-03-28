@@ -2172,6 +2172,12 @@ export function GridCanvas({
                   if (varName === "limitValue" && typeof value === "number") {
                     return { ...b, limitValue: value, updatedAt: Date.now() }
                   }
+                  if (varName === "isInfinite") {
+                    return { ...b, isInfinite: value === 1, updatedAt: Date.now() }
+                  }
+                  if (varName === "infiniteDirection" && typeof value === "string") {
+                    return { ...b, infiniteDirection: value as "positive" | "negative", updatedAt: Date.now() }
+                  }
                   return b
                 }
                 return b

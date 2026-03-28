@@ -267,6 +267,8 @@ export interface LimitBlock extends BaseBlock {
   limitValue: number
   approach: LimitApproach
   limitType: LimitType // Fixed type: left, right, or both (cannot be changed)
+  isInfinite: boolean // If true, limit approaches ±∞ instead of a finite value
+  infiniteDirection: "positive" | "negative" // Which infinity to approach
   result?: string
 }
 

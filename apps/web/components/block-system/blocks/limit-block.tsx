@@ -9,6 +9,7 @@
 'use client';
 
 import React from 'react';
+import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
@@ -50,11 +51,16 @@ export function LimitBlockComponent({
   isConnecting,
   connectingFromType,
 }: LimitBlockComponentProps): React.ReactElement {
-  const { variableName, limitValue, limitType } = block;
+  const { variableName, limitValue, limitType, isInfinite, infiniteDirection } = block;
 
   // Display symbol based on limit type
   const limitSymbol = limitType === 'left' ? '⁻' : limitType === 'right' ? '⁺' : '↔';
   const limitLabel = limitType === 'left' ? 'Left Limit' : limitType === 'right' ? 'Right Limit' : 'Two-Sided Limit';
+  
+  // Get the display value (infinity or finite number)
+  const displayValue = isInfinite 
+    ? (infiniteDirection === 'positive' ? '∞' : '-∞')
+    : limitValue.toString();
 
   const connectedHandleIds = new Set([
     ...(block.targetEquationId
@@ -101,19 +107,64 @@ export function LimitBlockComponent({
         </div>
         <div className="space-y-2">
           <Label className="text-xs">Approaches</Label>
-          <Input
-            type="number"
-            value={limitValue}
-            onChange={(e) =>
-              onVariableChange?.('limitValue', parseFloat(e.target.value) || 0)
-            }
-            className="h-8"
-            step="any"
-          />
+          <div className="flex gap-2">
+            <Button
+              variant={!isInfinite ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => onVariableChange?.('isInfinite', isInfinite ? 0 : 1)}
+            >
+              Finite
+            </Button>
+            <Button
+              variant={isInfinite ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => onVariableChange?.('isInfinite', isInfinite ? 0 : 1)}
+            >
+              Infinite
+            </Button>
+          </div>
         </div>
+        {isInfinite ? (
+          <div className="space-y-2">
+            <Label className="text-xs">Direction</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={infiniteDirection === 'positive' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => onVariableChange?.('infiniteDirection', 'positive')}
+              >
+                +∞
+              </Button>
+              <Button
+                variant={infiniteDirection === 'negative' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => onVariableChange?.('infiniteDirection', 'negative')}
+              >
+                -∞
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label className="text-xs">Value</Label>
+            <Input
+              type="number"
+              value={limitValue}
+              onChange={(e) =>
+                onVariableChange?.('limitValue', parseFloat(e.target.value) || 0)
+              }
+              className="h-8"
+              step="any"
+            />
+          </div>
+        )}
         <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
           <span className="font-mono">
-            {variableName} → {limitValue}{limitSymbol}
+            {variableName} → {displayValue}{limitSymbol}
           </span>
         </div>
       </div>
