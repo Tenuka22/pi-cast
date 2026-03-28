@@ -803,9 +803,6 @@ export function ChartBlockComponent({
           masked = `(x > (${xMaxLimit}) ? ${NAN_EXPR} : (${masked}))`
         }
 
-        // Log for debugging
-        console.log('Plot function:', fn, 'masked:', masked)
-
         return {
           fn: masked,
           color: plot.color,
@@ -1405,7 +1402,7 @@ export function LimitBlockComponent({
       
       if (isApproachingZero || isInfinite) {
         // Evaluate from both sides with very small offset to detect asymptotes
-        const smallOffset = 0.0000001
+        const smallOffset = 0.00000001
         
         // Left side approach
         const leftValue = isInfinite 
@@ -1425,9 +1422,10 @@ export function LimitBlockComponent({
       }
       
       // Helper to check if a result is effectively infinite
+      // Must be VERY large to avoid false positives (1/x at x=0.000001 = 1,000,000 which is finite)
       const isEffectivelyInfinite = (result: number | null): boolean => {
         if (result === null) return false
-        return !isFinite(result) || Math.abs(result) > 1e10
+        return !isFinite(result) || Math.abs(result) > 5e7  // 50 million threshold
       }
       
       // Determine result based on limit type
@@ -1478,7 +1476,7 @@ export function LimitBlockComponent({
       evalVariables[variableName] = evalValue
       const result = evaluateExpression(expr, evalVariables)
       
-      if (!isFinite(result) || Math.abs(result) > 1e10) {
+      if (!isFinite(result) || Math.abs(result) > 1e6) {
         if (result > 0) return { type: 'infinite', direction: 'positive' }
         if (result < 0) return { type: 'infinite', direction: 'negative' }
         return { type: 'undefined' }
@@ -1486,6 +1484,7 @@ export function LimitBlockComponent({
       
       return result
     } catch (error) {
+      console.error('Limit calculation error:', error)
       return { type: 'infinite', direction: 'unknown' }
     }
   }, [connectedEquation, variableName, limitValue, isInfinite, infiniteDirection, limitType])
@@ -1599,22 +1598,22 @@ export function LimitBlockComponent({
             <div className="font-mono text-sm">
               lim<sub>{variableName}→{displayValue}</sub> f({variableName}) ={" "}
               {typeof limitResult === 'object' && limitResult !== null ? (
-                <span className={
-                  limitResult.type === 'infinite' ? 'text-green-600' : 
-                  limitResult.type === 'does-not-exist' ? 'text-orange-600' :
-                  'text-red-600'
-                }>
-                  {limitResult.type === 'infinite' 
-                    ? (limitResult.direction === 'positive' ? '+∞' : limitResult.direction === 'negative' ? '-∞' : '∞')
-                    : limitResult.type === 'does-not-exist'
-                      ? 'does not exist'
-                      : 'undefined'}
-                </span>
-              ) : (
-                <span className={isFinite(limitResult ?? NaN) ? 'text-green-600' : 'text-red-600'}>
-                  {isFinite(limitResult ?? NaN) ? limitResult?.toFixed(4) : 'undefined'}
-                </span>
-              )}
+                  <span className={
+                    limitResult.type === 'infinite' ? 'text-green-600' :
+                    limitResult.type === 'does-not-exist' ? 'text-orange-600' :
+                    'text-red-600'
+                  }>
+                    {limitResult.type === 'infinite'
+                      ? (limitResult.direction === 'positive' ? '+∞' : limitResult.direction === 'negative' ? '-∞' : '∞')
+                      : limitResult.type === 'does-not-exist'
+                        ? 'does not exist'
+                        : 'undefined'}
+                  </span>
+                ) : (
+                  <span className={isFinite(limitResult ?? NaN) ? 'text-green-600' : 'text-red-600'}>
+                    {isFinite(limitResult ?? NaN) ? limitResult?.toFixed(4) : 'undefined'}
+                  </span>
+                )}
             </div>
             <div className="text-xs text-muted-foreground">
               Connect a table to see approach values
