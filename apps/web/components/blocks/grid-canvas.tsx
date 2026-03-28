@@ -1991,9 +1991,23 @@ export function GridCanvas({
           />
         )
       case "chart": {
-        const connectedEquations = (block.sourceEquationIds ?? [])
-          .map((id) => blocks.find((b) => b.id === id && b.type === "equation"))
+        // Find connected equations from connections array
+        const connectedEquationIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-chart'))
+          .map((c) => c.sourceBlockId)
+        
+        const connectedEquations = connectedEquationIds
+          .map((id) => blocks.find((b) => b.id === id && isEquationBlock(b)))
           .filter((eq): eq is EquationBlock => Boolean(eq))
+        
+        // Also check sourceEquationIds for backwards compatibility
+        if (connectedEquations.length === 0 && block.sourceEquationIds) {
+          const legacyEquations = (block.sourceEquationIds ?? [])
+            .map((id) => blocks.find((b) => b.id === id && isEquationBlock(b)))
+            .filter((eq): eq is EquationBlock => Boolean(eq))
+          connectedEquations.push(...legacyEquations)
+        }
+        
         const directConstraintIds = connections
           .filter(
             (c) =>
@@ -2007,7 +2021,7 @@ export function GridCanvas({
             if (directConstraintIds.includes(b.id)) return true
             return (
               !!b.targetEquationId &&
-              (block.sourceEquationIds ?? []).includes(b.targetEquationId)
+              connectedEquationIds.includes(b.targetEquationId)
             )
           }
         )
@@ -2024,10 +2038,22 @@ export function GridCanvas({
           }
         }
 
-        // Get connected limits for showing approach values
-        const connectedLimits = (block.sourceLimitIds ?? [])
-          .map((id) => blocks.find((b) => b.id === id && b.type === "limit"))
+        // Find connected limits from connections array
+        const connectedLimitIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('limit-to-chart'))
+          .map((c) => c.sourceBlockId)
+        
+        const connectedLimits = connectedLimitIds
+          .map((id) => blocks.find((b) => b.id === id && isLimitBlock(b)))
           .filter((limit): limit is LimitBlock => Boolean(limit))
+        
+        // Also check sourceLimitIds for backwards compatibility
+        if (connectedLimits.length === 0 && block.sourceLimitIds) {
+          const legacyLimits = (block.sourceLimitIds ?? [])
+            .map((id) => blocks.find((b) => b.id === id && isLimitBlock(b)))
+            .filter((limit): limit is LimitBlock => Boolean(limit))
+          connectedLimits.push(...legacyLimits)
+        }
 
         // Get calculated data from node chain (node-based calculation)
         const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
@@ -2363,25 +2389,64 @@ export function GridCanvas({
           />
         )
       case "table": {
+        // Find connected equations from connections array
+        const connectedEquationIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-table'))
+          .map((c) => c.sourceBlockId)
+        
+        let connectedEquation: EquationBlock | null = null
+        if (connectedEquationIds.length > 0) {
+          const eq = blocks.find((b) => b.id === connectedEquationIds[0] && isEquationBlock(b))
+          if (eq && isEquationBlock(eq)) connectedEquation = eq
+        }
+        
+        // Also check sourceEquationId for backwards compatibility
+        if (!connectedEquation && block.sourceEquationId) {
+          const eq = blocks.find((b) => b.id === block.sourceEquationId && isEquationBlock(b))
+          if (eq && isEquationBlock(eq)) connectedEquation = eq
+        }
+        
+        // Find connected limits from connections array
+        const connectedLimitIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('limit-to-table'))
+          .map((c) => c.sourceBlockId)
+        
+        let connectedLimit: LimitBlock | null = null
+        if (connectedLimitIds.length > 0) {
+          const limit = blocks.find((b) => b.id === connectedLimitIds[0] && isLimitBlock(b))
+          if (limit && isLimitBlock(limit)) connectedLimit = limit
+        }
+        
+        // Also check sourceLimitId for backwards compatibility
+        if (!connectedLimit && block.sourceLimitId) {
+          const limit = blocks.find((b) => b.id === block.sourceLimitId && isLimitBlock(b))
+          if (limit && isLimitBlock(limit)) connectedLimit = limit
+        }
+        
         // Get connected constraints for filtering table values
-        const connectedConstraints = (block.sourceConstraintIds ?? [])
+        const connectedConstraintIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('constraint-to-table'))
+          .map((c) => c.sourceBlockId)
+        
+        const connectedConstraints = connectedConstraintIds
           .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
           .filter((c): c is ConstraintBlock => Boolean(c))
+        
+        // Also check sourceConstraintIds for backwards compatibility
+        if (connectedConstraints.length === 0 && block.sourceConstraintIds) {
+          const legacyConstraints = (block.sourceConstraintIds ?? [])
+            .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
+            .filter((c): c is ConstraintBlock => Boolean(c))
+          connectedConstraints.push(...legacyConstraints)
+        }
 
-        // Get equation from direct connection OR from constraint's target equation
+        // Get equation from constraint's target equation if no direct connection
         let equationFromConstraint: EquationBlock | null = null
-        if (!block.sourceEquationId && connectedConstraints.length > 0) {
-          // Find equation through constraint's targetEquationId
-          const constraintWithEquation = connectedConstraints.find(
-            (c) => c.targetEquationId
-          )
+        if (!connectedEquation && connectedConstraints.length > 0) {
+          const constraintWithEquation = connectedConstraints.find((c) => c.targetEquationId)
           if (constraintWithEquation?.targetEquationId) {
-            const eq = blocks.find(
-              (b) => b.id === constraintWithEquation.targetEquationId
-            )
-            if (eq && isEquationBlock(eq)) {
-              equationFromConstraint = eq
-            }
+            const eq = blocks.find((b) => b.id === constraintWithEquation.targetEquationId && isEquationBlock(b))
+            if (eq && isEquationBlock(eq)) equationFromConstraint = eq
           }
         }
 
@@ -2390,24 +2455,8 @@ export function GridCanvas({
             key={block.id}
             block={block}
             {...commonProps}
-            connectedEquation={(() => {
-              // Priority: direct equation connection > equation through constraint
-              if (block.sourceEquationId) {
-                const eq = blocks.find(
-                  (b) => b.id === block.sourceEquationId && isEquationBlock(b)
-                )
-                if (eq && isEquationBlock(eq)) return eq
-              }
-              return equationFromConstraint
-            })()}
-            connectedLimit={(() => {
-              if (!isTableBlock(block) || !block.sourceLimitId) return null
-              const limit = blocks.find(
-                (b) => b.id === block.sourceLimitId && isLimitBlock(b)
-              )
-              if (!limit || !isLimitBlock(limit)) return null
-              return limit
-            })()}
+            connectedEquation={connectedEquation || equationFromConstraint}
+            connectedLimit={connectedLimit}
             connectedConstraints={connectedConstraints}
             onColumnChange={(columns) => {
               const updatedBlocks = blocks.map((b) => {
