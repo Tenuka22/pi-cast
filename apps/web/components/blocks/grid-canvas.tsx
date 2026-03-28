@@ -919,7 +919,7 @@ export function GridCanvas({
       onNodeChainsChange(nextChains)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks, connections, nodeChains, onNodeChainsChange, isPlaybackMode])
+  }, [blocks, nodeChains, onNodeChainsChange, isPlaybackMode])
 
   // Invalidate calculation cache when blocks change significantly
   useEffect(() => {
@@ -2724,9 +2724,16 @@ export function GridCanvas({
           .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-limiter-to-builder'))
           .map((c) => c.sourceBlockId)
 
+        console.log('[Piecewise Builder] block.id:', block.id)
+        console.log('[Piecewise Builder] block.connectedLimiterIds:', (block as any).connectedLimiterIds)
+        console.log('[Piecewise Builder] connectedLimiterIds from connections:', connectedLimiterIds)
+
         // Get calculated pieces from node chain
         const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
         const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        
+        console.log('[Piecewise Builder] calculatedData:', calculatedData)
+        
         const calculatedPieces = calculatedData?.piecewisePieces || []
 
         return (
