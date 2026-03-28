@@ -710,7 +710,7 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
     case "table":
       return { width: 20, height: 12 }
     case "piecewise-limiter":
-      return { width: 8, height: 5 }
+      return { width: 11, height: 5 }
     case "piecewise-builder":
       return { width: 10, height: 6 }
     default:
