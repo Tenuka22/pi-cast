@@ -1394,16 +1394,29 @@ export function LimitBlockComponent({
         expr = expr.substring(equalsIndex + 1)
       }
 
+      // For infinite limits or when approaching 0, check behavior from both sides
+      const evalValue = isInfinite || limitValue === 0 ? (isInfinite ? (infiniteDirection === 'positive' ? 1e10 : -1e10) : limitValue) : limitValue
+      
       // Replace variable with limit value in the variables object
       const evalVariables: Record<string, number> = { ...variables }
-      evalVariables[variableName] = limitValue
-      
+      evalVariables[variableName] = evalValue
+
       // Use safe evaluateExpression instead of Function constructor
-      return evaluateExpression(expr, evalVariables)
-    } catch {
-      return null
+      const result = evaluateExpression(expr, evalVariables)
+      
+      // Check for infinite results (division by zero or very large values)
+      if (!isFinite(result)) {
+        if (result > 0) return { type: 'infinite', direction: 'positive' }
+        if (result < 0) return { type: 'infinite', direction: 'negative' }
+        return { type: 'undefined' }
+      }
+      
+      return result
+    } catch (error) {
+      // Check if it's a division by zero or asymptote
+      return { type: 'infinite', direction: 'unknown' }
     }
-  }, [connectedEquation, variableName, limitValue])
+  }, [connectedEquation, variableName, limitValue, isInfinite, infiniteDirection])
 
   return (
     <BlockWrapper
@@ -1512,10 +1525,18 @@ export function LimitBlockComponent({
               Limit Result
             </div>
             <div className="font-mono text-sm">
-              lim<sub>{variableName}→{limitValue}</sub> f({variableName}) ={" "}
-              <span className={isFinite(limitResult ?? NaN) ? "text-green-600" : "text-red-600"}>
-                {isFinite(limitResult ?? NaN) ? limitResult?.toFixed(4) : "undefined"}
-              </span>
+              lim<sub>{variableName}→{displayValue}</sub> f({variableName}) ={" "}
+              {typeof limitResult === 'object' && limitResult !== null ? (
+                <span className={limitResult.type === 'infinite' ? 'text-green-600' : 'text-red-600'}>
+                  {limitResult.type === 'infinite' 
+                    ? (limitResult.direction === 'positive' ? '+∞' : limitResult.direction === 'negative' ? '-∞' : '∞')
+                    : 'undefined'}
+                </span>
+              ) : (
+                <span className={isFinite(limitResult ?? NaN) ? 'text-green-600' : 'text-red-600'}>
+                  {isFinite(limitResult ?? NaN) ? limitResult?.toFixed(4) : 'undefined'}
+                </span>
+              )}
             </div>
             <div className="text-xs text-muted-foreground">
               Connect a table to see approach values
@@ -2466,8 +2487,8 @@ export function TableBlockComponent({
       const approach = connectedLimit.approach
       const isInfinite = connectedLimit.isInfinite
       const infiniteDirection = connectedLimit.infiniteDirection || 'positive'
-      const stepSizes = [0.001, 0.01, 0.05, 0.1, 0.5, 1] // Multiple step sizes for detailed approach
-      const stepsPerSize = 3 // How many values per step size
+      const stepSizes = [0.0001, 0.001, 0.01, 0.1] // Multiple step sizes for detailed approach
+      const stepsPerSize = 2 // How many values per step size
 
       const generateSide = (direction: "left" | "right") => {
         const sideRows: import("@/lib/block-system/types").TableRow[] = []
@@ -2487,7 +2508,6 @@ export function TableBlockComponent({
                 values: {
                   x: parseFloat(x.toFixed(6)),
                   y: parseFloat(y.toFixed(6)),
-                  step: stepSize,
                 },
               })
             }
@@ -2508,12 +2528,20 @@ export function TableBlockComponent({
           }
         } else {
           // For finite limits, generate approach values
+          // Special handling for limits approaching 0
+          const isApproachingZero = Math.abs(limitValue) < 0.0001
+          
           for (const stepSize of stepSizes) {
             for (let i = stepsPerSize; i >= 1; i--) {
-              const x =
-                direction === "left"
-                  ? limitValue - i * stepSize
-                  : limitValue + i * stepSize
+              let x: number
+              if (isApproachingZero) {
+                // For x → 0, use symmetric approach: -0.1, -0.01, 0.01, 0.1
+                x = direction === "left" ? -stepSize * i : stepSize * i
+              } else {
+                x = direction === "left"
+                  ? limitValue - stepSize * i
+                  : limitValue + stepSize * i
+              }
               variables[variableName] = x
               const y = evaluateEquationAtX(equation, variables)
               sideRows.push({
@@ -2521,13 +2549,12 @@ export function TableBlockComponent({
                 values: {
                   x: parseFloat(x.toFixed(6)),
                   y: parseFloat(y.toFixed(6)),
-                  step: stepSize,
                 },
               })
             }
           }
 
-          // Sort by distance from limit (closest last for each side)
+          // Sort by x value
           const getNumericValue = (row: import("@/lib/block-system/types").TableRow, key: string): number => {
             const val = row.values[key]
             if (typeof val === 'number') return val
@@ -2535,11 +2562,7 @@ export function TableBlockComponent({
             return 0
           }
 
-          if (direction === "left") {
-            sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
-          } else {
-            sideRows.sort((a, b) => getNumericValue(b, 'x') - getNumericValue(a, 'x'))
-          }
+          sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
         }
 
         return sideRows
@@ -2554,15 +2577,14 @@ export function TableBlockComponent({
       }
 
       // Add the limit point itself at the end (only for finite limits)
-      if (!isInfinite) {
+      if (!isInfinite && Math.abs(limitValue) > 0.0001) {
         variables[variableName] = limitValue
         const yAtLimit = evaluateEquationAtX(equation, variables)
         generatedRows.push({
           id: "row-limit",
           values: {
             x: parseFloat(limitValue.toFixed(6)),
-            y: parseFloat(yAtLimit.toFixed(6)),
-            step: 0,
+            y: isFinite(yAtLimit) ? parseFloat(yAtLimit.toFixed(6)) : NaN,
           },
         })
       }
