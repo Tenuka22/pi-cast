@@ -829,16 +829,6 @@ export function GridCanvas({
               setInternalBlocks(updatedBlocks);
               onBlocksChange?.(updatedBlocks);
             }}
-            onApproachChange={(approach) => {
-              const updatedBlocks = blocks.map((b) => {
-                if (b.id === block.id && isLimitBlock(b)) {
-                  return { ...b, approach, updatedAt: Date.now() };
-                }
-                return b;
-              });
-              setInternalBlocks(updatedBlocks);
-              onBlocksChange?.(updatedBlocks);
-            }}
           />
         );
       }

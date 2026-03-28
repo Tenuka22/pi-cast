@@ -99,12 +99,14 @@ function CanvasContent() {
         const variableName = preset.data.variableName ?? "x"
         const limitValue = preset.data.limitValue ?? 0
         const approach = preset.data.approach ?? "both"
+        const limitType = preset.data.limitType ?? approach // Default limitType to approach
         return {
           ...baseBlock,
           type: "limit",
           variableName,
           limitValue,
           approach,
+          limitType,
         }
       }
       case "shape": {

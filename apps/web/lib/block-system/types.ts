@@ -120,6 +120,14 @@ export type TokenType =
 
 export type LimitApproach = "left" | "right" | "both"
 
+/**
+ * Limit Type - determines the direction of approach
+ * - left: x approaches from the left (⁻)
+ * - right: x approaches from the right (⁺)
+ * - both: x approaches from both sides (↔)
+ */
+export type LimitType = "left" | "right" | "both"
+
 export type ShapeType = "square" | "circle" | "rectangle"
 
 export type ShapeFillMode = "solid" | "fraction" | "decimal" | "percentage"
@@ -258,6 +266,7 @@ export interface LimitBlock extends BaseBlock {
   variableName: string
   limitValue: number
   approach: LimitApproach
+  limitType: LimitType // Fixed type: left, right, or both (cannot be changed)
   result?: string
 }
 

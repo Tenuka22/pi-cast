@@ -376,7 +376,7 @@ function calculateLimitNode(
   timestamp: number
 ): NodeData {
   const approachValues: LimitApproachValue[] = []
-  const { variableName, limitValue, approach } = block
+  const { variableName, limitValue, approach, limitType } = block
 
   // Get the target equation to evaluate
   let targetEquation: EquationBlock | undefined
@@ -392,10 +392,12 @@ function calculateLimitNode(
   const variables = targetEquation?.variables ?? prevData?.variables ?? []
 
   if (equation) {
-    // Generate approach values based on approach type
+    // Generate approach values based on limitType (which is fixed)
+    // Use approach for backwards compatibility, but prefer limitType
+    const effectiveApproach = limitType || approach
     const offsets = [0.1, 0.01, 0.001, 0.0001]
 
-    if (approach === "left" || approach === "both") {
+    if (effectiveApproach === "left" || effectiveApproach === "both") {
       for (const offset of offsets) {
         const x = limitValue - offset
         const y = evaluateFunctionWithVariables(equation, variables, variableName, x)
@@ -407,7 +409,7 @@ function calculateLimitNode(
       }
     }
 
-    if (approach === "right" || approach === "both") {
+    if (effectiveApproach === "right" || effectiveApproach === "both") {
       for (const offset of offsets) {
         const x = limitValue + offset
         const y = evaluateFunctionWithVariables(equation, variables, variableName, x)

@@ -148,9 +148,9 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
           isExpanded={expandedCategory === 'limits'}
           onToggle={() => setExpandedCategory(expandedCategory === 'limits' ? null : 'limits')}
         >
-          <BlockItem title="Limit" equation="lim x→a f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both' } })} />
-          <BlockItem title="Left Limit" equation="lim x→a⁻ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left' } })} />
-          <BlockItem title="Right Limit" equation="lim x→a⁺ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right' } })} />
+          <BlockItem title="Two-Sided Limit" equation="lim x→a f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both', limitType: 'both' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both', limitType: 'both' } })} />
+          <BlockItem title="Left Limit" equation="lim x→a⁻ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left', limitType: 'left' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left', limitType: 'left' } })} />
+          <BlockItem title="Right Limit" equation="lim x→a⁺ f(x)" onClick={() => handleBlockClick({ type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right', limitType: 'right' } })} onDragStart={(e) => handleDragStart(e, { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right', limitType: 'right' } })} />
         </CategorySection>
 
         <CategorySection

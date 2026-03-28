@@ -516,18 +516,28 @@ export function BlockLibrary({
           }
         >
           <BlockItem
-            title="Limit"
+            title="Two-Sided Limit"
             equation="lim x→a f(x)"
             onClick={() =>
               handleBlockClick({
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "both" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "both",
+                  limitType: "both",
+                },
               })
             }
             onDragStart={(e) =>
               handleDragStart(e, {
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "both" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "both",
+                  limitType: "both",
+                },
               })
             }
           />
@@ -537,13 +547,23 @@ export function BlockLibrary({
             onClick={() =>
               handleBlockClick({
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "left" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "left",
+                  limitType: "left",
+                },
               })
             }
             onDragStart={(e) =>
               handleDragStart(e, {
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "left" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "left",
+                  limitType: "left",
+                },
               })
             }
           />
@@ -553,13 +573,23 @@ export function BlockLibrary({
             onClick={() =>
               handleBlockClick({
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "right" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "right",
+                  limitType: "right",
+                },
               })
             }
             onDragStart={(e) =>
               handleDragStart(e, {
                 type: "limit",
-                data: { variableName: "x", limitValue: 0, approach: "right" },
+                data: { 
+                  variableName: "x", 
+                  limitValue: 0, 
+                  approach: "right",
+                  limitType: "right",
+                },
               })
             }
           />
