@@ -1394,17 +1394,80 @@ export function LimitBlockComponent({
         expr = expr.substring(equalsIndex + 1)
       }
 
-      // For infinite limits or when approaching 0, check behavior from both sides
-      const evalValue = isInfinite || limitValue === 0 ? (isInfinite ? (infiniteDirection === 'positive' ? 1e10 : -1e10) : limitValue) : limitValue
+      // For limits approaching 0, check behavior from the correct side
+      const isApproachingZero = Math.abs(limitValue) < 0.0001
+      let leftResult: number | null = null
+      let rightResult: number | null = null
       
-      // Replace variable with limit value in the variables object
+      if (isApproachingZero || isInfinite) {
+        // Evaluate from both sides to determine limit behavior
+        const smallOffset = 0.0001
+        
+        // Left side approach
+        const leftValue = isInfinite 
+          ? (infiniteDirection === 'positive' ? -1e10 : -1e10)
+          : limitValue - smallOffset
+        const leftVars: Record<string, number> = { ...variables }
+        leftVars[variableName] = leftValue
+        leftResult = evaluateExpression(expr, leftVars)
+        
+        // Right side approach
+        const rightValue = isInfinite
+          ? (infiniteDirection === 'positive' ? 1e10 : 1e10)
+          : limitValue + smallOffset
+        const rightVars: Record<string, number> = { ...variables }
+        rightVars[variableName] = rightValue
+        rightResult = evaluateExpression(expr, rightVars)
+      }
+      
+      // Determine result based on limit type
+      if (limitType === 'left' && leftResult !== null) {
+        if (!isFinite(leftResult)) {
+          return { type: 'infinite', direction: leftResult > 0 ? 'positive' : 'negative' }
+        }
+        return leftResult
+      }
+      
+      if (limitType === 'right' && rightResult !== null) {
+        if (!isFinite(rightResult)) {
+          return { type: 'infinite', direction: rightResult > 0 ? 'positive' : 'negative' }
+        }
+        return rightResult
+      }
+      
+      // For two-sided limits, check if both sides agree
+      if (limitType === 'both' && leftResult !== null && rightResult !== null) {
+        const leftInfinite = !isFinite(leftResult)
+        const rightInfinite = !isFinite(rightResult)
+        
+        if (leftInfinite && rightInfinite) {
+          // Both infinite - check if same direction
+          if ((leftResult > 0 && rightResult > 0)) {
+            return { type: 'infinite', direction: 'positive' }
+          }
+          if ((leftResult < 0 && rightResult < 0)) {
+            return { type: 'infinite', direction: 'negative' }
+          }
+          // Different directions - limit does not exist
+          return { type: 'does-not-exist', reason: 'different-infinite-directions' }
+        }
+        
+        if (!leftInfinite && !rightInfinite && Math.abs(leftResult - rightResult) < 0.0001) {
+          return leftResult
+        }
+        
+        // Two-sided limit doesn't exist
+        return { type: 'does-not-exist', reason: 'left-right-mismatch' }
+      }
+      
+      // Fallback: evaluate at the limit value
+      const evalValue = isInfinite 
+        ? (infiniteDirection === 'positive' ? 1e10 : -1e10)
+        : limitValue
       const evalVariables: Record<string, number> = { ...variables }
       evalVariables[variableName] = evalValue
-
-      // Use safe evaluateExpression instead of Function constructor
       const result = evaluateExpression(expr, evalVariables)
       
-      // Check for infinite results (division by zero or very large values)
       if (!isFinite(result)) {
         if (result > 0) return { type: 'infinite', direction: 'positive' }
         if (result < 0) return { type: 'infinite', direction: 'negative' }
@@ -1413,10 +1476,9 @@ export function LimitBlockComponent({
       
       return result
     } catch (error) {
-      // Check if it's a division by zero or asymptote
       return { type: 'infinite', direction: 'unknown' }
     }
-  }, [connectedEquation, variableName, limitValue, isInfinite, infiniteDirection])
+  }, [connectedEquation, variableName, limitValue, isInfinite, infiniteDirection, limitType])
 
   return (
     <BlockWrapper
@@ -1527,10 +1589,16 @@ export function LimitBlockComponent({
             <div className="font-mono text-sm">
               lim<sub>{variableName}→{displayValue}</sub> f({variableName}) ={" "}
               {typeof limitResult === 'object' && limitResult !== null ? (
-                <span className={limitResult.type === 'infinite' ? 'text-green-600' : 'text-red-600'}>
+                <span className={
+                  limitResult.type === 'infinite' ? 'text-green-600' : 
+                  limitResult.type === 'does-not-exist' ? 'text-orange-600' :
+                  'text-red-600'
+                }>
                   {limitResult.type === 'infinite' 
                     ? (limitResult.direction === 'positive' ? '+∞' : limitResult.direction === 'negative' ? '-∞' : '∞')
-                    : 'undefined'}
+                    : limitResult.type === 'does-not-exist'
+                      ? 'does not exist'
+                      : 'undefined'}
                 </span>
               ) : (
                 <span className={isFinite(limitResult ?? NaN) ? 'text-green-600' : 'text-red-600'}>
