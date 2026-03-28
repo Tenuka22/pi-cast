@@ -10,9 +10,14 @@ import {
   useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -70,7 +75,7 @@ export const getGetApiProfileMeQueryKey = () => {
     }
 
     
-export const getGetApiProfileMeQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+export const getGetApiProfileMeQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -85,29 +90,51 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiProfileMeQueryResult = NonNullable<Awaited<ReturnType<typeof getApiProfileMe>>>
 export type GetApiProfileMeQueryError = void
 
 
+export function useGetApiProfileMe<TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileMe>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileMe<TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileMe>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileMe<TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get current user profile
  */
 
 export function useGetApiProfileMe<TData = Awaited<ReturnType<typeof getApiProfileMe>>, TError = void>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileMe>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiProfileMeQueryOptions(options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 
@@ -166,7 +193,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  */
 export const usePutApiProfileMe = <TError = UpdateProfileError | void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiProfileMe>>, TError,{data: UpdateProfile}, TContext>, request?: SecondParameter<typeof authFetch>}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putApiProfileMe>>,
         TError,
         {data: UpdateProfile},
@@ -175,7 +202,7 @@ export const usePutApiProfileMe = <TError = UpdateProfileError | void,
 
       const mutationOptions = getPutApiProfileMeMutationOptions(options);
 
-      return useMutation(mutationOptions);
+      return useMutation(mutationOptions, queryClient);
     }
     /**
  * Request to upgrade to creator or teacher role
@@ -231,7 +258,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  */
 export const usePostApiProfileCreatorRole = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiProfileCreatorRole>>, TError,{data: RequestCreatorRole}, TContext>, request?: SecondParameter<typeof authFetch>}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postApiProfileCreatorRole>>,
         TError,
         {data: RequestCreatorRole},
@@ -240,7 +267,7 @@ export const usePostApiProfileCreatorRole = <TError = void,
 
       const mutationOptions = getPostApiProfileCreatorRoleMutationOptions(options);
 
-      return useMutation(mutationOptions);
+      return useMutation(mutationOptions, queryClient);
     }
     /**
  * Get a user's public profile by username
@@ -268,7 +295,7 @@ export const getGetApiProfileUsernameQueryKey = (username?: string,) => {
     }
 
     
-export const getGetApiProfileUsernameQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(username: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+export const getGetApiProfileUsernameQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(username: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -283,29 +310,51 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(username), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(username), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiProfileUsernameQueryResult = NonNullable<Awaited<ReturnType<typeof getApiProfileUsername>>>
 export type GetApiProfileUsernameQueryError = void
 
 
+export function useGetApiProfileUsername<TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(
+ username: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUsername>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUsername>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUsername<TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(
+ username: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUsername>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUsername>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUsername<TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(
+ username: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get public profile
  */
 
 export function useGetApiProfileUsername<TData = Awaited<ReturnType<typeof getApiProfileUsername>>, TError = void>(
- username: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ username: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUsername>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiProfileUsernameQueryOptions(username,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 
@@ -341,7 +390,7 @@ export const getGetApiProfileUserUserIdLessonsQueryKey = (userId?: string,
 
     
 export const getGetApiProfileUserUserIdLessonsQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError = unknown>(userId: string,
-    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -356,30 +405,55 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiProfileUserUserIdLessonsQueryResult = NonNullable<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>>
 export type GetApiProfileUserUserIdLessonsQueryError = unknown
 
 
+export function useGetApiProfileUserUserIdLessons<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError = unknown>(
+ userId: string,
+    params: undefined |  GetApiProfileUserUserIdLessonsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdLessons<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdLessons<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get user lessons
  */
 
 export function useGetApiProfileUserUserIdLessons<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError = unknown>(
  userId: string,
-    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+    params?: GetApiProfileUserUserIdLessonsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdLessons>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiProfileUserUserIdLessonsQueryOptions(userId,params,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 
@@ -439,7 +513,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  */
 export const usePostApiProfileFollow = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiProfileFollow>>, TError,{data: ToggleFollow}, TContext>, request?: SecondParameter<typeof authFetch>}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postApiProfileFollow>>,
         TError,
         {data: ToggleFollow},
@@ -448,7 +522,7 @@ export const usePostApiProfileFollow = <TError = void,
 
       const mutationOptions = getPostApiProfileFollowMutationOptions(options);
 
-      return useMutation(mutationOptions);
+      return useMutation(mutationOptions, queryClient);
     }
     /**
  * Get a user's followers with pagination
@@ -480,7 +554,7 @@ export const getGetApiProfileUserUserIdFollowersQueryKey = (userId?: string,
 
     
 export const getGetApiProfileUserUserIdFollowersQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError = unknown>(userId: string,
-    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -495,30 +569,55 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiProfileUserUserIdFollowersQueryResult = NonNullable<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>>
 export type GetApiProfileUserUserIdFollowersQueryError = unknown
 
 
+export function useGetApiProfileUserUserIdFollowers<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError = unknown>(
+ userId: string,
+    params: undefined |  GetApiProfileUserUserIdFollowersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdFollowers<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdFollowers<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get followers
  */
 
 export function useGetApiProfileUserUserIdFollowers<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError = unknown>(
  userId: string,
-    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+    params?: GetApiProfileUserUserIdFollowersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiProfileUserUserIdFollowersQueryOptions(userId,params,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 
@@ -554,7 +653,7 @@ export const getGetApiProfileUserUserIdFollowingQueryKey = (userId?: string,
 
     
 export const getGetApiProfileUserUserIdFollowingQueryOptions = <TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError = unknown>(userId: string,
-    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -569,30 +668,55 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiProfileUserUserIdFollowingQueryResult = NonNullable<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>>
 export type GetApiProfileUserUserIdFollowingQueryError = unknown
 
 
+export function useGetApiProfileUserUserIdFollowing<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError = unknown>(
+ userId: string,
+    params: undefined |  GetApiProfileUserUserIdFollowingParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdFollowing<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>,
+          TError,
+          Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiProfileUserUserIdFollowing<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError = unknown>(
+ userId: string,
+    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get following
  */
 
 export function useGetApiProfileUserUserIdFollowing<TData = Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError = unknown>(
  userId: string,
-    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+    params?: GetApiProfileUserUserIdFollowingParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiProfileUserUserIdFollowing>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiProfileUserUserIdFollowingQueryOptions(userId,params,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 

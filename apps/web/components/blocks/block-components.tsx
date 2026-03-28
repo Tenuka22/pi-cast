@@ -18,7 +18,6 @@ import {
   type DescriptionBlock,
   type LimitBlock,
   type ConnectionHandleType,
-  type ConstraintType,
   getTokenClassName,
   parseEquation,
   formatEquation,
@@ -28,6 +27,7 @@ import {
   GraphConfig,
   DEFAULT_GRAPH_CONFIG,
   evaluateFunction,
+  evaluateExpression,
 } from "@/lib/visualization/graph-renderer"
 
 // ============================================================================
@@ -248,7 +248,7 @@ export function EquationBlockComponent({
   isConnecting,
   connectingFromType,
 }: EquationBlockComponentProps) {
-  const { equation, tokens, variables } = block
+  const { equation, tokens } = block
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(equation)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -867,7 +867,7 @@ export function ChartBlockComponent({
         {/* Limit approach indicators */}
         {connectedLimits.length > 0 && hasEquations && (
           <div className="pointer-events-none absolute inset-0">
-            {connectedLimits.map((limit, index) => {
+            {connectedLimits.map((limit) => {
               const x = limit.limitValue
               const isLeftOrBoth = limit.approach === "left" || limit.approach === "both"
               const isRightOrBoth = limit.approach === "right" || limit.approach === "both"
@@ -1306,7 +1306,7 @@ export function LimitBlockComponent({
   connectingFromType,
   connectedEquation,
 }: LimitBlockComponentProps) {
-  const { variableName, limitValue, approach, result } = block
+  const { variableName, limitValue, approach } = block
 
   // Calculate limit result from connected equation
   const limitResult = useMemo(() => {
@@ -1319,23 +1319,19 @@ export function LimitBlockComponent({
     })
 
     try {
-      // Evaluate equation at the limit value
+      // Evaluate equation at the limit value using safe evaluation
       let expr = equation.replace(/\s/g, "")
       const equalsIndex = expr.indexOf("=")
       if (equalsIndex !== -1) {
         expr = expr.substring(equalsIndex + 1)
       }
 
-      // Replace variable with limit value
-      variables[variableName] = limitValue
-      for (const [name, value] of Object.entries(variables)) {
-        const regex = new RegExp(`\\b${name}\\b`, "g")
-        expr = expr.replace(regex, value.toString())
-      }
-
-      // eslint-disable-next-line no-new-func
-      const y = Function(`"use strict"; return (${expr})`)() as number
-      return isFinite(y) ? y : NaN
+      // Replace variable with limit value in the variables object
+      const evalVariables: Record<string, number> = { ...variables }
+      evalVariables[variableName] = limitValue
+      
+      // Use safe evaluateExpression instead of Function constructor
+      return evaluateExpression(expr, evalVariables)
     } catch {
       return null
     }
@@ -2008,8 +2004,6 @@ export function ShapeBlockComponent({
   style,
   onFillValueChange,
   onFillColorChange,
-  onFillModeChange,
-  onShapeTypeChange,
   onGridToggle,
   onConnectionStart,
   onConnectionEnd,
@@ -2037,21 +2031,16 @@ export function ShapeBlockComponent({
         ;(connectedEquation.variables ?? []).forEach((v) => {
           variables[v.name] = v.value
         })
-        
+
         let expr = equation.replace(/\s/g, "")
         const equalsIndex = expr.indexOf("=")
         if (equalsIndex !== -1) {
           expr = expr.substring(equalsIndex + 1)
         }
-        
-        for (const [name, value] of Object.entries(variables)) {
-          const regex = new RegExp(`\\b${name}\\b`, "g")
-          expr = expr.replace(regex, value.toString())
-        }
-        
-        // eslint-disable-next-line no-new-func
-        const result = Function(`"use strict"; return (${expr})`)() as number
-        
+
+        // Use safe evaluateExpression instead of Function constructor
+        const result = evaluateExpression(expr, variables)
+
         if (isFinite(result)) {
           // Normalize to 0-100 range based on fillMode
           if (fillMode === "percentage") {
@@ -2333,8 +2322,6 @@ export function TableBlockComponent({
   connectedEquation,
   connectedLimit,
   connectedConstraints = [],
-  onColumnChange,
-  onRowChange,
   onSettingsChange,
 }: TableBlockComponentProps) {
   const {
@@ -2344,8 +2331,6 @@ export function TableBlockComponent({
     variableName = "x",
     showGrid = true,
     highlightLastRow = true,
-    sourceEquationId,
-    sourceConstraintIds,
   } = block
 
   // State for controlling how many rows to display
@@ -2370,7 +2355,7 @@ export function TableBlockComponent({
     ]
 
     // Generate rows based on limit or default range
-    let generatedRows: import("@/lib/block-system/types").TableRow[] = []
+    const generatedRows: import("@/lib/block-system/types").TableRow[] = []
 
     if (connectedLimit && autoGenerateRows) {
       // Generate limit approach values with more precision steps
@@ -2402,12 +2387,19 @@ export function TableBlockComponent({
         }
         
         // Sort by distance from limit (closest last for each side)
-        if (direction === "left") {
-          sideRows.sort((a, b) => (a.values.x as number) - (b.values.x as number))
-        } else {
-          sideRows.sort((a, b) => (b.values.x as number) - (a.values.x as number))
+        const getNumericValue = (row: import("@/lib/block-system/types").TableRow, key: string): number => {
+          const val = row.values[key]
+          if (typeof val === 'number') return val
+          if (typeof val === 'string') return parseFloat(val) || 0
+          return 0
         }
         
+        if (direction === "left") {
+          sideRows.sort((a, b) => getNumericValue(a, 'x') - getNumericValue(b, 'x'))
+        } else {
+          sideRows.sort((a, b) => getNumericValue(b, 'x') - getNumericValue(a, 'x'))
+        }
+
         return sideRows
       }
 
@@ -2585,7 +2577,7 @@ export function TableBlockComponent({
             <div className="text-center">
               <p>Connect an equation to display values</p>
               <p className="mt-1 text-xs">
-                Or connect a constraint that's linked to an equation
+                Or connect a constraint that&apos;s linked to an equation
               </p>
             </div>
           </div>
@@ -2751,15 +2743,8 @@ function evaluateEquationAtX(
       expr = expr.substring(equalsIndex + 1)
     }
 
-    // Replace variables with values
-    for (const [name, value] of Object.entries(variables)) {
-      const regex = new RegExp(`\\b${name}\\b`, "g")
-      expr = expr.replace(regex, value.toString())
-    }
-
-    // Handle basic math evaluation
-    // eslint-disable-next-line no-new-func
-    return Function(`"use strict"; return (${expr})`)()
+    // Use safe evaluateExpression instead of Function constructor
+    return evaluateExpression(expr, variables)
   } catch {
     return NaN
   }

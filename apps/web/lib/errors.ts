@@ -62,6 +62,19 @@ export interface ApiError {
  * Convert unknown error to ApiError
  */
 export function toApiError(error: unknown): ApiError {
+  const extractMessage = (err: unknown): string => {
+    if (err instanceof Error) {
+      return err.message
+    }
+    if (typeof err === "object" && err !== null && "message" in err && typeof err.message === "string") {
+      return err.message
+    }
+    if (typeof err === "string") {
+      return err
+    }
+    return "An unknown error occurred"
+  }
+
   if (error instanceof Error) {
     return {
       code: ERROR_CODES.INTERNAL_ERROR,
@@ -71,13 +84,22 @@ export function toApiError(error: unknown): ApiError {
     }
   }
 
-  if (typeof error === "object" && error !== null && "code" in error) {
-    return error as ApiError
+  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
+    const errorCode = error.code
+    const isValidErrorCode = (code: string): code is ErrorCode => {
+      return code in ERROR_CODES
+    }
+    return {
+      code: isValidErrorCode(errorCode) ? errorCode : ERROR_CODES.UNKNOWN_ERROR,
+      message: extractMessage(error),
+      status: "status" in error && typeof error.status === "number" ? error.status : 500,
+      timestamp: "timestamp" in error && typeof error.timestamp === "string" ? error.timestamp : new Date().toISOString(),
+    }
   }
 
   return {
     code: ERROR_CODES.UNKNOWN_ERROR,
-    message: String(error),
+    message: extractMessage(error),
     status: 500,
     timestamp: new Date().toISOString(),
   }

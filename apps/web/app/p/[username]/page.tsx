@@ -12,8 +12,23 @@
 import { notFound } from "next/navigation"
 import { ProfileClient } from "./profile-client"
 import { cache } from "react"
-import { orpc } from "@/lib/server-orpc-client"
-import type { PublicProfile, LessonItem } from "@/lib/api/schemas"
+import {
+  getApiProfileUsername,
+  getApiProfileUserUserIdLessons,
+  getApiProfileMe,
+} from "@/lib/api/profile/profile"
+import type { PublicProfile } from "@/lib/api/schemas"
+
+function isValidLessonLevel(level: unknown): level is "beginner" | "intermediate" | "advanced" | null {
+  return level === null || level === "beginner" || level === "intermediate" || level === "advanced"
+}
+
+function normalizeLessonLevel(level: unknown): "beginner" | "intermediate" | "advanced" | null {
+  if (isValidLessonLevel(level)) {
+    return level
+  }
+  return null
+}
 
 interface PageProps {
   params: Promise<{
@@ -26,7 +41,7 @@ interface PageProps {
  */
 const fetchPublicProfileByUsername = cache(async (username: string) => {
   try {
-    const result = await orpc.profileGetPublicProfile(username)
+    const result = await getApiProfileUsername(username)
     return result
   } catch (error) {
     console.error("Error fetching public profile:", error)
@@ -39,7 +54,7 @@ const fetchPublicProfileByUsername = cache(async (username: string) => {
  */
 const fetchPublicProfileByUserId = cache(async (userId: string): Promise<PublicProfile | null> => {
   try {
-    const result = await orpc.profileGetUserLessons(userId)
+    const result = await getApiProfileUserUserIdLessons(userId)
 
     // Get user info from my profile endpoint to get basic details
     // This is a workaround - in production you'd have a getUserById endpoint
@@ -66,8 +81,8 @@ const fetchPublicProfileByUserId = cache(async (userId: string): Promise<PublicP
       },
       lessons: (result?.lessons || []).map((lesson) => ({
         ...lesson,
-        level: lesson.level as "beginner" | "intermediate" | "advanced" | null,
-      })) as LessonItem[],
+        level: normalizeLessonLevel(lesson.level),
+      })),
       isFollowing: false,
       isFollowedByCurrentUser: false,
     }
@@ -81,7 +96,7 @@ const fetchPublicProfileByUserId = cache(async (userId: string): Promise<PublicP
  */
 const getCurrentUser = cache(async () => {
   try {
-    const result = await orpc.profileGetMyProfile()
+    const result = await getApiProfileMe()
     return result
   } catch {
     return null
@@ -111,13 +126,17 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const currentUser = await getCurrentUser()
 
   // Check if current user is viewing their own profile
-  const isOwner = currentUser && (currentUser as { user?: { id?: string } }).user?.id === profileData.user.id
+  const isOwner = currentUser && typeof currentUser === "object" && "user" in currentUser && currentUser.user && typeof currentUser.user === "object" && "id" in currentUser.user
+    ? currentUser.user.id === profileData.user.id 
+    : false
 
   // Check if current user can edit (creator, teacher, or admin)
   const canEdit = Boolean(
     isOwner &&
     currentUser &&
-    ["creator", "teacher", "admin"].includes((currentUser as { user?: { role?: string } }).user?.role || "")
+    typeof currentUser === "object" && "user" in currentUser && currentUser.user && typeof currentUser.user === "object" && "role" in currentUser.user && typeof currentUser.user.role === "string"
+    ? ["creator", "teacher", "admin"].includes(currentUser.user.role)
+    : false
   )
 
   // Check if user needs to set username
@@ -128,7 +147,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     ...profileData,
     lessons: profileData.lessons.map((lesson) => ({
       ...lesson,
-      level: lesson.level as "beginner" | "intermediate" | "advanced" | null,
+      level: normalizeLessonLevel(lesson.level),
     })),
   }
 

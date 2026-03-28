@@ -29,8 +29,8 @@ interface EquationBlockComponentProps {
     handleType: ConnectionHandleType
   ) => void;
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void;
-  onVariableChange?: (variableName: string, value: number) => void;
   onEquationChange?: (newEquation: string) => void;
+  onVariableChange?: (varName: string, value: number) => void;
   isConnecting?: boolean;
   connectingFromType?: string;
 }
@@ -44,12 +44,12 @@ export function EquationBlockComponent({
   onDimensionsChange,
   onConnectionStart,
   onConnectionEnd,
-  onVariableChange,
   onEquationChange,
+  onVariableChange,
   isConnecting,
   connectingFromType,
 }: EquationBlockComponentProps): React.ReactElement {
-  const { equation, tokens, variables } = block;
+  const { equation, tokens } = block;
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(equation);
   const inputRef = useRef<HTMLInputElement>(null);

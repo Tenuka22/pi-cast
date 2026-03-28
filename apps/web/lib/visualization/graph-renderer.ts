@@ -169,7 +169,7 @@ function tokenizeExpression(expression: string): Token[] {
 
   const s = expression.replace(/\s+/g, "");
   while (i < s.length) {
-    const ch = s[i]!;
+    const ch = s.charAt(i);
 
     if (ch === "(") {
       tokens.push({ type: "lparen" });
@@ -190,7 +190,7 @@ function tokenizeExpression(expression: string): Token[] {
     if ((ch >= "0" && ch <= "9") || ch === ".") {
       let j = i + 1;
       while (j < s.length) {
-        const cj = s[j]!;
+        const cj = s.charAt(j);
         if ((cj >= "0" && cj <= "9") || cj === ".") j++;
         else break;
       }
@@ -205,7 +205,7 @@ function tokenizeExpression(expression: string): Token[] {
     if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_") {
       let j = i + 1;
       while (j < s.length) {
-        const cj = s[j]!;
+        const cj = s.charAt(j);
         if (
           (cj >= "a" && cj <= "z") ||
           (cj >= "A" && cj <= "Z") ||
@@ -257,7 +257,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
 
   let prev: Token | null = null;
   for (let idx = 0; idx < tokens.length; idx++) {
-    const token = tokens[idx]!;
+    const token = tokens[idx];
+    if (!token) continue;
     if (token.type === "number") {
       output.push(token);
       prev = token;
@@ -275,7 +276,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
     }
     if (token.type === "comma") {
       while (stack.length && stack.at(-1)?.type !== "lparen") {
-        output.push(stack.pop()!);
+        const popped = stack.pop();
+        if (popped) output.push(popped);
       }
       prev = token;
       continue;
@@ -287,7 +289,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
     }
     if (token.type === "rparen") {
       while (stack.length && stack.at(-1)?.type !== "lparen") {
-        output.push(stack.pop()!);
+        const popped = stack.pop();
+        if (popped) output.push(popped);
       }
       if (stack.at(-1)?.type !== "lparen") {
         throw new Error("Mismatched parentheses");
@@ -295,7 +298,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
       stack.pop();
       const top = stack.at(-1);
       if (top && top.type === "func") {
-        output.push(stack.pop()!);
+        const popped = stack.pop();
+        if (popped) output.push(popped);
       }
       prev = token;
       continue;
@@ -313,8 +317,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
       }
 
       while (stack.length) {
-        const top = stack.at(-1)!;
-        if (top.type !== "op") break;
+        const top = stack.at(-1);
+        if (!top || top.type !== "op") break;
 
         const pTop = precedence[top.value] ?? 0;
         const pOp = precedence[op] ?? 0;
@@ -323,7 +327,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
           (rightAssociative.has(op) && pOp < pTop) ||
           (!rightAssociative.has(op) && pOp <= pTop)
         ) {
-          output.push(stack.pop()!);
+          const popped = stack.pop();
+          if (popped) output.push(popped);
         } else {
           break;
         }
@@ -336,7 +341,8 @@ function toRpn(tokens: Token[]): Array<Token | { type: "func"; value: string }> 
   }
 
   while (stack.length) {
-    const t = stack.pop()!;
+    const t = stack.pop();
+    if (!t) break;
     if (t.type === "lparen" || t.type === "rparen") {
       throw new Error("Mismatched parentheses");
     }
@@ -409,10 +415,12 @@ function evaluateRpn(
   }
 
   if (stack.length !== 1) throw new Error("Invalid expression");
-  return stack[0]!;
+  const result = stack[0];
+  if (result === undefined) throw new Error("No result");
+  return result;
 }
 
-function evaluateExpression(
+export function evaluateExpression(
   expression: string,
   variables: Record<string, number>
 ): number {
@@ -681,6 +689,7 @@ export default {
   renderGraph,
   generateGraphPoints,
   evaluateFunction,
+  evaluateExpression,
   graphToPixels,
   getDefaultConfigForEquation,
 }

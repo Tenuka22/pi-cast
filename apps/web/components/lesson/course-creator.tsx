@@ -15,7 +15,6 @@ import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent } from '@workspace/ui/components/card';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -31,6 +30,14 @@ interface CourseCreatorProps {
   className?: string;
 }
 
+interface CourseFormValues {
+  title: string;
+  description: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  isFree: boolean;
+  tags: string[];
+}
+
 export function CourseCreator({ courseId, onSave, className }: CourseCreatorProps) {
   const [isDirty, setIsDirty] = React.useState(false);
   const [lessons, setLessons] = React.useState<CourseLesson[]>([]);
@@ -40,9 +47,9 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
       title: '',
       description: '',
       level: 'beginner' as const,
-      isFree: true,
+      isFree: true as boolean,
       tags: [] as string[],
-    },
+    } satisfies CourseFormValues,
     onSubmit: async ({ value }) => {
       if (!value.title) return;
 
@@ -99,7 +106,9 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
         </h1>
         <Button
           type="button"
-          onClick={() => form.handleSubmit()}
+          onClick={async () => {
+            await form.handleSubmit()
+          }}
           disabled={!form.getFieldValue('title') || !isDirty}
         >
           Save Course
@@ -114,9 +123,9 @@ export function CourseCreator({ courseId, onSave, className }: CourseCreatorProp
             <CardContent className="space-y-4 p-4">
               <form
                 id="course-form"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  form.handleSubmit();
+                  await form.handleSubmit();
                 }}
               >
                 <FieldGroup>

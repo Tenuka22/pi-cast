@@ -13,25 +13,15 @@ import {
   type Block,
   type GridPosition,
   type DragState,
+  type BlockConnection,
   type EquationBlock,
-  type ChartBlock,
-  type ControlBlock,
-  type DescriptionBlock,
-  type LimitBlock,
-  type ShapeBlock,
-  type VariableBlock,
-  type LogicBlock,
   type ComparatorBlock,
   type ConstraintBlock,
-  type BlockConnection,
-  type ShapeType,
-  type ShapeFillMode,
   parseEquation,
   gridToPixels,
   pixelsToGrid,
   findNearestValidPosition,
   autoArrangeNeighbors,
-  getDefaultBlockDimensions,
   getConnectionType,
 } from '@/lib/block-system/types';
 import type { BlockPreset } from '../library/block-library';
@@ -90,184 +80,6 @@ interface ConnectionDragState {
   sourceHandleId: string;
   currentX: number;
   currentY: number;
-}
-
-// Block creator functions
-function createEquationBlock(
-  position: GridPosition,
-  equation?: string
-): EquationBlock {
-  const parsed = equation ? parseEquation(equation) : undefined;
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'equation',
-    position,
-    dimensions: getDefaultBlockDimensions('equation'),
-    equation: equation ?? '',
-    tokens: parsed?.tokens,
-    variables: parsed?.variables,
-    equationType: parsed?.equationType,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createChartBlock(position: GridPosition): ChartBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'chart',
-    position,
-    dimensions: getDefaultBlockDimensions('chart'),
-    equations: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createControlBlock(
-  position: GridPosition,
-  layout: 'horizontal' | 'vertical' = 'vertical'
-): ControlBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'control',
-    position,
-    dimensions: getDefaultBlockDimensions('control'),
-    layout,
-    variables: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createDescriptionBlock(
-  position: GridPosition,
-  format: 'plain' | 'markdown' | 'latex' = 'plain'
-): DescriptionBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'description',
-    position,
-    dimensions: getDefaultBlockDimensions('description'),
-    content: 'Add your text here...',
-    format,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createLimitBlock(
-  position: GridPosition,
-  variableName: string = 'x',
-  limitValue: number = 0
-): LimitBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'limit',
-    position,
-    dimensions: getDefaultBlockDimensions('limit'),
-    variableName,
-    limitValue,
-    approach: 'both',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createShapeBlock(
-  position: GridPosition,
-  shapeType: ShapeBlock['shapeType'] = 'square',
-  fillColor: string = '#7c3aed',
-  fillValue: number = 50,
-  fillMode: ShapeBlock['fillMode'] = 'percentage'
-): ShapeBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'shape',
-    position,
-    dimensions: getDefaultBlockDimensions('shape'),
-    shapeType,
-    fillColor,
-    fillValue,
-    fillMode,
-    showGrid: false,
-    rows: 10,
-    cols: 10,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createLogicBlock(
-  position: GridPosition,
-  logicType: LogicBlock['logicType'] = 'and'
-): LogicBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'logic',
-    position,
-    dimensions: getDefaultBlockDimensions('logic'),
-    logicType,
-    inputs: [],
-    output: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createVariableBlock(
-  position: GridPosition,
-  layout: 'horizontal' | 'vertical' = 'vertical'
-): VariableBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'variable',
-    position,
-    dimensions: getDefaultBlockDimensions('variable'),
-    layout,
-    variables: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createComparatorBlock(
-  position: GridPosition,
-  operator: ComparatorBlock['operator'] = 'eq'
-): ComparatorBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'comparator',
-    position,
-    dimensions: getDefaultBlockDimensions('comparator'),
-    operator,
-    leftInput: null,
-    rightInput: null,
-    output: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function createConstraintBlock(
-  position: GridPosition,
-  variableName: string = 'x',
-  constraintType: ConstraintBlock['constraint']['type'] = 'gte',
-  constraintValue: number = 0
-): ConstraintBlock {
-  return {
-    id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    type: 'constraint',
-    position,
-    dimensions: getDefaultBlockDimensions('constraint'),
-    variableName,
-    constraint: {
-      type: constraintType,
-      min: constraintValue,
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
 }
 
 export function GridCanvas({
@@ -489,14 +301,30 @@ export function GridCanvas({
       let preset: BlockPreset;
       try {
         const parsed: unknown = JSON.parse(data);
-        // Validate that parsed data has the expected structure
-        if (
-          typeof parsed === 'object' &&
-          parsed !== null &&
-          'type' in parsed &&
-          typeof (parsed as Record<string, unknown>).type === 'string'
-        ) {
-          preset = parsed as BlockPreset;
+        // Type guard to validate BlockPreset structure
+        const isValidBlockPreset = (obj: unknown): obj is BlockPreset => {
+          if (typeof obj !== 'object' || obj === null || !('type' in obj) || typeof obj.type !== 'string') {
+            return false;
+          }
+          const blockType = obj.type;
+          if (
+            blockType === 'equation' ||
+            blockType === 'chart' ||
+            blockType === 'description' ||
+            blockType === 'limit' ||
+            blockType === 'shape' ||
+            blockType === 'logic' ||
+            blockType === 'comparator' ||
+            blockType === 'constraint' ||
+            blockType === 'variable'
+          ) {
+            return 'data' in obj && typeof obj.data === 'object' && obj.data !== null;
+          }
+          return false;
+        };
+        
+        if (isValidBlockPreset(parsed)) {
+          preset = parsed;
         } else {
           return;
         }

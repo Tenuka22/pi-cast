@@ -12,7 +12,6 @@ import { useForm } from '@tanstack/react-form';
 import { cn } from '@workspace/ui/lib/utils';
 import { useLessonCreation } from '@/lib/lesson-system/use-lesson-creation';
 import { GridCanvas } from '@/components/blocks/grid-canvas';
-import type { LessonCreationData } from '@/lib/lesson-system/types';
 
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent } from '@workspace/ui/components/card';
@@ -27,18 +26,18 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { NativeSelect } from '@workspace/ui/components/native-select';
 
-function isValidLessonLevel(value: string): value is 'beginner' | 'intermediate' | 'advanced' | 'all' {
-  return ['beginner', 'intermediate', 'advanced', 'all'].includes(value);
-}
-
-function isValidLessonVisibility(value: string): value is 'private' | 'unlisted' | 'organization' | 'public' {
-  return ['private', 'unlisted', 'organization', 'public'].includes(value);
-}
-
 interface LessonCreatorProps {
   lessonId?: string;
   onSave?: (lessonId: string) => void;
   className?: string;
+}
+
+interface LessonFormValues {
+  title: string;
+  description: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'all';
+  visibility: 'private' | 'unlisted' | 'organization' | 'public';
+  tags: string[];
 }
 
 export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProps) {
@@ -66,7 +65,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
       level: 'beginner' as const,
       visibility: 'private' as const,
       tags: [] as string[],
-    },
+    } satisfies LessonFormValues,
     onSubmit: async ({ value }) => {
       const newLesson = createLesson({
         title: value.title,
@@ -134,7 +133,9 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
           {!lesson ? (
             <Button
               type="button"
-              onClick={() => form.handleSubmit()}
+              onClick={async () => {
+                await form.handleSubmit()
+              }}
               disabled={!form.getFieldValue('title')}
             >
               Create Lesson
@@ -144,14 +145,18 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => { void saveLesson(); }}
+                onClick={async () => {
+                  await saveLesson()
+                }}
                 disabled={!isDirty || isSaving}
               >
                 Save
               </Button>
               <Button
                 type="button"
-                onClick={() => { void handlePublish(); }}
+                onClick={async () => {
+                  await handlePublish()
+                }}
               >
                 Publish
               </Button>
@@ -173,9 +178,9 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
           <CardContent className="space-y-4 p-4">
             <form
               id="lesson-metadata-form"
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                form.handleSubmit();
+                await form.handleSubmit();
               }}
             >
               <FieldGroup>
@@ -240,7 +245,9 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                           name={field.name}
                           value={field.state.value}
                           onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value as typeof field.state.value)}
+                          onChange={(e) => {
+                            field.handleChange(e.target.value as typeof field.state.value);
+                          }}
                         >
                           <option value="beginner">Beginner</option>
                           <option value="intermediate">Intermediate</option>
@@ -261,7 +268,9 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                           name={field.name}
                           value={field.state.value}
                           onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value as typeof field.state.value)}
+                          onChange={(e) => {
+                            field.handleChange(e.target.value as typeof field.state.value);
+                          }}
                         >
                           <option value="private">Private</option>
                           <option value="unlisted">Unlisted</option>
@@ -285,7 +294,7 @@ export function LessonCreator({ lessonId, onSave, className }: LessonCreatorProp
                         onBlur={field.handleBlur}
                         onChange={(e) =>
                           field.handleChange(
-                            e.target.value.split(',').map((t) => t.trim()).filter(Boolean)
+                            e.target.value.split(',').map((t) => t.trim()).filter(Boolean) as typeof field.state.value
                           )
                         }
                         placeholder="algebra, linear equations, graphing"

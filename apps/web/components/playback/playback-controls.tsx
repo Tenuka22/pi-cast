@@ -100,12 +100,14 @@ export function PlaybackControls({
 
   const handleProgressChange = (value: number | readonly number[]) => {
     const progress = Array.isArray(value) ? value[0] ?? 0 : value;
+    if (typeof progress !== 'number') return;
     const newTime = (progress / 100) * state.duration;
     onSeek(newTime);
   };
 
   const handleVolumeChange = (value: number | readonly number[]) => {
     const volume = Array.isArray(value) ? value[0] ?? 0 : value;
+    if (typeof volume !== 'number') return;
     onSetVolume(volume);
   };
 

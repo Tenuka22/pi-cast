@@ -1,13 +1,13 @@
 import { extractAuthCookies } from "./auth"
 
-export type FetcherConfig = {
+export type FetcherConfig<TData = unknown, TParams = unknown> = {
   url: string
   method: string
   signal?: AbortSignal
-  data?: any
+  data?: TData
   headers?: HeadersInit
   credentials?: RequestCredentials
-  params?: Record<string, any>
+  params?: TParams
 }
 
 const DEFAULT_BASE_URL =
@@ -28,7 +28,7 @@ const resolveCookie = async (cookie?: string | null) => {
   }
 }
 
-const buildBody = (data: any, headers: Headers) => {
+const buildBody = (data: unknown, headers: Headers) => {
   if (data === undefined || data === null) return undefined
 
   if (data instanceof FormData) {
@@ -47,19 +47,36 @@ const buildBody = (data: any, headers: Headers) => {
   return typeof data === "string" ? data : JSON.stringify(data)
 }
 
-const buildQueryString = (params?: Record<string, any>): string => {
+const buildQueryString = <TParams extends Record<string, unknown> | undefined>(
+  params?: TParams
+): string => {
   if (!params) return ""
 
   const query = Object.entries(params)
-    .filter(([_, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+    )
     .join("&")
 
   return query ? `?${query}` : ""
 }
 
-export const authFetch = async <T>(
-  { url, method, signal, data, headers, credentials, params }: FetcherConfig,
+export const authFetch = async <
+  T,
+  TData = unknown,
+  TParams extends Record<string, unknown> | undefined = Record<string, unknown>,
+>(
+  {
+    url,
+    method,
+    signal,
+    data,
+    headers,
+    credentials,
+    params,
+  }: FetcherConfig<TData, TParams>,
   init?: RequestInit & {
     cookie?: string | null
     baseUrl?: string
@@ -67,7 +84,14 @@ export const authFetch = async <T>(
   }
 ): Promise<T> => {
   const mergedHeaders = new Headers(headers ?? {})
-  const cookie = extractAuthCookies(await resolveCookie(init?.cookie))
+  const allCookies = await resolveCookie(init?.cookie)
+  const cookie = extractAuthCookies(allCookies)
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === "development") {
+    console.log("[authFetch] All cookies:", allCookies?.substring(0, 50) + "...")
+    console.log("[authFetch] Auth cookies:", cookie?.substring(0, 50) + "...")
+  }
 
   if (cookie) {
     mergedHeaders.set("Cookie", cookie)
@@ -91,7 +115,7 @@ export const authFetch = async <T>(
   finalUrl += buildQueryString(params)
 
   const response = await fetch(
-    `${init?.baseUrl ?? DEFAULT_BASE_URL}/api${finalUrl}`,
+    `${init?.baseUrl ?? DEFAULT_BASE_URL}${finalUrl}`,
     {
       method,
       signal,
@@ -104,13 +128,21 @@ export const authFetch = async <T>(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Request failed")
-    throw new Error(errorText)
+    const error = new Error(`API Error ${response.status}: ${errorText || response.statusText}`)
+    // Attach response status for better error handling
+    ;(error as any).status = response.status
+    ;(error as any).responseText = errorText
+    throw error
   }
 
   const contentType = response.headers.get("content-type")
+
+  // Handle response based on content type
   if (contentType?.includes("application/json")) {
-    return (await response.json()) as T
+    const jsonData: unknown = await response.json()
+    return jsonData as T // eslint-disable-line @typescript-eslint/consistent-type-assertions
   }
 
-  return (await response.text()) as unknown as T
+  const textData: string = await response.text()
+  return textData as T // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }

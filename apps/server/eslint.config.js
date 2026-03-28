@@ -5,17 +5,28 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-/** @type {import("eslint").Linter.Config} */
 export default [
+  {
+    ignores: [
+      ".wrangler/**",
+      "dist/**",
+      "node_modules/**",
+      ".turbo/**",
+      "worker-configuration.d.ts",
+      "src/lib/api",
+    ],
+  },
+
   ...config,
+
   {
     languageOptions: {
-      parserOptions: {
-        projectService: {
-          allowDefaultProject: ["*.config.{js,mjs,cjs,ts}", "*.mjs"],
+        parserOptions: {
+          projectService: {
+            allowDefaultProject: ["*.mjs", "eslint.config.js"],
+          },
+          tsconfigRootDir: __dirname,
         },
-        tsconfigRootDir: __dirname,
       },
-    },
   },
 ]

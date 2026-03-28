@@ -71,17 +71,21 @@ export function ConstraintBlockComponent({
   ]);
 
   const handleConstraintTypeChange = (newType: ConstraintType) => {
-    onConstraintChange?.(newType, constraint.min ?? 0);
-  };
+    onConstraintChange?.(newType, constraint.min ?? 0)
+  }
+
+  const isValidConstraintType = (type: string): type is ConstraintType => {
+    return ['gte', 'gt', 'lte', 'lt', 'range'].includes(type)
+  }
 
   const handleValueChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
+    const numValue = parseFloat(value) || 0
     if (constraint.type === 'range') {
-      onConstraintChange?.(constraint.type, [numValue, constraint.max ?? 100]);
+      onConstraintChange?.(constraint.type, [numValue, constraint.max ?? 100])
     } else {
-      onConstraintChange?.(constraint.type, numValue);
+      onConstraintChange?.(constraint.type, numValue)
     }
-  };
+  }
 
   const handleMaxValueChange = (value: string) => {
     const numValue = parseFloat(value) || 100;
@@ -122,7 +126,12 @@ export function ConstraintBlockComponent({
           </label>
           <select
             value={constraint.type}
-            onChange={(e) => handleConstraintTypeChange(e.target.value as ConstraintType)}
+            onChange={(e) => {
+              const value = e.target.value
+              if (isValidConstraintType(value)) {
+                handleConstraintTypeChange(value)
+              }
+            }}
             className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
           >
             {Object.entries(CONSTRAINT_LABELS).map(([type, label]) => (

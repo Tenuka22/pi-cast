@@ -13,7 +13,6 @@ import { cn } from '@workspace/ui/lib/utils';
 import {
   type ShapeBlock,
   type ShapeType,
-  type ShapeFillMode,
   type ConnectionHandleType,
 } from '@/lib/block-system/types';
 import { BlockWrapper } from './block-wrapper';
@@ -28,7 +27,7 @@ interface ShapeBlockComponentProps {
   onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
   onFillValueChange?: (value: number) => void;
   onFillColorChange?: (color: string) => void;
-  onFillModeChange?: (mode: ShapeFillMode) => void;
+  onFillModeChange?: (mode: 'fraction' | 'percentage' | 'decimal') => void;
   onShapeTypeChange?: (shapeType: ShapeType) => void;
   onGridToggle?: () => void;
   onConnectionStart?: (

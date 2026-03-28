@@ -27,11 +27,13 @@ import {
   type EquationBlock,
   type ChartBlock,
   type ControlBlock,
+  type ControlVariable,
   type LimitBlock,
   type LogicBlock,
   type ComparatorBlock,
   type ConstraintBlock,
   type BlockConnection,
+  type Variable,
   parseEquation,
   gridToPixels,
   findNearestValidPosition,
@@ -58,6 +60,7 @@ import { ConnectionPreview } from "@/components/connections/connection-line"
 import { useRecording } from "@/lib/recording-system/use-recording"
 import { RecordingControls } from "@/components/recording/recording-controls"
 import { RecordingStatusBar } from "@/components/recording/recording-status-bar"
+import { useUserRole } from "@/hooks/use-user-role"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -477,6 +480,7 @@ export function GridCanvas({
   readOnly = false,
   canRecord = true,
 }: GridCanvasProps) {
+  const { isAdmin, isCreator } = useUserRole()
   const canvasRef = useRef<HTMLDivElement>(null)
   const [internalBlocks, setInternalBlocks] = useState<Block[]>([])
   const blocks = externalBlocks ?? internalBlocks
@@ -609,7 +613,8 @@ export function GridCanvas({
 
     const byId = new Map(blocks.map((b) => [b.id, b] as const))
 
-    const getNumericValue = (block: Block): number | undefined => {
+    const getNumericValue = (block: Block | undefined): number | undefined => {
+      if (!block) return undefined
       if (isComparatorBlock(block)) {
         return typeof block.result === "number" ? block.result : undefined
       }
@@ -650,7 +655,8 @@ export function GridCanvas({
           parts[0] !== undefined &&
           parts[1] !== undefined
         ) {
-          const [lhs, rhs] = parts as [string, string]
+          const lhs = parts[0]
+          const rhs = parts[1]
           const isFunctionDef = lhs === "y"
           const hasLetters = /[a-z]/i.test(lhs + rhs)
           if (!isFunctionDef && !hasLetters) {
@@ -712,7 +718,7 @@ export function GridCanvas({
               : { ...block, result: undefined }
           const bools = inputBlocks.map(getBoolValue)
           if (bools.some((b) => b === undefined)) return block
-          const values = bools as boolean[]
+          const values = bools.filter((b): b is boolean => b !== undefined)
           const result =
             block.logicType === "and"
               ? values.every(Boolean)
@@ -729,8 +735,8 @@ export function GridCanvas({
           return block.result === undefined
             ? block
             : { ...block, result: undefined }
-        const left = getNumericValue(inputBlocks[0]!)
-        const right = getNumericValue(inputBlocks[1]!)
+        const left = getNumericValue(inputBlocks[0])
+        const right = getNumericValue(inputBlocks[1])
         if (left === undefined || right === undefined) return block
         let result: boolean
         switch (block.logicType) {
@@ -1138,8 +1144,8 @@ export function GridCanvas({
 
   const handleCanvasDragStart = useCallback((e: React.DragEvent) => {
     // Prevent HTML5 native drag for blocks on canvas
-    const target = e.target as HTMLElement
-    const isFromLibrary = target.closest("[data-block-library-item]") !== null
+    const target = e.target instanceof HTMLElement ? e.target : null
+    const isFromLibrary = target?.closest("[data-block-library-item]") !== null
     if (!isFromLibrary) {
       e.preventDefault()
     }
@@ -1376,7 +1382,7 @@ export function GridCanvas({
                 parseEquation(sourceBlock.equation).variables)
               : []
 
-            const seededVariables = (
+            const seededVariables: ControlVariable[] = (
               targetBlock.variables?.length ? targetBlock.variables : eqVars
             ).map((v) => ({
               name: v.name,
@@ -1892,14 +1898,16 @@ export function GridCanvas({
           )
           .map((c) => c.sourceBlockId)
 
-        const connectedConstraints = blocks.filter((b) => {
-          if (!isConstraintBlock(b)) return false
-          if (directConstraintIds.includes(b.id)) return true
-          return (
-            !!b.targetEquationId &&
-            (block.sourceEquationIds ?? []).includes(b.targetEquationId)
-          )
-        }) as ConstraintBlock[]
+        const connectedConstraints = blocks.filter(
+          (b): b is ConstraintBlock => {
+            if (!isConstraintBlock(b)) return false
+            if (directConstraintIds.includes(b.id)) return true
+            return (
+              !!b.targetEquationId &&
+              (block.sourceEquationIds ?? []).includes(b.targetEquationId)
+            )
+          }
+        )
 
         // Get connected limits for showing approach values
         const connectedLimits = (block.sourceLimitIds ?? [])
@@ -2237,7 +2245,7 @@ export function GridCanvas({
             }}
           />
         )
-      case "table":
+      case "table": {
         // Get connected constraints for filtering table values
         const connectedConstraints = (block.sourceConstraintIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
@@ -2320,6 +2328,7 @@ export function GridCanvas({
             }}
           />
         )
+      }
     }
   }
 
@@ -2327,47 +2336,64 @@ export function GridCanvas({
     <div className={cn("relative flex h-full w-full flex-col", className)}>
       {/* Top Toolbar - Hidden in playback mode */}
       {!isPlaybackMode && (
-        <div className="z-20 flex items-center justify-end gap-4 border-b border-border bg-card p-2 shadow-sm">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={gridVisible}
-              onCheckedChange={(checked) => setGridVisible(checked)}
-            />
-            Show Grid
-          </label>
-          {canRecord && (
-            <RecordingControls
-              isRecording={
-                recordingState.status === "recording" ||
-                recordingState.status === "paused"
-              }
-              isPaused={recordingState.status === "paused"}
-              currentTime={recordingState.currentTime}
-              onStart={() => void startRecording()}
-              onStop={() => void stopRecording()}
-              onPause={pauseRecording}
-              onResume={resumeRecording}
-              onCreateBookmark={createBookmark}
-            />
+        <>
+          {!canRecord && (
+            <div className="container mx-auto p-4">
+              <span>
+                {isAdmin || isCreator
+                  ? "You can record lessons now."
+                  : "Recording is only available for creators and admins. Upgrade to creator to record lessons."}
+              </span>
+            </div>
           )}
-        </div>
+          <div className="z-20 flex items-center justify-end gap-4 border-b border-border bg-card p-2 shadow-sm">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={gridVisible}
+                onCheckedChange={(checked) => setGridVisible(checked)}
+              />
+              Show Grid
+            </label>
+            {canRecord && (
+              <RecordingControls
+                isRecording={
+                  recordingState.status === "recording" ||
+                  recordingState.status === "paused"
+                }
+                isPaused={recordingState.status === "paused"}
+                currentTime={recordingState.currentTime}
+                onStart={() => void startRecording()}
+                onStop={() => void stopRecording()}
+                onPause={pauseRecording}
+                onResume={resumeRecording}
+                onCreateBookmark={createBookmark}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {/* Canvas Container */}
       <ContextMenu>
         <ContextMenuTrigger
-          ref={canvasRef as unknown as React.Ref<HTMLDivElement>}
+          ref={(el) => {
+            if (el) {
+              canvasRef.current = el
+            }
+          }}
           className="relative flex-1 overflow-hidden bg-background select-none"
           onContextMenuCapture={(e) => {
             const target = e.target instanceof Element ? e.target : null
-            const blockEl = target?.closest("[data-block-id]") as
-              | (Element & { dataset?: DOMStringMap })
-              | null
-            const connectionEl = target?.closest("[data-connection-id]") as
-              | (Element & { dataset?: DOMStringMap })
-              | null
-            const blockId = blockEl?.dataset?.blockId
-            const connectionId = connectionEl?.dataset?.connectionId
+            const blockEl = target?.closest("[data-block-id]")
+            const connectionEl = target?.closest("[data-connection-id]")
+            const blockId =
+              blockEl instanceof HTMLElement
+                ? blockEl.dataset?.blockId
+                : undefined
+            const connectionId =
+              connectionEl instanceof HTMLElement
+                ? connectionEl.dataset?.connectionId
+                : undefined
 
             setContextTarget({ blockId, connectionId })
             if (blockId) setSelectedBlockId(blockId)
@@ -2606,9 +2632,11 @@ export function GridCanvas({
             <>
               <ContextMenuItem
                 variant="destructive"
-                onClick={() =>
-                  handleDeleteConnection(contextTarget.connectionId!)
-                }
+                onClick={() => {
+                  if (contextTarget?.connectionId) {
+                    handleDeleteConnection(contextTarget.connectionId)
+                  }
+                }}
               >
                 Delete connection
               </ContextMenuItem>
@@ -2618,7 +2646,11 @@ export function GridCanvas({
           {contextTarget?.blockId && (
             <ContextMenuItem
               variant="destructive"
-              onClick={() => handleDeleteBlock(contextTarget.blockId!)}
+              onClick={() => {
+                if (contextTarget?.blockId) {
+                  handleDeleteBlock(contextTarget.blockId)
+                }
+              }}
             >
               Delete node
             </ContextMenuItem>

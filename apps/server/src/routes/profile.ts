@@ -284,8 +284,7 @@ export function createProfileRoutes() {
       )
     }
 
-    const body = await c.req.json() as unknown
-    const parsed = updateProfileSchema.safeParse(body)
+    const parsed = await updateProfileSchema.safeParseAsync(await c.req.json())
 
     if (!parsed.success) {
       return c.json(
@@ -488,8 +487,7 @@ export function createProfileRoutes() {
       )
     }
 
-    const body = await c.req.json() as unknown
-    const parsed = requestCreatorRoleSchema.safeParse(body)
+    const parsed = await requestCreatorRoleSchema.safeParseAsync(await c.req.json())
 
     if (!parsed.success) {
       return c.json(
@@ -861,8 +859,7 @@ export function createProfileRoutes() {
       )
     }
 
-    const body = await c.req.json()
-    const parsed = toggleFollowSchema.safeParse(body)
+    const parsed = await toggleFollowSchema.safeParseAsync(await c.req.json())
 
     if (!parsed.success) {
       return c.json(

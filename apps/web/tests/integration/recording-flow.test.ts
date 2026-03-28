@@ -14,12 +14,6 @@ const mockMediaDevices = {
   getUserMedia: vi.fn(),
 };
 
-const mockAudioContext = vi.fn().mockImplementation(() => ({
-  createMediaStreamSource: vi.fn(),
-  createAnalyser: vi.fn(),
-  close: vi.fn(),
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -30,8 +24,14 @@ beforeEach(() => {
   });
 
   // Mock AudioContext
-  const MockAudioContext = mockAudioContext as unknown as typeof AudioContext;
-  global.AudioContext = MockAudioContext;
+  Object.defineProperty(global, 'AudioContext', {
+    value: vi.fn().mockImplementation(() => ({
+      createMediaStreamSource: vi.fn(),
+      createAnalyser: vi.fn(),
+      close: vi.fn(),
+    })),
+    writable: true,
+  });
 });
 
 describe('Recording Flow Integration', () => {

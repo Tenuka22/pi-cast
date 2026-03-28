@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { RecordingEvent, BlockPlacedData, BlockMovedData, VariableSliderChangedData } from '@/lib/recording-system/types';
 import type { Block, GridPosition, BlockDimensions, EquationBlock, ChartBlock, ControlBlock, DescriptionBlock, LimitBlock } from '@/lib/block-system/types';
 
@@ -18,45 +18,34 @@ function isValidBlockType(type: string): type is Block['type'] {
 
 function isBlockPlacedData(data: unknown): data is BlockPlacedData {
   if (typeof data !== 'object' || data === null) return false;
-  const record = data as Record<string, unknown>;
-  return 'blockId' in record &&
-    'blockType' in record &&
-    'position' in record &&
-    typeof record.blockId === 'string' &&
-    typeof record.blockType === 'string' &&
-    isValidBlockType(record.blockType) &&
-    typeof record.position === 'object' &&
-    record.position !== null &&
-    isValidGridPosition(record.position);
+  const hasBlockId = 'blockId' in data && typeof data.blockId === 'string'
+  const hasBlockType = 'blockType' in data && typeof data.blockType === 'string' && isValidBlockType(data.blockType)
+  const hasPosition = 'position' in data && typeof data.position === 'object' && data.position !== null && isValidGridPosition(data.position)
+  return hasBlockId && hasBlockType && hasPosition
 }
 
 function isBlockMovedData(data: unknown): data is BlockMovedData {
   if (typeof data !== 'object' || data === null) return false;
-  const record = data as Record<string, unknown>;
-  return 'blockId' in record &&
-    'fromPosition' in record &&
-    'toPosition' in record &&
-    typeof record.blockId === 'string' &&
-    typeof record.toPosition === 'object' &&
-    record.toPosition !== null &&
-    isValidGridPosition(record.toPosition);
+  const hasBlockId = 'blockId' in data && typeof data.blockId === 'string'
+  const hasFromPosition = 'fromPosition' in data
+  const hasToPosition = 'toPosition' in data && typeof data.toPosition === 'object' && data.toPosition !== null && isValidGridPosition(data.toPosition)
+  return hasBlockId && hasFromPosition && hasToPosition
 }
 
 function isVariableSliderChangedData(data: unknown): data is VariableSliderChangedData {
   if (typeof data !== 'object' || data === null) return false;
-  const record = data as Record<string, unknown>;
-  return 'blockId' in record &&
-    'variableName' in record &&
-    'newValue' in record &&
-    typeof record.blockId === 'string' &&
-    typeof record.variableName === 'string' &&
-    typeof record.newValue === 'number';
+  const hasBlockId = 'blockId' in data && typeof data.blockId === 'string'
+  const hasVariableName = 'variableName' in data && typeof data.variableName === 'string'
+  const hasNewValue = 'newValue' in data && typeof data.newValue === 'number'
+  return hasBlockId && hasVariableName && hasNewValue
 }
 
 function isValidGridPosition(pos: unknown): pos is GridPosition {
-  return typeof pos === 'object' && pos !== null && 'x' in pos && 'y' in pos &&
-    typeof (pos as Record<string, unknown>).x === 'number' &&
-    typeof (pos as Record<string, unknown>).y === 'number';
+  if (typeof pos !== 'object' || pos === null) return false;
+  const record = pos;
+  return 'x' in record && 'y' in record &&
+    typeof record.x === 'number' &&
+    typeof record.y === 'number';
 }
 
 function isValidBlockDimensions(dim: unknown): dim is BlockDimensions {
@@ -128,19 +117,13 @@ export function useInteractivePlayback({
   const lastEventTimeRef = useRef<number>(0);
   const isUserInteractionRef = useRef<boolean>(false);
 
-  // Update modified blocks when original blocks change (e.g., during playback)
-  useEffect(() => {
-    if (!isPausedForEdit && !hasUnsavedChanges) {
-      // Use functional update to avoid stale closure
-      setModifiedBlocks((current) => {
-        // Only update if the blocks are actually different
-        if (current !== originalBlocks) {
-          return originalBlocks;
-        }
-        return current;
-      });
+  // Compute effective blocks - use original during playback, modified during edit
+  const effectiveBlocks = useMemo(() => {
+    if (isPausedForEdit || hasUnsavedChanges) {
+      return modifiedBlocks;
     }
-  }, [originalBlocks, isPausedForEdit, hasUnsavedChanges]);
+    return originalBlocks;
+  }, [originalBlocks, modifiedBlocks, isPausedForEdit, hasUnsavedChanges]);
 
   // Apply a recording event to blocks
   const applyEventToBlocks = useCallback((event: RecordingEvent) => {
@@ -320,71 +303,39 @@ export function useInteractivePlayback({
           // Type-safe update: only allow modifications that match the block type
           // We extract only the properties that are valid for this block type
           const baseUpdate = { updatedAt: Date.now() };
-          
+
           switch (b.type) {
             case 'equation': {
-              const eqBlock: EquationBlock = b;
-              return {
-                ...eqBlock,
-                ...(modifications as Partial<EquationBlock>),
-                ...baseUpdate,
-              };
+              const eqBlock = b;
+              return Object.assign({}, eqBlock, modifications, baseUpdate);
             }
             case 'chart': {
-              const chartBlock: ChartBlock = b;
-              return {
-                ...chartBlock,
-                ...(modifications as Partial<ChartBlock>),
-                ...baseUpdate,
-              };
+              const chartBlock = b;
+              return Object.assign({}, chartBlock, modifications, baseUpdate);
             }
             case 'control': {
-              const controlBlock: ControlBlock = b;
-              return {
-                ...controlBlock,
-                ...(modifications as Partial<ControlBlock>),
-                ...baseUpdate,
-              };
+              const controlBlock = b;
+              return Object.assign({}, controlBlock, modifications, baseUpdate);
             }
             case 'description': {
-              const descBlock: DescriptionBlock = b;
-              return {
-                ...descBlock,
-                ...(modifications as Partial<DescriptionBlock>),
-                ...baseUpdate,
-              };
+              const descBlock = b;
+              return Object.assign({}, descBlock, modifications, baseUpdate);
             }
             case 'limit': {
-              const limitBlock: LimitBlock = b;
-              return {
-                ...limitBlock,
-                ...(modifications as Partial<LimitBlock>),
-                ...baseUpdate,
-              };
+              const limitBlock = b;
+              return Object.assign({}, limitBlock, modifications, baseUpdate);
             }
             case 'shape': {
-              const shapeBlock: import('@/lib/block-system/types').ShapeBlock = b;
-              return {
-                ...shapeBlock,
-                ...(modifications as Partial<import('@/lib/block-system/types').ShapeBlock>),
-                ...baseUpdate,
-              };
+              const shapeBlock = b;
+              return Object.assign({}, shapeBlock, modifications, baseUpdate);
             }
             case 'logic': {
-              const logicBlock: import('@/lib/block-system/types').LogicBlock = b;
-              return {
-                ...logicBlock,
-                ...(modifications as Partial<import('@/lib/block-system/types').LogicBlock>),
-                ...baseUpdate,
-              };
+              const logicBlock = b;
+              return Object.assign({}, logicBlock, modifications, baseUpdate);
             }
             case 'variable': {
-              const variableBlock: import('@/lib/block-system/types').VariableBlock = b;
-              return {
-                ...variableBlock,
-                ...(modifications as Partial<import('@/lib/block-system/types').VariableBlock>),
-                ...baseUpdate,
-              };
+              const variableBlock = b;
+              return Object.assign({}, variableBlock, modifications, baseUpdate);
             }
             default:
               // For unknown block types, only apply the base update
@@ -471,10 +422,10 @@ export function useInteractivePlayback({
     isPausedForEdit,
     hasUnsavedChanges,
     canResume: isPausedForEdit,
-    modifiedBlocks,
+    modifiedBlocks: effectiveBlocks,
     manipulationHistory,
     variableOverrides,
-    
+
     // Actions
     pauseForEdit,
     resumePlayback,

@@ -147,8 +147,10 @@ export function EnrolledLessonsDisplay({
 
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <Tabs value={filter} onValueChange={(v) => {
-          if (v === 'all' || v === 'in-progress' || v === 'completed') {
+        <Tabs value={filter} onValueChange={(v: string) => {
+          const isValidFilter = (val: string): val is FilterType => 
+            val === 'all' || val === 'in-progress' || val === 'completed';
+          if (isValidFilter(v)) {
             setFilter(v);
           }
         }}>

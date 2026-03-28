@@ -21,5 +21,5 @@
     ".next/types/**/*.ts",
     "env.d.ts"
   ],
-  "exclude": ["node_modules", "vitest.config.ts","components/block-system" ]
+  "exclude": ["node_modules", "vitest.config.ts", "orval.config.ts"]
 }

@@ -3,7 +3,7 @@
 import React from 'react';
 import { ConnectionLine } from './connection-line';
 import type { BlockConnection, Block } from '@/lib/block-system/types';
-import { GRID_UNIT, getBlockBoundingBox } from '@/lib/block-system/types';
+import { getBlockBoundingBox } from '@/lib/block-system/types';
 
 interface ConnectionLayerProps {
   blocks: Block[];

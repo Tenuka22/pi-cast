@@ -8,8 +8,6 @@
 
 export type RequestCreatorRoleRoleType = typeof RequestCreatorRoleRoleType[keyof typeof RequestCreatorRoleRoleType];
 
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const RequestCreatorRoleRoleType = {
   creator: 'creator',
   teacher: 'teacher',

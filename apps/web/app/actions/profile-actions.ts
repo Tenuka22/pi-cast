@@ -1,6 +1,11 @@
 "use server"
 
-import { orpc } from "@/lib/server-orpc-client"
+import {
+  postApiProfileFollow,
+  putApiProfileMe,
+  postApiProfileCreatorRole,
+} from "@/lib/api/profile/profile"
+import type { ToggleFollow, UpdateProfile, RequestCreatorRole } from "@/lib/api/schemas"
 
 /**
  * Server actions for profile mutations
@@ -9,7 +14,8 @@ import { orpc } from "@/lib/server-orpc-client"
 
 export async function toggleFollow(userId: string) {
   try {
-    const result = await orpc.profileToggleFollow(userId)
+    const payload: ToggleFollow = { userId }
+    const result = await postApiProfileFollow(payload)
     return { success: true, data: result }
   } catch (error) {
     return {
@@ -28,7 +34,8 @@ export async function updateProfile(input: {
   image?: string
 }) {
   try {
-    const result = await orpc.profileUpdateMyProfile(input)
+    const payload: UpdateProfile = input
+    const result = await putApiProfileMe(payload)
     return { success: true, data: result }
   } catch (error) {
     return {
@@ -40,7 +47,8 @@ export async function updateProfile(input: {
 
 export async function requestCreatorRole() {
   try {
-    const result = await orpc.profileRequestCreatorRole({})
+    const payload: RequestCreatorRole = {}
+    const result = await postApiProfileCreatorRole(payload)
     return { success: true, data: result }
   } catch (error) {
     return {

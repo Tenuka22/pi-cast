@@ -520,7 +520,9 @@ function CreatorTab() {
     text: string
   } | null>(null)
 
-  const userRole = (session?.user as { role?: string } | undefined)?.role
+  const userRole = session && typeof session.user === "object" && session.user !== null && "role" in session.user
+    ? session.user.role
+    : undefined
   const isCreator = userRole === "creator" || userRole === "admin"
   const isAdmin = userRole === "admin"
 

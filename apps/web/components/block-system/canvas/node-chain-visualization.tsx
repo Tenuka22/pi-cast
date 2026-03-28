@@ -42,10 +42,6 @@ export function NodeChainIndicator({
   const block = blocks.get(chain.nodeId);
   if (!block) return null;
 
-  // Calculate handle positions
-  const blockWidthPx = block.dimensions.width * GRID_UNIT;
-  const blockHeightPx = block.dimensions.height * GRID_UNIT;
-
   // Input handle (top center) - receives from prev
   const inputPos: GridPosition = {
     x: block.position.x + Math.floor(block.dimensions.width / 2),

@@ -49,9 +49,9 @@ export function NodeChainLayer({
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-visible">
       {/* Highlight chain path when a chain is selected */}
-      {selectedChain && (
+      {selectedChain && selectedChainId && (
         <ChainPathHighlight
-          chainId={selectedChainId!}
+          chainId={selectedChainId}
           allChains={nodeChains}
           blocks={blockMap}
         />

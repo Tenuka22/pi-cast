@@ -71,7 +71,7 @@ export function ChartBlockComponent({
   connectedConstraints = [],
 }: ChartBlockComponentProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
-  const defaultDimensionsRef = useRef(block.dimensions)
+  const [defaultDimensions] = React.useState(block.dimensions)
   const MIN_CANVAS_HEIGHT = 240
   const width = block.dimensions.width * 32
   const height = block.dimensions.height * 32
@@ -219,7 +219,7 @@ export function ChartBlockComponent({
       block={block}
       isSelected={isSelected}
       isDragging={isDragging}
-      maxDimensions={defaultDimensionsRef.current}
+      maxDimensions={defaultDimensions}
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDimensionsChange={onDimensionsChange}

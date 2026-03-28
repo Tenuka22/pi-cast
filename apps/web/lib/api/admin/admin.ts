@@ -9,8 +9,13 @@ import {
   useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
@@ -55,44 +60,66 @@ export const getGetApiAdminUsersQueryKey = (params?: GetApiAdminUsersParams,) =>
     }
 
     
-export const getGetApiAdminUsersQueryOptions = <TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(params?: GetApiAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+export const getGetApiAdminUsersQueryOptions = <TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(params?: GetApiAdminUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetApiAdminUsersQueryKey(params);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAdminUsers>>> = ({ signal }) => getApiAdminUsers(params, requestOptions, signal);
 
-      
 
-      
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData> & { queryKey: QueryKey }
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiAdminUsersQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAdminUsers>>>
 export type GetApiAdminUsersQueryError = void
 
 
+export function useGetApiAdminUsers<TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(
+ params: undefined |  GetApiAdminUsersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAdminUsers>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAdminUsers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAdminUsers<TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(
+ params?: GetApiAdminUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAdminUsers>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAdminUsers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAdminUsers<TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(
+ params?: GetApiAdminUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get all users
  */
 
 export function useGetApiAdminUsers<TData = Awaited<ReturnType<typeof getApiAdminUsers>>, TError = void>(
- params?: GetApiAdminUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetApiAdminUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminUsers>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiAdminUsersQueryOptions(params,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 
@@ -124,44 +151,66 @@ export const getGetApiAdminStatsQueryKey = () => {
     }
 
     
-export const getGetApiAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
+export const getGetApiAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetApiAdminStatsQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAdminStats>>> = ({ signal }) => getApiAdminStats(requestOptions, signal);
 
-      
 
-      
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData> & { queryKey: QueryKey }
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> } // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 export type GetApiAdminStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAdminStats>>>
 export type GetApiAdminStatsQueryError = void
 
 
+export function useGetApiAdminStats<TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAdminStats>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAdminStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAdminStats<TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAdminStats>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAdminStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAdminStats<TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get platform stats
  */
 
 export function useGetApiAdminStats<TData = Awaited<ReturnType<typeof getApiAdminStats>>, TError = void>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>, request?: SecondParameter<typeof authFetch>}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminStats>>, TError, TData>>, request?: SecondParameter<typeof authFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiAdminStatsQueryOptions(options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient);
 
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
+  return query as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
 

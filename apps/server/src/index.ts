@@ -32,7 +32,8 @@ export const app = new OpenAPIHono<Context>()
 
 // Auth middleware - makes auth instance available to all routes
 app.use("*", async (c, next) => {
-  const auth = createAuth(c.env, c.req.raw.cf as unknown as IncomingRequestCfProperties)
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+  const auth = createAuth(c.env, (c.req.raw.cf || {}) as any)
   c.set("auth", auth)
   await next()
 })
@@ -48,7 +49,8 @@ app.use("*", async (c, next) => {
 app.use("*", async (c, next) => {
   const auth = c.get("auth")
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
-  c.set("session", session)
+  console.log(session, c.req.raw.headers)
+  c.set("session", session?.session ?? null)
   c.set("user", session?.user ?? null)
   await next()
 })

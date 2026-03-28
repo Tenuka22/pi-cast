@@ -1,6 +1,6 @@
-import { defineConfig } from "orval"
 
-const config = defineConfig({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const config: any = {
   serverApiSchemas: {
     input: {
       target: "http://127.0.0.1:8787/api/openapi.json",
@@ -9,14 +9,14 @@ const config = defineConfig({
       target: "./lib/api/schemas",
       client: "zod",
       mode: "split",
-      clean: false,
+      clean: true,
       override: {
         zod: {
           strict: {
-            response: false,
-            query: false,
-            header: false,
-            param: false,
+            response: true,
+            query: true,
+            header: true,
+            param: true,
             body: true,
           },
         },
@@ -33,14 +33,14 @@ const config = defineConfig({
       client: "react-query",
       mode: "tags-split",
       schemas: "./lib/api/schemas",
-      clean: false,
+      clean: true,
       override: {
         zod: {
           strict: {
-            response: false,
-            query: false,
-            header: false,
-            param: false,
+            response: true,
+            query: true,
+            header: true,
+            param: true,
             body: true,
           },
         },
@@ -51,6 +51,6 @@ const config = defineConfig({
       },
     },
   },
-})
+}
 
 export default config

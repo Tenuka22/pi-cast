@@ -339,6 +339,54 @@ export type Block =
   | TableBlock
 
 // ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+export function isEquationBlock(block: Block): block is EquationBlock {
+  return block.type === 'equation';
+}
+
+export function isChartBlock(block: Block): block is ChartBlock {
+  return block.type === 'chart';
+}
+
+export function isControlBlock(block: Block): block is ControlBlock {
+  return block.type === 'control';
+}
+
+export function isDescriptionBlock(block: Block): block is DescriptionBlock {
+  return block.type === 'description';
+}
+
+export function isLimitBlock(block: Block): block is LimitBlock {
+  return block.type === 'limit';
+}
+
+export function isShapeBlock(block: Block): block is ShapeBlock {
+  return block.type === 'shape';
+}
+
+export function isLogicBlock(block: Block): block is LogicBlock {
+  return block.type === 'logic';
+}
+
+export function isVariableBlock(block: Block): block is VariableBlock {
+  return block.type === 'variable';
+}
+
+export function isComparatorBlock(block: Block): block is ComparatorBlock {
+  return block.type === 'comparator';
+}
+
+export function isConstraintBlock(block: Block): block is ConstraintBlock {
+  return block.type === 'constraint';
+}
+
+export function isTableBlock(block: Block): block is TableBlock {
+  return block.type === 'table';
+}
+
+// ============================================================================
 // CONNECTION TYPES
 // ============================================================================
 
@@ -377,12 +425,9 @@ export interface BlockConnection {
     | "control-to-shape"
     | "control-to-limit"
     | "control-to-comparator"
-    | "equation-to-logic"
     | "logic-to-logic"
     | "logic-to-chart"
     | "logic-to-shape"
-    | "equation-to-comparator"
-    | "control-to-comparator"
     | "comparator-to-logic"
     | "comparator-to-chart"
     | "comparator-to-shape"
@@ -1240,16 +1285,16 @@ export function evaluateNodeChain(
   // Collect data from this node
   switch (block.type) {
     case "equation": {
-      const eqBlock = block as EquationBlock
-      result.equation = eqBlock.equation
-      result.variables = eqBlock.variables
-      result.tokens = eqBlock.tokens
-      result.equationType = eqBlock.equationType
+      if (!isEquationBlock(block)) break
+      result.equation = block.equation
+      result.variables = block.variables
+      result.tokens = block.tokens
+      result.equationType = block.equationType
       break
     }
     case "control": {
-      const ctrlBlock = block as ControlBlock
-      result.variables = ctrlBlock.variables.map((v) => ({
+      if (!isControlBlock(block)) break
+      result.variables = block.variables.map((v) => ({
         name: v.name,
         value: v.value,
         defaultValue: v.value,
@@ -1260,33 +1305,37 @@ export function evaluateNodeChain(
       break
     }
     case "limit": {
-      const limitBlock = block as LimitBlock
+      if (!isLimitBlock(block)) break
       // Limit data is evaluated based on the previous node's equation
       result.limitValues = []
       break
     }
     case "shape": {
-      const shapeBlock = block as ShapeBlock
-      result.fillValue = shapeBlock.fillValue
+      if (!isShapeBlock(block)) break
+      result.fillValue = block.fillValue
       result.fillPercentage =
-        shapeBlock.fillMode === "percentage"
-          ? shapeBlock.fillValue
-          : shapeBlock.fillMode === "fraction"
-            ? shapeBlock.fillValue * 100
-            : shapeBlock.fillMode === "decimal"
-              ? shapeBlock.fillValue * 100
+        block.fillMode === "percentage"
+          ? block.fillValue
+          : block.fillMode === "fraction"
+            ? block.fillValue * 100
+            : block.fillMode === "decimal"
+              ? block.fillValue * 100
               : 0
       result.isFilled = result.fillPercentage === 100
       break
     }
     case "logic": {
-      const logicBlock = block as LogicBlock
-      result.booleanResult = logicBlock.result as boolean
+      if (!isLogicBlock(block)) break
+      if (typeof block.result === 'boolean') {
+        result.booleanResult = block.result
+      }
       break
     }
     case "comparator": {
-      const compBlock = block as ComparatorBlock
-      result.booleanResult = compBlock.result as boolean
+      if (!isComparatorBlock(block)) break
+      if (typeof block.result === 'boolean') {
+        result.booleanResult = block.result
+      }
       break
     }
   }
@@ -1356,6 +1405,7 @@ export function generateLimitApproachValues(
 
 /**
  * Simplified equation evaluation at a specific x value
+ * Uses safe math evaluation without Function constructor
  */
 function evaluateEquationAtX(
   equation: string,
@@ -1375,10 +1425,243 @@ function evaluateEquationAtX(
       expr = expr.replace(regex, value.toString())
     }
 
-    // Handle basic math (simplified - production would use full parser)
-    // eslint-disable-next-line no-new-func
-    return Function(`"use strict"; return (${expr})`)()
+    // Safe math expression evaluation
+    return evaluateMathExpression(expr)
   } catch {
     return NaN
   }
+}
+
+/**
+ * Safely evaluate a basic math expression using tokenizer and RPN
+ * Supports: +, -, *, /, ^, parentheses, numbers, Math functions
+ */
+function evaluateMathExpression(expr: string): number {
+  // Replace ^ with ** for exponentiation
+  expr = expr.replace(/\^/g, "**")
+  
+  // Replace Math functions
+  expr = expr.replace(/\bsin\b/g, "Math.sin")
+  expr = expr.replace(/\bcos\b/g, "Math.cos")
+  expr = expr.replace(/\btan\b/g, "Math.tan")
+  expr = expr.replace(/\bsqrt\b/g, "Math.sqrt")
+  expr = expr.replace(/\babs\b/g, "Math.abs")
+  expr = expr.replace(/\blog\b/g, "Math.log10")
+  expr = expr.replace(/\bln\b/g, "Math.log")
+  expr = expr.replace(/\bexp\b/g, "Math.exp")
+  expr = expr.replace(/\bPI\b/g, Math.PI.toString())
+  expr = expr.replace(/\bE\b/g, Math.E.toString())
+  
+  // Tokenize and evaluate using a safe shunting-yard algorithm
+  const tokens = tokenizeMath(expr)
+  const rpn = toRPN(tokens)
+  return evaluateRPN(rpn)
+}
+
+type MathToken = 
+  | { type: 'number'; value: number }
+  | { type: 'operator'; value: '+' | '-' | '*' | '/' | '**' | 'u-' }
+  | { type: 'function'; value: string }
+  | { type: 'lparen' }
+  | { type: 'rparen' }
+
+function tokenizeMath(expr: string): MathToken[] {
+  const tokens: MathToken[] = []
+  let i = 0
+  
+  while (i < expr.length) {
+    const ch = expr[i]
+    
+    if (!ch) {
+      i++
+      continue
+    }
+    
+    // Skip whitespace
+    if (ch === ' ') {
+      i++
+      continue
+    }
+    
+    // Numbers
+    if (/[0-9.]/.test(ch)) {
+      let numStr = ''
+      while (i < expr.length && /[0-9.]/.test(expr[i] ?? '')) {
+        numStr += expr[i]
+        i++
+      }
+      const num = Number(numStr)
+      if (!Number.isNaN(num)) {
+        tokens.push({ type: 'number', value: num })
+      }
+      continue
+    }
+    
+    // Operators
+    if (ch === '+' || ch === '-' || ch === '*' || ch === '/') {
+      if (ch === '*' && expr[i + 1] === '*') {
+        tokens.push({ type: 'operator', value: '**' })
+        i += 2
+      } else {
+        const opValue = ch === '+' || ch === '-' || ch === '*' || ch === '/' ? ch : '+'
+        tokens.push({ type: 'operator', value: opValue })
+        i++
+      }
+      continue
+    }
+    
+    // Parentheses
+    if (ch === '(') {
+      tokens.push({ type: 'lparen' })
+      i++
+      continue
+    }
+    if (ch === ')') {
+      tokens.push({ type: 'rparen' })
+      i++
+      continue
+    }
+    
+    // Function names (already replaced with Math.xxx)
+    if (/[a-zA-Z_]/.test(ch)) {
+      let name = ''
+      while (i < expr.length && /[a-zA-Z0-9_.]/.test(expr[i] ?? '')) {
+        name += expr[i]
+        i++
+      }
+      if (name.startsWith('Math.')) {
+        const fnName = name.slice(5)
+        if (['sin', 'cos', 'tan', 'sqrt', 'abs', 'log10', 'log', 'exp'].includes(fnName)) {
+          tokens.push({ type: 'function', value: fnName })
+        }
+      }
+      continue
+    }
+    
+    i++
+  }
+  
+  return tokens
+}
+
+function toRPN(tokens: MathToken[]): MathToken[] {
+  const output: MathToken[] = []
+  const stack: MathToken[] = []
+  
+  const precedence: Record<string, number> = {
+    '+': 1, '-': 1,
+    '*': 2, '/': 2,
+    'u-': 3,
+    '**': 4,
+  }
+  
+  let prevToken: MathToken | null = null
+
+  for (const token of tokens) {
+    if (token.type === 'number') {
+      output.push(token)
+    } else if (token.type === 'function') {
+      stack.push(token)
+    } else if (token.type === 'operator') {
+      // Handle unary minus
+      let op = token.value
+      const prevTokenType = prevToken?.type as MathToken['type'] | undefined
+      const isPrevTokenOperatorOrLparen = prevTokenType === 'operator' || prevTokenType === 'lparen' || prevTokenType === 'function'
+      if (op === '-' && (!prevToken || isPrevTokenOperatorOrLparen)) {
+        op = 'u-'
+        token.value = op
+      }
+
+      while (stack.length > 0) {
+        const top = stack[stack.length - 1]
+        if (!top || top.type === 'lparen') break
+
+        const topPrec = top.type === 'operator' ? precedence[top.value] ?? 0 : 0
+        const opPrec = precedence[op] ?? 0
+
+        if (topPrec >= opPrec) {
+          const popped = stack.pop()
+          if (popped) output.push(popped)
+        } else {
+          break
+        }
+      }
+      stack.push(token)
+    } else if (token.type === 'lparen') {
+      stack.push(token)
+    } else if (token.type === 'rparen') {
+      while (stack.length > 0 && stack[stack.length - 1]?.type !== 'lparen') {
+        const popped = stack.pop()
+        if (popped) output.push(popped)
+      }
+      stack.pop() // Remove lparen
+      const topFunc = stack[stack.length - 1]
+      if (topFunc?.type === 'function') {
+        const popped = stack.pop()
+        if (popped) output.push(popped)
+      }
+    }
+
+    if (token.type !== 'lparen' && token.type !== 'rparen') {
+      prevToken = token
+    }
+  }
+
+  while (stack.length > 0) {
+    const popped = stack.pop()
+    if (popped) output.push(popped)
+  }
+
+  return output
+}
+
+function evaluateRPN(tokens: MathToken[]): number {
+  const stack: number[] = []
+  
+  const functions: Record<string, (x: number) => number> = {
+    sin: Math.sin,
+    cos: Math.cos,
+    tan: Math.tan,
+    sqrt: Math.sqrt,
+    abs: Math.abs,
+    log10: Math.log10,
+    log: Math.log,
+    exp: Math.exp,
+  }
+  
+  for (const token of tokens) {
+    if (token.type === 'number') {
+      stack.push(token.value)
+    } else if (token.type === 'function') {
+      const arg = stack.pop()
+      if (arg === undefined) throw new Error('Invalid expression')
+      const fn = functions[token.value]
+      if (!fn) throw new Error(`Unknown function: ${token.value}`)
+      stack.push(fn(arg))
+    } else if (token.type === 'operator') {
+      if (token.value === 'u-') {
+        const arg = stack.pop()
+        if (arg === undefined) throw new Error('Invalid expression')
+        stack.push(-arg)
+      } else {
+        const b = stack.pop()
+        const a = stack.pop()
+        if (a === undefined || b === undefined) throw new Error('Invalid expression')
+        
+        switch (token.value) {
+          case '+': stack.push(a + b); break
+          case '-': stack.push(a - b); break
+          case '*': stack.push(a * b); break
+          case '/': stack.push(a / b); break
+          case '**': stack.push(a ** b); break
+        }
+      }
+    }
+  }
+  
+  const result = stack[0]
+  if (result === undefined || !Number.isFinite(result)) {
+    throw new Error('Invalid result')
+  }
+  return result
 }

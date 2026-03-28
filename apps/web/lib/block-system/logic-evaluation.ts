@@ -8,9 +8,6 @@ import type {
   Block,
   LogicBlock,
   ComparatorBlock,
-  EquationBlock,
-  ControlBlock,
-  ShapeBlock,
   ConstraintBlock,
 } from '@/lib/block-system/types';
 import {
@@ -103,15 +100,17 @@ export function evaluateLogicGate(
       return inputValues.every((v) => v === true);
     case 'or':
       return inputValues.some((v) => v === true);
-    case 'xor':
+    case 'xor': {
       // XOR: true if exactly one input is true
       const trueCount = inputValues.filter((v) => v).length;
-      return trueCount === 1;
-    case 'eq':
+      return trueCount === 1
+    }
+    case 'eq': {
       // Equality: true if all inputs are equal
       if (inputValues.length === 0) return false;
       const first = inputValues[0];
       return inputValues.every((v) => v === first);
+    }
     case 'lt':
     case 'gt':
     case 'le':
@@ -170,10 +169,10 @@ export function evaluateConstraint(
     (b) => b.id === constraintBlock.targetEquationId && isEquationBlock(b)
   );
 
-  if (!equationBlock) return true; // No equation connected, constraint is satisfied by default
+  if (!equationBlock || !isEquationBlock(equationBlock)) return true; // No equation connected, constraint is satisfied by default
 
   // Get the variable value from the equation
-  const variable = (equationBlock as EquationBlock).variables?.find((v: import('@/lib/block-system/types').Variable) => v.name === variableName);
+  const variable = equationBlock.variables?.find((v) => v.name === variableName);
   const value = variable?.value ?? 0;
 
   switch (constraint.type) {
@@ -185,10 +184,11 @@ export function evaluateConstraint(
       return constraint.max !== undefined ? value <= constraint.max : true;
     case 'lt':
       return constraint.max !== undefined ? value < constraint.max : true;
-    case 'range':
+    case 'range': {
       const minOk = constraint.min !== undefined ? value >= constraint.min : true;
       const maxOk = constraint.max !== undefined ? value <= constraint.max : true;
-      return minOk && maxOk;
+      return minOk && maxOk
+    }
     default:
       return true;
   }
@@ -233,10 +233,12 @@ export function updateLogicBlockResults(
     if (!logicResult) return block;
 
     if (isLogicBlock(block)) {
-      return { ...block, result: logicResult.result as boolean, updatedAt: now } as Block;
+      const booleanResult = typeof logicResult.result === 'boolean' ? logicResult.result : false
+      return { ...block, result: booleanResult, updatedAt: now }
     }
     if (isComparatorBlock(block)) {
-      return { ...block, result: logicResult.result as boolean, updatedAt: now } as Block;
+      const booleanResult = typeof logicResult.result === 'boolean' ? logicResult.result : false
+      return { ...block, result: booleanResult, updatedAt: now }
     }
     return block;
   });

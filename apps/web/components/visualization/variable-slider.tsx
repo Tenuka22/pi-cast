@@ -48,7 +48,7 @@ export function VariableSlider({
 
   const handleSliderChange = React.useCallback((newValue: number | readonly number[]) => {
     const newVal = Array.isArray(newValue) ? newValue[0] ?? 0 : newValue;
-    if (!isNaN(newVal)) {
+    if (typeof newVal === 'number' && !isNaN(newVal)) {
       onChange?.(name, newVal);
     }
   }, [name, onChange]);

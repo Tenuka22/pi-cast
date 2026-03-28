@@ -30,7 +30,6 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps): React.ReactElement {
   const [theme, setTheme] = useState<Theme>(defaultTheme);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -54,8 +53,6 @@ export function ThemeProvider({
   }, [storageKey]);
 
   useEffect(() => {
-    if (!mounted) return;
-
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
@@ -68,7 +65,7 @@ export function ThemeProvider({
     }
 
     root.classList.add(theme);
-  }, [theme, mounted]);
+  }, [theme]);
 
   const value = {
     theme,

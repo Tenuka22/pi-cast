@@ -47,8 +47,9 @@ vi.mock('@workspace/ui/components/button', () => ({
     const button = document.createElement('button');
     if (type) {
       const validTypes = ['button', 'submit', 'reset'] as const;
-      if (validTypes.includes(type as typeof validTypes[number])) {
-        button.type = type as typeof validTypes[number];
+      const typeValue = validTypes.find(t => t === type)
+      if (typeValue) {
+        button.type = typeValue
       }
     }
     button.setAttribute('data-variant', variant);

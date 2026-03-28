@@ -26,8 +26,7 @@ export function ConnectionLine({
   // Calculate smooth bezier curve control points (Obsidian-style)
   // The curve flows horizontally from source to target
   const horizontalDistance = Math.abs(endX - startX);
-  const verticalDistance = Math.abs(endY - startY);
-  
+
   // Control point offset - creates the smooth S-curve
   // Adjust based on distance for optimal curve shape
   const controlOffset = Math.min(horizontalDistance * 0.5, Math.max(100, horizontalDistance * 0.3));

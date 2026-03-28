@@ -8,17 +8,6 @@ import { useMemo } from "react"
  */
 export type UserRole = "student" | "creator" | "admin"
 
-interface UserWithRole {
-  id: string
-  createdAt: Date
-  updatedAt: Date
-  email: string
-  emailVerified: boolean
-  name: string
-  image?: string | null
-  role?: "admin" | "teacher" | "user" | "creator" | "student" | null
-}
-
 /**
  * Hook to check user role and permissions
  *
@@ -33,15 +22,18 @@ interface UserWithRole {
  */
 export function useUserRole() {
   const { data: session } = useSession()
-  const user = session?.user as UserWithRole | undefined
 
   const role: UserRole = useMemo(() => {
-    if (!user?.role) return "student"
+    const userRole = session && typeof session.user === "object" && session.user !== null && "role" in session.user
+      ? session.user.role
+      : undefined
 
-    if (user.role === "admin") return "admin"
-    if (user.role === "creator") return "creator"
+    if (!userRole) return "student"
+
+    if (userRole === "admin") return "admin"
+    if (userRole === "creator") return "creator"
     return "student"
-  }, [user?.role])
+  }, [session])
 
   const isAdmin = role === "admin"
   const isCreator = role === "creator" || isAdmin
@@ -92,6 +84,6 @@ export function useUserRole() {
     canPublish,
     hasRole,
     hasAnyRole,
-    user,
+    user: session && typeof session === "object" && "user" in session ? session.user : undefined,
   }
 }

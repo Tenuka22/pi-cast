@@ -40,6 +40,14 @@ export const sessions = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    timezone: text("timezone"),
+    city: text("city"),
+    country: text("country"),
+    region: text("region"),
+    regionCode: text("region_code"),
+    colo: text("colo"),
+    latitude: text("latitude"),
+    longitude: text("longitude"),
     impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("sessions_userId_idx").on(table.userId)],

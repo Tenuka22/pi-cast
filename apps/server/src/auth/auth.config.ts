@@ -19,7 +19,8 @@ export const createAuth = (
 ) => {
   const db = env
     ? drizzle(env.DATABASE, { schema, logger: true })
-    : drizzle({} as unknown as D1Database, { schema, logger: true })
+    : // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      drizzle({} as unknown as D1Database, { schema, logger: true })
 
   return betterAuth({
     baseURL: ENV.SERVER_URL,
@@ -31,7 +32,8 @@ export const createAuth = (
         autoDetectIpAddress: true,
         geolocationTracking: true,
         cf: cf || {},
-        d1: env
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/consistent-type-assertions
+        d1: (env
           ? {
               db,
               options: {
@@ -39,7 +41,9 @@ export const createAuth = (
                 debugLogs: true,
               },
             }
-          : undefined,
+          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            undefined) as any,
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         kv: env?.AUTH_KV as unknown as KVNamespace,
       },
       {
@@ -56,7 +60,6 @@ export const createAuth = (
             async sendVerificationOTP({ email, otp, type }) {
               // TODO: Implement email sending (e.g., via SendGrid, Resend, etc.)
               console.log(`Sending OTP ${otp} to ${email} for ${type}`)
-              // For development, OTP is logged
             },
             otpLength: 6,
             expiresIn: 300, // 5 minutes
@@ -108,6 +111,7 @@ export const createAuth = (
     ...(env
       ? {}
       : {
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
           database: drizzleAdapter({} as unknown as D1Database, {
             provider: "sqlite",
             usePlural: true,
