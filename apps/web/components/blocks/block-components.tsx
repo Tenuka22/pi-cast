@@ -874,8 +874,9 @@ export function ChartBlockComponent({
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-semibold">📈</span>
           <span className="text-xs text-muted-foreground">
-            {connectedEquations.length || 0} equation
-            {connectedEquations.length !== 1 ? "s" : ""} connected
+            {/* Count equations from both direct connections and calculated data */}
+            {(connectedEquations.length + (calculatedData?.equation ? 1 : 0)) || 0} equation
+            {(connectedEquations.length + (calculatedData?.equation ? 1 : 0)) !== 1 ? "s" : ""} connected
             {connectedLimits.length > 0 && (
               <span className="ml-2">
                 • {connectedLimits.length} limit
