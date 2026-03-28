@@ -2057,7 +2057,29 @@ export function GridCanvas({
 
         // Get calculated data from node chain (node-based calculation)
         const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        let calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        
+        // Fallback: If we have connected limits but no calculatedData, get equation from limit's target
+        if (!calculatedData?.equation && connectedLimits.length > 0) {
+          const limit = connectedLimits[0]
+          if (limit?.targetEquationId) {
+            const targetEq = blocks.find(b => b.id === limit.targetEquationId && isEquationBlock(b))
+            if (targetEq && isEquationBlock(targetEq)) {
+              // Create calculatedData from the target equation
+              const variables: Record<string, number> = {}
+              ;(targetEq.variables ?? []).forEach((v) => {
+                variables[v.name] = v.value
+              })
+              calculatedData = {
+                equation: targetEq.equation,
+                variables: targetEq.variables,
+                tokens: targetEq.tokens,
+                equationType: targetEq.equationType,
+                timestamp: Date.now(),
+              }
+            }
+          }
+        }
 
         return (
           <ChartBlockComponent
