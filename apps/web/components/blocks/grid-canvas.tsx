@@ -59,6 +59,8 @@ import {
   ComparatorBlockComponent,
   ConstraintBlockComponent,
   TableBlockComponent,
+  PiecewiseLimiterBlockComponent,
+  PiecewiseBuilderBlockComponent,
 } from "./block-components"
 import { ConnectionLayer } from "@/components/connections/connection-layer"
 import { ConnectionPreview } from "@/components/connections/connection-line"
@@ -145,6 +147,14 @@ function isComparatorBlock(block: Block): block is ComparatorBlock {
 
 function isConstraintBlock(block: Block): block is ConstraintBlock {
   return block.type === "constraint"
+}
+
+function isPiecewiseLimiterBlock(block: Block): block is import("@/lib/block-system/types").PiecewiseLimiterBlock {
+  return block.type === "piecewise-limiter"
+}
+
+function isPiecewiseBuilderBlock(block: Block): block is import("@/lib/block-system/types").PiecewiseBuilderBlock {
+  return block.type === "piecewise-builder"
 }
 
 // ============================================================================
@@ -1604,6 +1614,34 @@ export function GridCanvas({
                 targetBlock.variableName || sourceBlock.variableName || "x",
             }
           } else if (
+            isPiecewiseLimiterBlock(targetBlock) &&
+            isEquationBlock(sourceBlock)
+          ) {
+            // Handle equation -> piecewise limiter connection
+            const vars =
+              sourceBlock.variables ??
+              parseEquation(sourceBlock.equation).variables
+            const names = vars.map((v) => v.name)
+            const nextVar = names.includes(targetBlock.variableName)
+              ? targetBlock.variableName
+              : (names[0] ?? "x")
+            return {
+              ...targetBlock,
+              sourceEquationId: sourceBlock.id,
+              variableName: nextVar,
+            }
+          } else if (
+            isPiecewiseBuilderBlock(targetBlock) &&
+            isPiecewiseLimiterBlock(sourceBlock)
+          ) {
+            // Handle piecewise limiter -> builder connection
+            return {
+              ...targetBlock,
+              connectedLimiterIds: Array.from(
+                new Set([...(targetBlock.connectedLimiterIds || []), sourceBlock.id])
+              ),
+            }
+          } else if (
             isShapeBlock(targetBlock) &&
             isEquationBlock(sourceBlock)
           ) {
@@ -1636,6 +1674,14 @@ export function GridCanvas({
                   ...(targetBlock.sourceConstraintIds || []),
                   sourceBlock.id,
                 ],
+              }
+            }
+            // Handle piecewise-builder -> table connection
+            if (isPiecewiseBuilderBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceEquationId: null, // Clear direct equation connection
+                sourceLimitId: null, // Clear direct limit connection
               }
             }
           }
@@ -1764,6 +1810,21 @@ export function GridCanvas({
                   (id) => id !== connection.sourceBlockId
                 ),
               }
+            }
+          } else if (isPiecewiseBuilderBlock(block)) {
+            // Handle disconnecting limiter from builder
+            if (block.connectedLimiterIds?.includes(connection.sourceBlockId)) {
+              return {
+                ...block,
+                connectedLimiterIds: block.connectedLimiterIds.filter(
+                  (id) => id !== connection.sourceBlockId
+                ),
+              }
+            }
+          } else if (isPiecewiseLimiterBlock(block)) {
+            // Handle disconnecting equation from limiter
+            if (block.sourceEquationId === connection.sourceBlockId) {
+              return { ...block, sourceEquationId: null }
             }
           }
 
@@ -2506,11 +2567,16 @@ export function GridCanvas({
           }
         }
 
+        // Get calculatedData from node chain (for piecewise functions)
+        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
+        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+
         return (
           <TableBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
+            calculatedData={calculatedData}
             connectedEquation={connectedEquation || equationFromConstraint}
             connectedLimit={connectedLimit}
             connectedConstraints={connectedConstraints}
@@ -2542,6 +2608,63 @@ export function GridCanvas({
                     ...settings,
                     updatedAt: Date.now(),
                   }
+                }
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
+            }}
+          />
+        )
+      }
+      case "piecewise-limiter": {
+        // Get connected equation if any
+        const connectedEquation = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-piecewise-limiter'))
+          .map((c) => blocks.find((b) => b.id === c.sourceBlockId && isEquationBlock(b)))
+          .filter((eq): eq is EquationBlock => Boolean(eq))[0]
+
+        return (
+          <PiecewiseLimiterBlockComponent
+            key={block.id}
+            block={block}
+            {...commonProps}
+            onBlockChange={(updates) => {
+              const now = Date.now()
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isPiecewiseLimiterBlock(b)) {
+                  return { ...b, ...updates, updatedAt: now }
+                }
+                return b
+              })
+              setInternalBlocks(updatedBlocks)
+              onBlocksChange?.(updatedBlocks)
+            }}
+          />
+        )
+      }
+      case "piecewise-builder": {
+        // Get connected limiters from connections
+        const connectedLimiterIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-limiter-to-builder'))
+          .map((c) => c.sourceBlockId)
+
+        // Get calculated pieces from node chain
+        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
+        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        const calculatedPieces = calculatedData?.piecewisePieces || []
+
+        return (
+          <PiecewiseBuilderBlockComponent
+            key={block.id}
+            block={block}
+            {...commonProps}
+            calculatedPieces={calculatedPieces}
+            onBlockChange={(updates) => {
+              const now = Date.now()
+              const updatedBlocks = blocks.map((b) => {
+                if (b.id === block.id && isPiecewiseBuilderBlock(b)) {
+                  return { ...b, ...updates, updatedAt: now }
                 }
                 return b
               })

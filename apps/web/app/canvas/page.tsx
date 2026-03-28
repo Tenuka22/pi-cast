@@ -193,6 +193,31 @@ function CanvasContent() {
           highlightLastRow,
         }
       }
+      case "piecewise-limiter": {
+        const variableName = preset.data.variableName ?? "x"
+        const constraint = preset.data.constraint ?? { type: "lt" as const, min: 0 }
+        const enabled = preset.data.enabled ?? true
+        return {
+          ...baseBlock,
+          type: "piecewise-limiter",
+          sourceEquationId: null,
+          variableName,
+          constraint,
+          enabled,
+        }
+      }
+      case "piecewise-builder": {
+        const connectedLimiterIds = preset.data.connectedLimiterIds ?? []
+        const fallbackEnabled = preset.data.fallbackEnabled ?? true
+        const fallbackEquation = preset.data.fallbackEquation ?? "0"
+        return {
+          ...baseBlock,
+          type: "piecewise-builder",
+          connectedLimiterIds,
+          fallbackEnabled,
+          fallbackEquation,
+        }
+      }
     }
   }
 
@@ -288,13 +313,76 @@ function CanvasContent() {
     setBlocks((prev) => [...prev, blockWithPosition])
   }
 
+  const handleBulkBlockSelect = (presets: Array<{ type: string; data: any }>) => {
+    // Create all blocks from the template
+    const newBlocks: Block[] = []
+    const startY = 10
+    const offsetX = 0
+    
+    presets.forEach((preset, index) => {
+      const position = preset.data.position || { x: 10 + offsetX, y: startY + index * 3 }
+      const newBlock = createBlockFromPreset(preset as BlockPreset, position)
+      const validPosition = findNearestValidPosition(
+        position,
+        { width: 4, height: 2 },
+        [...blocks, ...newBlocks]
+      )
+      newBlocks.push({ ...newBlock, position: validPosition })
+    })
+
+    // Auto-connect the blocks
+    const equationBlocks = newBlocks.filter(b => b.type === 'equation')
+    const limiterBlocks = newBlocks.filter(b => b.type === 'piecewise-limiter')
+    const builderBlock = newBlocks.find(b => b.type === 'piecewise-builder')
+    
+    // Connect equations to limiters and limiters to builder
+    equationBlocks.forEach((eq, i) => {
+      const limiter = limiterBlocks[i]
+      if (limiter) {
+        setTimeout(() => connectBlocks(eq.id, limiter.id), 100)
+      }
+    })
+    
+    limiterBlocks.forEach((limiter) => {
+      if (builderBlock) {
+        setTimeout(() => connectBlocks(limiter.id, builderBlock.id), 100)
+      }
+    })
+    
+    // Connect builder to chart and table
+    const chartBlock = newBlocks.find(b => b.type === 'chart')
+    const tableBlock = newBlocks.find(b => b.type === 'table')
+    
+    if (builderBlock && chartBlock) {
+      setTimeout(() => connectBlocks(builderBlock.id, chartBlock.id), 100)
+    }
+    if (builderBlock && tableBlock) {
+      setTimeout(() => connectBlocks(builderBlock.id, tableBlock.id), 100)
+    }
+
+    // Create node chains for all new blocks
+    const newChains = new Map(nodeChains)
+    newBlocks.forEach((block) => {
+      const chain = createNodeChain(
+        block.id,
+        block.type,
+        block.position,
+        block.dimensions
+      )
+      newChains.set(chain.id, chain)
+    })
+
+    setNodeChains(newChains)
+    setBlocks((prev) => [...prev, ...newBlocks])
+  }
+
   const handleBlocksChange = (newBlocks: Block[]) => {
     setBlocks(newBlocks)
   }
 
   return (
     <div className="flex h-screen w-full">
-      <BlockLibrary onBlockSelect={handleBlockSelect} />
+      <BlockLibrary onBlockSelect={handleBlockSelect} onBulkBlockSelect={handleBulkBlockSelect} />
       <div className="flex-1 space-y-4">
         <GridCanvas
           blocks={blocks}

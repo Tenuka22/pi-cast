@@ -29,6 +29,8 @@ export type BlockType =
   | "comparator"
   | "constraint"
   | "table"
+  | "piecewise-limiter"
+  | "piecewise-builder"
 
 // ============================================================================
 // NODE TREE TYPES (New Chain-Based Architecture)
@@ -57,8 +59,23 @@ export interface NodeData {
   // For logic/comparator results
   booleanResult?: boolean
 
+  // For piecewise functions
+  piecewisePieces?: PiecewisePiece[]
+  fallbackEquation?: string
+
   // Metadata
   timestamp?: number
+}
+
+/**
+ * A single piece of a piecewise function
+ */
+export interface PiecewisePiece {
+  equation: string
+  constraint: VariableConstraint
+  variableName: string
+  displayLabel?: string
+  variables?: Record<string, number>
 }
 
 /**
@@ -157,6 +174,8 @@ export interface VariableConstraint {
   type: ConstraintType
   min?: number  // For gte, gt, or range minimum
   max?: number  // For lte, lt, or range maximum
+  variableName?: string // For multivariable constraints
+  constraints?: VariableConstraint[] // For compound constraints (and/or/not)
 }
 
 export interface Variable {
@@ -344,6 +363,23 @@ export interface VariableBlock extends BaseBlock {
   layout: "horizontal" | "vertical"
 }
 
+export interface PiecewiseLimiterBlock extends BaseBlock {
+  type: "piecewise-limiter"
+  sourceEquationId?: string | null // Connected equation block
+  variableName: string // Variable to constrain (e.g., 'x')
+  constraint: VariableConstraint // The domain constraint (gte/gt/lte/lt/range)
+  enabled: boolean // Enable/disable this piece
+  displayLabel?: string // Optional label for this piece (e.g., "x < 0")
+}
+
+export interface PiecewiseBuilderBlock extends BaseBlock {
+  type: "piecewise-builder"
+  connectedLimiterIds: string[] // Array of connected piecewise limiter IDs
+  fallbackEquation?: string // Optional default equation when no piece matches (e.g., "0")
+  fallbackEnabled: boolean // Enable/disable fallback
+  combinedEquation?: string // Auto-generated piecewise notation (for display)
+}
+
 export type Block =
   | EquationBlock
   | ChartBlock
@@ -356,6 +392,8 @@ export type Block =
   | ComparatorBlock
   | ConstraintBlock
   | TableBlock
+  | PiecewiseLimiterBlock
+  | PiecewiseBuilderBlock
 
 // ============================================================================
 // TYPE GUARDS
@@ -403,6 +441,14 @@ export function isConstraintBlock(block: Block): block is ConstraintBlock {
 
 export function isTableBlock(block: Block): block is TableBlock {
   return block.type === 'table';
+}
+
+export function isPiecewiseLimiterBlock(block: Block): block is PiecewiseLimiterBlock {
+  return block.type === 'piecewise-limiter';
+}
+
+export function isPiecewiseBuilderBlock(block: Block): block is PiecewiseBuilderBlock {
+  return block.type === 'piecewise-builder';
 }
 
 // ============================================================================
@@ -457,6 +503,10 @@ export interface BlockConnection {
     | "constraint-to-logic"
     | "constraint-to-comparator"
     | "constraint-to-table"
+    | "equation-to-piecewise-limiter"
+    | "piecewise-limiter-to-builder"
+    | "piecewise-builder-to-chart"
+    | "piecewise-builder-to-table"
   createdAt: number
 }
 
@@ -653,6 +703,10 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
       return { width: 6, height: 5 }
     case "table":
       return { width: 20, height: 12 }
+    case "piecewise-limiter":
+      return { width: 8, height: 5 }
+    case "piecewise-builder":
+      return { width: 10, height: 6 }
     default:
       return { width: 4, height: 2 }
   }
@@ -1101,6 +1155,14 @@ export function getConnectionType(
     return "constraint-to-comparator"
   if (sourceBlockType === "constraint" && targetBlockType === "table")
     return "constraint-to-table"
+  if (sourceBlockType === "equation" && targetBlockType === "piecewise-limiter")
+    return "equation-to-piecewise-limiter"
+  if (sourceBlockType === "piecewise-limiter" && targetBlockType === "piecewise-builder")
+    return "piecewise-limiter-to-builder"
+  if (sourceBlockType === "piecewise-builder" && targetBlockType === "chart")
+    return "piecewise-builder-to-chart"
+  if (sourceBlockType === "piecewise-builder" && targetBlockType === "table")
+    return "piecewise-builder-to-table"
   return null
 }
 

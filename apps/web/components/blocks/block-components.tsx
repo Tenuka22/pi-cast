@@ -18,6 +18,7 @@ import {
   type DescriptionBlock,
   type LimitBlock,
   type ConnectionHandleType,
+  type PiecewisePiece,
   getTokenClassName,
   parseEquation,
   formatEquation,
@@ -420,6 +421,8 @@ interface ChartBlockComponentProps {
   // Map of equationId -> constraintIds that apply to it
   equationConstraintMap?: Record<string, string[]>
   connectedLimits?: LimitBlock[]
+  // Piecewise function support
+  piecewisePieces?: PiecewisePiece[]
 }
 
 const PLOT_COLORS = [
@@ -588,8 +591,25 @@ export function ChartBlockComponent({
 
   // Build plots from calculated node data (node-based calculation)
   // Falls back to connectedEquations prop for backwards compatibility
+  // Supports piecewise functions from piecewise-builder blocks
   const plots = useMemo(() => {
-    // Prefer calculatedData from node-calculation-engine
+    // Handle piecewise functions from calculatedData
+    if (calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0) {
+      return calculatedData.piecewisePieces.map((piece, index) => ({
+        key: `piecewise-${index}`,
+        equation: piece.equation,
+        variables: piece.variables || {},
+        color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
+        label: piece.displayLabel || piece.equation,
+        constraints: [{
+          variableName: piece.variableName,
+          constraint: piece.constraint,
+        }],
+        isPiecewise: true,
+      }))
+    }
+
+    // Prefer calculatedData from node-calculation-engine (non-piecewise)
     if (calculatedData?.equation && calculatedData.variables) {
       const variables: Record<string, number> = {}
       calculatedData.variables.forEach((variable) => {
@@ -610,6 +630,7 @@ export function ChartBlockComponent({
         color: PLOT_COLORS[0] || "#c084fc",
         label: calculatedData.equation,
         constraints: applicableConstraints,
+        isPiecewise: false,
       }]
     }
 
@@ -637,6 +658,7 @@ export function ChartBlockComponent({
             ? "disabled"
             : equationBlock.equation,
         constraints: applicableConstraints,
+        isPiecewise: false,
       }
     })
   }, [calculatedData, connectedEquations, constraints, equationConstraintMap])
@@ -2536,6 +2558,8 @@ interface TableBlockComponentProps {
     showGrid?: boolean
     highlightLastRow?: boolean
   }) => void
+  // Piecewise function support
+  calculatedData?: import("@/lib/block-system/types").NodeData
 }
 
 export function TableBlockComponent({
@@ -2555,6 +2579,7 @@ export function TableBlockComponent({
   connectedLimit,
   connectedConstraints = [],
   onSettingsChange,
+  calculatedData,
 }: TableBlockComponentProps) {
   const {
     columns = [],
@@ -2568,8 +2593,100 @@ export function TableBlockComponent({
   // State for controlling how many rows to display
   const [displayedRowCount, setDisplayedRowCount] = useState(11) // Default: show 11 rows
 
-  // Generate table data based on connected equation and limit
+  // Generate table data based on connected equation and limit OR piecewise function
   const tableData = useMemo(() => {
+    // Handle piecewise functions from calculatedData
+    if (calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0) {
+      const pieces = calculatedData.piecewisePieces
+      const allRows: import("@/lib/block-system/types").TableRow[] = []
+      const defaultColumns: import("@/lib/block-system/types").TableColumn[] = [
+        { id: "x", label: "x", type: "variable", variableName: "x" },
+        { id: "y", label: "y = f(x)", type: "result" },
+        { id: "piece", label: "Piece", type: "custom" },
+      ]
+
+      // Generate x values from -10 to 10
+      const xValues: number[] = []
+      for (let x = -10; x <= 10; x++) {
+        xValues.push(x)
+      }
+      // Add more granular values around 0 for better piecewise visualization
+      ;[-1, -0.5, -0.1, -0.01, 0.01, 0.5, 1].forEach(x => {
+        if (!xValues.includes(x)) xValues.push(x)
+      })
+      xValues.sort((a, b) => a - b)
+
+      // For each x value, find which piece applies and calculate y
+      for (const x of xValues) {
+        let matchedPiece: typeof pieces[0] | undefined
+        let y = NaN
+
+        // Find the matching piece for this x value
+        for (const piece of pieces) {
+          const constraint = piece.constraint
+          const varName = piece.variableName || "x"
+          const min = constraint.min
+          const max = constraint.max
+
+          let matches = false
+          switch (constraint.type) {
+            case "lt":
+              matches = x < (min ?? 0)
+              break
+            case "lte":
+              matches = x <= (min ?? 0)
+              break
+            case "gt":
+              matches = x > (min ?? 0)
+              break
+            case "gte":
+              matches = x >= (min ?? 0)
+              break
+            case "range":
+              matches = x >= (min ?? 0) && x <= (max ?? 0)
+              break
+          }
+
+          if (matches) {
+            matchedPiece = piece
+            // Evaluate the equation for this piece
+            const variables: Record<string, number> = { ...piece.variables, [varName]: x }
+            y = evaluateEquationAtX(piece.equation, variables)
+            break
+          }
+        }
+
+        // If no piece matches, use fallback equation
+        if (!matchedPiece && calculatedData.fallbackEquation) {
+          const variables: Record<string, number> = { x }
+          y = evaluateEquationAtX(calculatedData.fallbackEquation, variables)
+          matchedPiece = {
+            equation: calculatedData.fallbackEquation,
+            constraint: { type: "gte", min: -Infinity },
+            variableName: "x",
+            displayLabel: "otherwise",
+          }
+        }
+
+        if (matchedPiece) {
+          allRows.push({
+            id: `row-${x}`,
+            values: {
+              x,
+              y: isFinite(y) ? parseFloat(y.toFixed(6)) : "undefined",
+              piece: matchedPiece.displayLabel || matchedPiece.equation,
+            },
+          })
+        }
+      }
+
+      return {
+        columns: defaultColumns,
+        rows: allRows,
+      }
+    }
+
+    // Non-piecewise table generation (existing logic)
     if (!connectedEquation?.equation) {
       return { columns: [], rows: [] }
     }
@@ -3023,3 +3140,9 @@ function evaluateEquationAtX(
     return NaN
   }
 }
+
+// Re-export piecewise block components
+export {
+  PiecewiseLimiterBlockComponent,
+  PiecewiseBuilderBlockComponent,
+} from "./piecewise-blocks"

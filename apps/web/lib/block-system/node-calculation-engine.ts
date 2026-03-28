@@ -22,8 +22,12 @@ import type {
   VariableBlock,
   ConstraintBlock,
   LimitBlock,
+  PiecewiseLimiterBlock,
+  PiecewiseBuilderBlock,
   LimitApproachValue,
   Variable,
+  PiecewisePiece,
+  VariableConstraint,
 } from "@/lib/block-system/types"
 import { parseEquation } from "@/lib/block-system/types"
 import { evaluateFunction } from "@/lib/visualization/graph-renderer"
@@ -265,6 +269,14 @@ export function calculateNode(
       return calculateLimitNode(block as LimitBlock, prevData, allBlocks, timestamp)
     }
 
+    case "piecewise-limiter": {
+      return calculatePiecewiseLimiterNode(block as PiecewiseLimiterBlock, prevData, allBlocks, timestamp)
+    }
+
+    case "piecewise-builder": {
+      return calculatePiecewiseBuilderNode(block as PiecewiseBuilderBlock, prevData, allBlocks, timestamp)
+    }
+
     case "chart":
     case "table":
     case "shape": {
@@ -426,6 +438,159 @@ function calculateLimitNode(
     ...prevData,
     limitValues: approachValues,
     timestamp,
+  }
+}
+
+/**
+ * Calculate piecewise limiter node data
+ * A limiter connects to an equation and defines a domain constraint for that piece
+ */
+function calculatePiecewiseLimiterNode(
+  block: PiecewiseLimiterBlock,
+  prevData: NodeData | null,
+  allBlocks: Map<string, Block>,
+  timestamp: number
+): NodeData {
+  // Get the source equation if connected
+  let sourceEquation: EquationBlock | undefined
+  if (block.sourceEquationId) {
+    const targetBlock = allBlocks.get(block.sourceEquationId)
+    if (targetBlock && targetBlock.type === "equation") {
+      sourceEquation = targetBlock as EquationBlock
+    }
+  }
+
+  // If no source equation, try to get from previous node data
+  const equation = sourceEquation?.equation ?? prevData?.equation
+  const variables = sourceEquation?.variables ?? prevData?.variables
+
+  // Convert variables array to record for easier access
+  const variablesRecord: Record<string, number> = {}
+  if (variables) {
+    for (const v of variables) {
+      variablesRecord[v.name] = v.value
+    }
+  }
+
+  // Create the piecewise piece
+  const piece: PiecewisePiece = {
+    equation: equation || "",
+    constraint: block.constraint,
+    variableName: block.variableName,
+    displayLabel: block.displayLabel,
+    variables: variablesRecord,
+  }
+
+  return {
+    ...prevData,
+    // Store piece data for the builder to aggregate
+    piecewisePieces: [piece],
+    timestamp,
+  }
+}
+
+/**
+ * Calculate piecewise builder node data
+ * A builder aggregates multiple limiters into a single piecewise function
+ */
+function calculatePiecewiseBuilderNode(
+  block: PiecewiseBuilderBlock,
+  prevData: NodeData | null,
+  allBlocks: Map<string, Block>,
+  timestamp: number
+): NodeData {
+  const pieces: PiecewisePiece[] = []
+
+  // Collect pieces from all connected limiters
+  for (const limiterId of block.connectedLimiterIds) {
+    const limiterBlock = allBlocks.get(limiterId)
+    if (limiterBlock && limiterBlock.type === "piecewise-limiter") {
+      const limiter = limiterBlock as PiecewiseLimiterBlock
+
+      // Get the equation for this limiter
+      let sourceEquation: EquationBlock | undefined
+      if (limiter.sourceEquationId) {
+        const eqBlock = allBlocks.get(limiter.sourceEquationId)
+        if (eqBlock && eqBlock.type === "equation") {
+          sourceEquation = eqBlock as EquationBlock
+        }
+      }
+
+      // Convert equation variables to record
+      const variablesRecord: Record<string, number> = {}
+      if (sourceEquation?.variables) {
+        for (const v of sourceEquation.variables) {
+          variablesRecord[v.name] = v.value
+        }
+      }
+
+      // Only add enabled pieces
+      if (limiter.enabled && sourceEquation?.equation) {
+        pieces.push({
+          equation: sourceEquation.equation,
+          constraint: limiter.constraint,
+          variableName: limiter.variableName,
+          displayLabel: limiter.displayLabel,
+          variables: variablesRecord,
+        })
+      }
+    }
+  }
+
+  // Generate combined equation notation for display
+  const combinedEquation = generatePiecewiseNotation(pieces, block.fallbackEnabled ? block.fallbackEquation : undefined)
+
+  return {
+    ...prevData,
+    piecewisePieces: pieces,
+    fallbackEquation: block.fallbackEnabled ? block.fallbackEquation : undefined,
+    equation: combinedEquation,
+    timestamp,
+  }
+}
+
+/**
+ * Generate piecewise function notation for display
+ * Example: "f(x) = { 2x + 1, if x < 0; x², if x >= 0 }"
+ */
+function generatePiecewiseNotation(pieces: PiecewisePiece[], fallbackEquation?: string): string {
+  if (pieces.length === 0 && !fallbackEquation) {
+    return ""
+  }
+
+  const pieceStrings: string[] = []
+
+  for (const piece of pieces) {
+    const constraintStr = constraintToString(piece.constraint, piece.variableName)
+    pieceStrings.push(`${piece.equation}, if ${constraintStr}`)
+  }
+
+  if (fallbackEquation) {
+    pieceStrings.push(`${fallbackEquation}, otherwise`)
+  }
+
+  return `f(x) = { ${pieceStrings.join("; ")} }`
+}
+
+/**
+ * Convert constraint to human-readable string
+ */
+function constraintToString(constraint: VariableConstraint, variableName: string): string {
+  const { type, min, max } = constraint
+
+  switch (type) {
+    case "gte":
+      return `${variableName} ≥ ${min}`
+    case "gt":
+      return `${variableName} > ${min}`
+    case "lte":
+      return `${variableName} ≤ ${min}`
+    case "lt":
+      return `${variableName} < ${min}`
+    case "range":
+      return `${min} ≤ ${variableName} ≤ ${max}`
+    default:
+      return ""
   }
 }
 
