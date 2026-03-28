@@ -720,6 +720,7 @@ export function ChartBlockComponent({
         if (!fn) return null
 
         // Remove "y =" or "y=" prefix if present (function-plot expects just the expression)
+        // Handle various formats: "y = x", "y=x", "y  =  x"
         fn = fn.replace(/^y\s*=\s*/i, "").trim()
 
         // Skip if nothing left after removing prefix
@@ -751,7 +752,7 @@ export function ChartBlockComponent({
         // Only apply constraints that are specific to this equation
         // DO NOT use global constraintDomain - that would affect all equations
         const plotConstraints = plot.constraints || []
-        
+
         // Start with NO limits - only apply equation-specific constraints
         let xMinLimit: number | undefined
         let xMaxLimit: number | undefined
@@ -801,6 +802,9 @@ export function ChartBlockComponent({
         if (typeof xMaxLimit === "number") {
           masked = `(x > (${xMaxLimit}) ? ${NAN_EXPR} : (${masked}))`
         }
+
+        // Log for debugging
+        console.log('Plot function:', fn, 'masked:', masked)
 
         return {
           fn: masked,
@@ -1400,12 +1404,12 @@ export function LimitBlockComponent({
       let rightResult: number | null = null
       
       if (isApproachingZero || isInfinite) {
-        // Evaluate from both sides to determine limit behavior
-        const smallOffset = 0.0001
+        // Evaluate from both sides with very small offset to detect asymptotes
+        const smallOffset = 0.0000001
         
         // Left side approach
         const leftValue = isInfinite 
-          ? (infiniteDirection === 'positive' ? -1e10 : -1e10)
+          ? (infiniteDirection === 'positive' ? -1e15 : -1e15)
           : limitValue - smallOffset
         const leftVars: Record<string, number> = { ...variables }
         leftVars[variableName] = leftValue
@@ -1413,23 +1417,29 @@ export function LimitBlockComponent({
         
         // Right side approach
         const rightValue = isInfinite
-          ? (infiniteDirection === 'positive' ? 1e10 : 1e10)
+          ? (infiniteDirection === 'positive' ? 1e15 : 1e15)
           : limitValue + smallOffset
         const rightVars: Record<string, number> = { ...variables }
         rightVars[variableName] = rightValue
         rightResult = evaluateExpression(expr, rightVars)
       }
       
+      // Helper to check if a result is effectively infinite
+      const isEffectivelyInfinite = (result: number | null): boolean => {
+        if (result === null) return false
+        return !isFinite(result) || Math.abs(result) > 1e10
+      }
+      
       // Determine result based on limit type
       if (limitType === 'left' && leftResult !== null) {
-        if (!isFinite(leftResult)) {
+        if (isEffectivelyInfinite(leftResult)) {
           return { type: 'infinite', direction: leftResult > 0 ? 'positive' : 'negative' }
         }
         return leftResult
       }
       
       if (limitType === 'right' && rightResult !== null) {
-        if (!isFinite(rightResult)) {
+        if (isEffectivelyInfinite(rightResult)) {
           return { type: 'infinite', direction: rightResult > 0 ? 'positive' : 'negative' }
         }
         return rightResult
@@ -1437,8 +1447,8 @@ export function LimitBlockComponent({
       
       // For two-sided limits, check if both sides agree
       if (limitType === 'both' && leftResult !== null && rightResult !== null) {
-        const leftInfinite = !isFinite(leftResult)
-        const rightInfinite = !isFinite(rightResult)
+        const leftInfinite = isEffectivelyInfinite(leftResult)
+        const rightInfinite = isEffectivelyInfinite(rightResult)
         
         if (leftInfinite && rightInfinite) {
           // Both infinite - check if same direction
@@ -1462,13 +1472,13 @@ export function LimitBlockComponent({
       
       // Fallback: evaluate at the limit value
       const evalValue = isInfinite 
-        ? (infiniteDirection === 'positive' ? 1e10 : -1e10)
+        ? (infiniteDirection === 'positive' ? 1e15 : -1e15)
         : limitValue
       const evalVariables: Record<string, number> = { ...variables }
       evalVariables[variableName] = evalValue
       const result = evaluateExpression(expr, evalVariables)
       
-      if (!isFinite(result)) {
+      if (!isFinite(result) || Math.abs(result) > 1e10) {
         if (result > 0) return { type: 'infinite', direction: 'positive' }
         if (result < 0) return { type: 'infinite', direction: 'negative' }
         return { type: 'undefined' }
