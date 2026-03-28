@@ -909,6 +909,8 @@ export function GridCanvas({
           state
         )
 
+        console.log('[Calculation] Updating chain', chainId, 'type:', chain.type, 'with calculatedData:', calculatedData)
+
         nextChains.set(chainId, {
           ...chain,
           calculatedData,
@@ -917,7 +919,7 @@ export function GridCanvas({
       onNodeChainsChange(nextChains)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks, nodeChains, onNodeChainsChange, isPlaybackMode])
+  }, [blocks, connections, nodeChains, onNodeChainsChange, isPlaybackMode])
 
   // Invalidate calculation cache when blocks change significantly
   useEffect(() => {
