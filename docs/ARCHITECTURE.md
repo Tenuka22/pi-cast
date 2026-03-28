@@ -1,22 +1,6 @@
-# 🏗️ Architecture Overview
+# pi-cast Architecture
 
-System architecture and design documentation for pi-cast.
-
----
-
-## 📋 Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Architecture Diagram](#architecture-diagram)
-3. [Technology Stack](#technology-stack)
-4. [Component Architecture](#component-architecture)
-5. [Data Flow](#data-flow)
-6. [Security Architecture](#security-architecture)
-7. [Deployment Architecture](#deployment-architecture)
-
----
-
-## System Overview
+## Overview
 
 pi-cast is a monorepo-based web application built with modern TypeScript technologies. The platform consists of:
 
@@ -25,17 +9,75 @@ pi-cast is a monorepo-based web application built with modern TypeScript technol
 - **Database**: SQLite with Drizzle ORM
 - **Authentication**: Better Auth with multiple providers
 
-### Key Design Principles
+See [README.md](../README.md) for project overview and [NODE_CALCULATION_SYSTEM.md](../NODE_CALCULATION_SYSTEM.md) for the block calculation architecture.
 
-1. **Type Safety**: End-to-end TypeScript with oRPC
-2. **Modularity**: Package-based monorepo structure
-3. **Performance**: Event-driven architecture for recording/playback
-4. **Scalability**: Stateless design for horizontal scaling
-5. **Security**: Defense in depth with multiple layers
+## Technology Stack
 
----
+### Frontend
 
-## Architecture Diagram
+| Technology | Purpose | Version |
+|------------|---------|---------|
+| Next.js | React framework | 16.1.6 |
+| React | UI library | 19.x |
+| TypeScript | Type safety | 5.9+ |
+| Tailwind CSS | Styling | 4.x |
+| shadcn/ui | Component library | base-mira |
+| next-themes | Dark/light mode | 0.4.x |
+| Better Auth | Authentication | latest |
+
+### Backend
+
+| Technology | Purpose | Version |
+|------------|---------|---------|
+| Hono | API server | 4.x |
+| oRPC | RPC framework | latest |
+| Drizzle ORM | Database ORM | latest |
+| SQLite (libsql) | Database | latest |
+| Better Auth | Authentication server | latest |
+
+### Infrastructure
+
+| Technology | Purpose | Version |
+|------------|---------|---------|
+| Bun | Package manager & runtime | 1.3.10+ |
+| Turborepo | Monorepo tool | 2.x |
+| varlock | Environment validation | latest |
+| ESLint | Linting | 9.x |
+| Prettier | Formatting | 3.x |
+
+## Project Structure
+
+```
+pi-cast/
+├── apps/
+│   └── web/                          # Main Next.js application
+│       ├── app/                      # App Router pages
+│       ├── components/               # React components
+│       │   ├── blocks/               # Block system components
+│       │   ├── block-system/         # Node-based calculation UI
+│       │   ├── recording/            # Recording system components
+│       │   └── playback/             # Playback components
+│       ├── lib/                      # Utilities
+│       │   ├── block-system/         # Calculation engine
+│       │   └── recording-system/     # Recording/playback logic
+│       └── hooks/                    # React hooks
+│
+├── packages/
+│   ├── db/                           # Database package
+│   ├── hono-server/                  # Hono API server
+│   ├── orpc-handlers/                # oRPC handlers
+│   ├── ui/                           # Shared UI components
+│   ├── eslint-config/                # Shared ESLint config
+│   └── typescript-config/            # Shared TypeScript config
+│
+├── docs/                             # Documentation
+├── NODE_CALCULATION_SYSTEM.md        # Calculation architecture
+├── NODE_TREE_ARCHITECTURE.md         # Node tree design
+├── PRODUCT.md                        # Product specification
+└── README.md                         # Project overview
+```
+
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -84,308 +126,58 @@ pi-cast is a monorepo-based web application built with modern TypeScript technol
 └───────────────────────────────────────────────────────────────────┘
 ```
 
----
+## Block System Architecture
 
-## Technology Stack
-
-### Frontend
-
-| Technology | Purpose | Version |
-|------------|---------|---------|
-| Next.js | React framework | 16.1.6 |
-| React | UI library | 19.x |
-| TypeScript | Type safety | 5.9+ |
-| Tailwind CSS | Styling | 4.x |
-| shadcn/ui | Component library | base-mira |
-| next-themes | Dark/light mode | 0.4.x |
-
-### Backend
-
-| Technology | Purpose | Version |
-|------------|---------|---------|
-| Hono | Web framework | 4.x |
-| oRPC | Type-safe RPC | 1.7.x |
-| Better Auth | Authentication | 1.5.x |
-| Drizzle ORM | Database ORM | 0.45.x |
-| valibot | Schema validation | 1.x |
-
-### Infrastructure
-
-| Technology | Purpose | Version |
-|------------|---------|---------|
-| Bun | Runtime & package manager | 1.3.10+ |
-| Turborepo | Monorepo tooling | 2.x |
-| SQLite | Database | libsql |
-| GitHub Actions | CI/CD | - |
-
----
-
-## Component Architecture
-
-### Monorepo Structure
+The block system uses a **node-based calculation architecture**:
 
 ```
-pi-cast/
-├── apps/
-│   └── web/                    # Next.js application
-│       ├── app/                # App Router pages
-│       ├── components/         # React components
-│       ├── lib/                # Utilities & hooks
-│       └── hooks/              # Custom React hooks
-│
-├── packages/
-│   ├── db/                     # Database package
-│   │   ├── src/
-│   │   │   ├── auth/           # Better Auth config
-│   │   │   └── auth.schema.ts  # Database schema
-│   │   └── drizzle/            # Migrations
-│   │
-│   ├── hono-server/            # API server
-│   │   ├── src/
-│   │   │   ├── app.ts          # Hono app
-│   │   │   └── middleware.ts   # Middleware
-│   │   └── tests/              # API tests
-│   │
-│   ├── orpc-handlers/          # oRPC procedures
-│   │   ├── src/
-│   │   │   ├── routes/         # RPC routes
-│   │   │   └── schemas/        # Validation schemas
-│   │   └── AUTH.md             # Auth documentation
-│   │
-│   └── ui/                     # Shared UI components
-│       └── src/
-│           ├── components/     # shadcn components
-│           └── lib/            # Utilities
-│
-└── docs/                       # Documentation
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Variable   │ ──→ │  Equation   │ ──→ │ Constraint  │ ──→ │    Chart    │
+│  (m slider) │     │  y = mx + c │     │   (x > 0)   │     │  (renders)  │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
-### Key Packages
+Key features:
+- **Per-Equation Constraints**: Each equation has independent constraints
+- **Memoization**: Cached results prevent unnecessary recalculations
+- **Topological Sort**: Correct calculation order
+- **< 5ms Latency**: Fast recalculation for variable changes
 
-#### `@pi-cast/db`
-- Database schema definitions
-- Drizzle ORM configuration
-- Better Auth integration
-- Database connection utilities
+See [NODE_CALCULATION_SYSTEM.md](./NODE_CALCULATION_SYSTEM.md) for detailed documentation.
 
-#### `@pi-cast/hono-server`
-- Hono application setup
-- Middleware (logging, error handling, CORS)
-- REST endpoints
-- oRPC handler integration
+## Recording System Architecture
 
-#### `@pi-cast/orpc-handlers`
-- oRPC procedure definitions
-- Input validation schemas
-- Authentication middleware
-- Business logic
+Event-driven recording system:
 
-#### `@workspace/ui`
-- Shared UI components
-- shadcn/ui base
-- Theme support
-- Utility functions
+1. **Audio Recording**: Web Audio API with silence detection
+2. **Event Capture**: Discrete teaching actions with timestamps
+3. **Synchronization**: Events aligned with audio segments
+4. **Playback**: Event replay synchronized with audio
 
----
+See [RECORDING.md](./RECORDING.md) for detailed documentation.
 
-## Data Flow
+## Security
 
-### Recording Flow
+- **Authentication**: Better Auth with Email OTP and GitHub OAuth
+- **Session Management**: Secure cookies with httpOnly
+- **CSRF Protection**: Built-in via Better Auth
+- **Input Validation**: valibot schemas
+- **Type Safety**: oRPC for type-safe API calls
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Teacher   │────▶│  Browser    │────▶│  Audio      │
-│   Actions   │     │  Events     │     │  Recorder   │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │                   │
-                           ▼                   ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │   Event     │     │   Audio     │
-                    │   Queue     │     │  Segments   │
-                    └─────────────┘     └─────────────┘
-                           │                   │
-                           └────────┬──────────┘
-                                    │
-                                    ▼
-                           ┌─────────────┐
-                           │   Sync &    │
-                           │  Serialize  │
-                           └─────────────┘
-                                    │
-                                    ▼
-                           ┌─────────────┐
-                           │  Database   │
-                           │  Storage    │
-                           └─────────────┘
-```
+## Deployment
 
-### Playback Flow
+Deployment documentation is being updated. For now, see:
+- [LAUNCH.md](./LAUNCH.md) - Launch checklist
+- [GETTING_STARTED_STUDENTS.md](./GETTING_STARTED_STUDENTS.md) - Setup guide
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Student   │────▶│  Player     │────▶│   Event     │
-│   Request   │     │  Controls   │     │  Replayer   │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │                   │
-                           ▼                   ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │   Audio     │     │   Block     │
-                    │  Playback   │     │  Renderer   │
-                    └─────────────┘     └─────────────┘
-                           │                   │
-                           └────────┬──────────┘
-                                    │
-                                    ▼
-                           ┌─────────────┐
-                           │   Sync &    │
-                           │   Render    │
-                           └─────────────┘
-```
+## Documentation Index
 
----
-
-## Security Architecture
-
-### Authentication Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    User     │────▶│  Better     │────▶│   Session   │
-│   Request   │     │   Auth      │     │   Store     │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   OAuth     │
-                    │  Providers  │
-                    │ (GitHub,    │
-                    │   Email)    │
-                    └─────────────┘
-```
-
-### Security Layers
-
-1. **Transport Layer**
-   - HTTPS/TLS 1.3 for all connections
-   - HSTS headers
-
-2. **Application Layer**
-   - CSRF protection (Better Auth)
-   - CORS configuration
-   - Input validation (valibot)
-   - Rate limiting
-
-3. **Data Layer**
-   - Parameterized queries (Drizzle)
-   - Input sanitization
-   - Access control
-
-4. **Session Layer**
-   - Secure HTTP-only cookies
-   - Session expiration
-   - Multi-device support
-
----
-
-## Deployment Architecture
-
-### Development
-
-```
-┌─────────────────────────────────────────┐
-│          Local Development              │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐ │
-│  │ Next.js │  │  Hono   │  │ Drizzle │ │
-│  │  :3000  │  │  :3001  │  │  :5555  │ │
-│  └─────────┘  └─────────┘  └─────────┘ │
-└─────────────────────────────────────────┘
-```
-
-### Production
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Production Environment                │
-│                                                          │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│  │   Vercel    │    │   Docker    │    │   Traditional│  │
-│  │   (Web)     │    │   (API)     │    │   (PM2)     │  │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘  │
-│         │                  │                  │         │
-│         └──────────────────┼──────────────────┘         │
-│                            │                            │
-│                   ┌────────┴────────┐                   │
-│                   │   SQLite DB     │                   │
-│                   │   (libsql)      │                   │
-│                   └─────────────────┘                   │
-└─────────────────────────────────────────────────────────┘
-```
-
-### CI/CD Pipeline
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    Push     │────▶│    Build    │────▶│    Test     │
-│   to Git    │     │   & Type    │     │   Suite     │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                                 │
-                                                 ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Deploy    │◀────│   Review    │◀────│   Lint      │
-│   to Prod   │     │   & Merge   │     │   Check     │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
-
----
-
-## Performance Considerations
-
-### Frontend Optimization
-
-- **Code Splitting**: Route-based splitting with Next.js
-- **Lazy Loading**: Components loaded on demand
-- **Image Optimization**: Next.js Image component
-- **Caching**: React Query for data caching
-
-### Backend Optimization
-
-- **Connection Pooling**: SQLite connection management
-- **Query Optimization**: Indexed queries with Drizzle
-- **Response Caching**: Redis for frequently accessed data (future)
-- **Compression**: Gzip/Brotli for responses
-
-### Recording/Playback
-
-- **Event-driven**: Efficient storage vs video
-- **Audio Segmentation**: Silence removal reduces storage
-- **Lazy Loading**: Blocks loaded as needed
-- **Canvas Optimization**: Hardware-accelerated rendering
-
----
-
-## Monitoring & Observability
-
-### Logging
-
-- Request/response logging (Hono middleware)
-- Error logging with stack traces
-- Performance metrics
-
-### Metrics (Future)
-
-- API response times
-- Database query performance
-- Frontend load times
-- User engagement metrics
-
-### Alerting (Future)
-
-- Error rate thresholds
-- Performance degradation
-- Service availability
-- Database health
-
----
-
-*Last Updated: March 2026*
-*Version: 1.0.0*
+- [README.md](../README.md) - Project overview
+- [PRODUCT.md](../PRODUCT.md) - Product specification
+- [NODE_CALCULATION_SYSTEM.md](../NODE_CALCULATION_SYSTEM.md) - Calculation architecture
+- [NODE_TREE_ARCHITECTURE.md](../NODE_TREE_ARCHITECTURE.md) - Node tree design
+- [RECORDING.md](./RECORDING.md) - Recording system
+- [LAUNCH.md](../LAUNCH.md) - Launch checklist
+- [GETTING_STARTED_STUDENTS.md](./GETTING_STARTED_STUDENTS.md) - Student setup
+- [GETTING_STARTED_TEACHERS.md](./GETTING_STARTED_TEACHERS.md) - Teacher setup
+- [FAQ.md](./FAQ.md) - Frequently asked questions

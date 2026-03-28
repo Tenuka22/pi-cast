@@ -2,6 +2,11 @@
  * Chart Block Component
  *
  * Renders a chart block for visualizing equations using function-plot.
+ * 
+ * NODE-BASED CALCULATION:
+ * - Receives calculated data from node-calculation-engine
+ * - Data flows through the chain: Variable → Equation → Constraint → Limit → Chart
+ * - Chart just renders, doesn't calculate (separation of concerns)
  */
 
 "use client"
@@ -12,6 +17,7 @@ import {
   type ChartBlock,
   type EquationBlock,
   type ConnectionHandleType,
+  type NodeData,
 } from "@/lib/block-system/types"
 import { BlockWrapper } from "./block-wrapper"
 import { ConnectionHandles } from "@/components/connections/connection-handles"
@@ -19,6 +25,7 @@ import {
   GraphConfig,
   DEFAULT_GRAPH_CONFIG,
 } from "@/lib/visualization/graph-renderer"
+import { calculateOutputNode } from "@/lib/block-system/node-calculation-engine"
 
 interface ChartBlockComponentProps {
   block: ChartBlock
@@ -34,6 +41,9 @@ interface ChartBlockComponentProps {
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
   isConnecting?: boolean
   connectingFromType?: string
+  // Node chain data (calculated by node-calculation-engine)
+  calculatedData?: NodeData
+  // Legacy props (kept for backwards compatibility)
   connectedEquations?: EquationBlock[]
   connectedConstraints?: Array<{
     variableName: string
@@ -67,6 +77,7 @@ export function ChartBlockComponent({
   onConnectionEnd,
   isConnecting,
   connectingFromType,
+  calculatedData,
   connectedEquations = [],
   connectedConstraints = [],
 }: ChartBlockComponentProps): React.ReactElement {
@@ -133,26 +144,45 @@ export function ChartBlockComponent({
     }
   }, [block.chartConfig, connectedConstraints, effectiveHeight, width])
 
-  const plots = useMemo(
-    () =>
-      connectedEquations.map((equationBlock, index) => {
-        const variables: Record<string, number> = {}
-        ;(equationBlock.variables ?? []).forEach((variable) => {
-          variables[variable.name] = variable.value
-        })
-        if (variables.x === undefined) variables.x = 0
-        if (variables.y === undefined) variables.y = 0
+  // Build plots from calculated node data (node-based calculation)
+  // Falls back to connectedEquations prop for backwards compatibility
+  const plots = useMemo(() => {
+    // Prefer calculatedData from node-calculation-engine
+    if (calculatedData?.equation && calculatedData.variables) {
+      const variables: Record<string, number> = {}
+      calculatedData.variables.forEach((variable) => {
+        variables[variable.name] = variable.value
+      })
+      if (variables.x === undefined) variables.x = 0
+      if (variables.y === undefined) variables.y = 0
 
-        return {
-          key: `eq${index}`,
-          equation: equationBlock.equation,
-          variables,
-          color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
-          label: equationBlock.equation,
-        }
-      }),
-    [connectedEquations]
-  )
+      return [{
+        key: 'calc-0',
+        equation: calculatedData.equation,
+        variables,
+        color: PLOT_COLORS[0] || "#c084fc",
+        label: calculatedData.equation,
+      }]
+    }
+
+    // Fallback to legacy connectedEquations prop
+    return connectedEquations.map((equationBlock, index) => {
+      const variables: Record<string, number> = {}
+      ;(equationBlock.variables ?? []).forEach((variable) => {
+        variables[variable.name] = variable.value
+      })
+      if (variables.x === undefined) variables.x = 0
+      if (variables.y === undefined) variables.y = 0
+
+      return {
+        key: `eq${index}`,
+        equation: equationBlock.equation,
+        variables,
+        color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
+        label: equationBlock.equation,
+      }
+    })
+  }, [calculatedData, connectedEquations])
 
   // Build function strings with substituted variables
   const functionData = useMemo(() => {

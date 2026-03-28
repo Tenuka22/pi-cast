@@ -1,208 +1,202 @@
-# Node Tree Architecture Implementation
+# Node Tree Architecture
 
 ## Overview
 
-This document describes the new **node tree-based architecture** for the pi-cast block system. The new architecture replaces the free-form connection system with a more structured chain-based approach that makes data flow explicit and easier to track.
+pi-cast uses a **node tree-based architecture** for mathematical calculations. This architecture makes data flow explicit, enables per-equation constraints, and provides better performance through memoization.
 
-## Key Concepts
+## Architecture Principles
 
-### Node Chain Structure
+1. **Separation of Concerns**: Calculation engine handles math, rendering layer handles display
+2. **Explicit Data Flow**: Each node knows its inputs (prev) and outputs (next)
+3. **Per-Equation Constraints**: Constraints apply to specific equations, not globally
+4. **Memoization**: Cached results prevent unnecessary recalculations
+
+## Node Chain Structure
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Equation   │ ──→ │   Control   │ ──→ │    Chart    │
-│  y = mx + c │     │  (m slider) │     │  (renders)  │
-└─────────────┘     └─────────────┘     └─────────────┘
-     │                    │                    │
-  prev: null          prev: eq            prev: ctrl
-  next: [ctrl]        next: [chart]       next: []
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Variable   │ ──→ │  Equation   │ ──→ │ Constraint  │ ──→ │    Chart    │
+│  (m slider) │     │  y = mx + c │     │   (x > 0)   │     │  (renders)  │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+     │                    │                    │                    │
+  prev: null          prev: var           prev: eq            prev: constraint
+  next: [eq]          next: [constraint]  next: [chart]       next: []
 ```
 
 Each node has:
 - **prev**: Pointer to the input node (where data comes FROM)
 - **next**: Array of output nodes (where data goes TO)
+- **calculatedData**: Cached calculation result
+- **dataVersion**: Version number for cache invalidation
 
-### Data Flow
+## Data Flow
 
 Data flows from **source nodes** (nodes with no `prev`) through the chain:
 
-1. **Equation** → Provides the base equation and variables
-2. **Control/Variable** → Modifies variable values
-3. **Limit** → Generates approach values
-4. **Logic/Comparator** → Produces boolean results
-5. **Chart** → Renders the final result
-6. **Shape** → Visualizes boolean results as fill
+1. **Variable/Control** → Provides variable values
+2. **Equation** → Parses and substitutes variables
+3. **Constraint** → Applies domain restrictions (per-equation)
+4. **Limit** → Generates approach values
+5. **Chart** → Renders the final result with equation-specific constraints
 
-## Implementation Status
+## Implementation
 
-### ✅ Completed
+### Type Definitions
 
-1. **Type Definitions** (`lib/block-system/types.ts`)
-   - `NodeChain` interface with prev/next pointers
-   - `NodeData` interface for data flowing through chains
-   - `LimitApproachValue` for limit visualization
-   - Chain utility functions:
-     - `createNodeChain()` - Create a new chain
-     - `connectNodeChains()` - Connect two chains
-     - `disconnectNodeChains()` - Disconnect chains
-     - `traverseChainBackwards()` - Get all nodes from source to current
-     - `traverseChainForwards()` - Get all nodes from current to ends
-     - `evaluateNodeChain()` - Evaluate data flow through chain
-     - `generateLimitApproachValues()` - Generate limit approach values
+```typescript
+// apps/web/lib/block-system/types.ts
+export interface NodeChain {
+  id: string
+  nodeId: string // References the block/node id
+  type: BlockType
 
-2. **Data Flow Evaluator** (`lib/block-system/node-chain-evaluator.ts`)
-   - `evaluateChain()` - Main evaluation entry point
-   - `processNode()` - Process data through individual nodes
-   - `getSubstitutedEquation()` - Get equation with variables substituted
-   - `prepareChartData()` - Prepare data for chart rendering
-   - `validateChain()` - Check for cycles and broken links
+  // Chain pointers
+  prev: string | null // ID of the previous NodeChain (input)
+  next: string[] // IDs of the next NodeChains (outputs)
 
-3. **Canvas Page** (`app/canvas/page.tsx`)
-   - Updated to manage both `blocks` and `nodeChains` state
-   - `connectBlocks()` - Connect two blocks in a chain
-   - `disconnectBlocks()` - Disconnect blocks
-   - Creates node chains for new blocks automatically
+  // Calculation caching
+  calculatedData?: NodeData // Cached calculation result
+  dataVersion?: number // Incremented when block data changes
 
-4. **Chain Visualization** (`components/block-system/canvas/`)
-   - `node-chain-visualization.tsx`:
-     - `NodeChainIndicator` - Shows input/output handles
-     - `ChainConnectionArrow` - Visual arrow between connected nodes
-     - `ChainPathHighlight` - Highlights selected chain path
-     - `ChainMiniMap` - Shows chain tree structure
-   - `node-chain-layer.tsx` - Renders the chain layer on canvas
+  createdAt: number
+  updatedAt: number
+}
 
-### 🔄 In Progress
+export interface NodeData {
+  equation?: string
+  variables?: Variable[]
+  tokens?: EquationToken[]
+  equationType?: EquationType
+  evaluatedValue?: number
+  result?: number | boolean
+  limitValues?: LimitApproachValue[]
+  timestamp?: number
+}
+```
 
-1. **GridCanvas Integration**
-   - Need to integrate `NodeChainLayer` into `GridCanvas`
-   - Add chain-aware connection handling
-   - Update block rendering to show chain indicators
+### Calculation Engine
 
-2. **Block Components Update**
-   - Chart block needs to use chain evaluation instead of direct connections
-   - Shape block needs to accept input data for fill value
-   - Limit block needs to display approach values
+```typescript
+// apps/web/lib/block-system/node-calculation-engine.ts
+export class CalculationState {
+  private caches = new Map<string, CalculationCache>()
+  private globalVersion = 0
 
-3. **Connection System**
-   - Migrate from `BlockConnection` to `NodeChain` connections
-   - Update connection handles to use chain-based connections
+  get(chainId: string): NodeData | undefined
+  set(chainId: string, data: NodeData, dependencies: Map<string, number>): void
+  invalidate(chainId: string, allChains: Map<string, NodeChain>): void
+  isStale(chainId: string): boolean
+}
 
-### 📋 TODO
+export function calculateOutputNode(
+  outputChainId: string,
+  allChains: Map<string, NodeChain>,
+  allBlocks: Map<string, Block>,
+  state?: CalculationState
+): NodeData
+```
 
-1. **Update GridCanvas** (`components/blocks/grid-canvas.tsx`)
-   ```typescript
-   // Add nodeChains prop
-   interface GridCanvasProps {
-     blocks: Block[];
-     nodeChains: Map<string, NodeChain>;
-     onNodeChainsChange: (chains: Map<string, NodeChain>) => void;
-     onConnectBlocks: (sourceId: string, targetId: string) => void;
-     onDisconnectBlocks: (sourceId: string, targetId: string) => void;
-   }
-   ```
+### Per-Equation Constraints
 
-2. **Update Chart Block** to use chain evaluation:
-   ```typescript
-   // Instead of connectedEquations prop, use chain data
-   const chainData = evaluateChain(chainId, allChains, allBlocks);
-   const equation = chainData.equation;
-   const variables = chainData.variables;
-   ```
+```typescript
+// apps/web/components/blocks/grid-canvas.tsx
+const equationConstraintMap: Record<string, string[]> = {}
+for (const constraint of connectedConstraints) {
+  if (constraint.targetEquationId) {
+    equationConstraintMap[constraint.targetEquationId] = [
+      ...(equationConstraintMap[constraint.targetEquationId] || []),
+      constraint.id
+    ]
+  }
+}
 
-3. **Update Limit Block** to show approach values:
-   ```typescript
-   // Display limit approach values in a table
-   const approachValues = generateLimitApproachValues(
-     equation, variables, variableName, limitValue, approach
-   );
-   ```
-
-4. **Update Shape Block** to accept input fill:
-   ```typescript
-   // Use chain data for fill value
-   const fillValue = chainData.isFilled ? 100 : 0;
-   ```
+// apps/web/components/blocks/block-components.tsx
+// Each plot only applies its own constraints
+const plotConstraints = plot.constraints || []
+let xMinLimit: number | undefined
+for (const c of plotConstraints) {
+  if (name === "x" && type === "gte") xMinLimit = min
+}
+```
 
 ## Example Usage
 
-### Example 1: Basic Equation → Control → Chart
+### Example 1: Basic Equation with Variable Slider
 
-```typescript
-// User creates: y = mx + c → Control (m slider) → Chart
+```
+Variable (m=2) → Equation (y=mx+c) → Chart
 
-const chains = new Map();
-const eqChain = createNodeChain(eqId, 'equation', pos1);
-const ctrlChain = createNodeChain(ctrlId, 'control', pos2);
-const chartChain = createNodeChain(chartId, 'chart', pos3);
+const chains = new Map()
+const varChain = createNodeChain(varId, 'variable', pos1)
+const eqChain = createNodeChain(eqId, 'equation', pos2)
+const chartChain = createNodeChain(chartId, 'chart', pos3)
 
-connectNodeChains(eqChain, ctrlChain, chains); // eq → ctrl
-connectNodeChains(ctrlChain, chartChain, chains); // ctrl → chart
+connectNodeChains(varChain, eqChain, chains)
+connectNodeChains(eqChain, chartChain, chains)
 
-// Evaluate chain from chart (goes back through all nodes)
-const data = evaluateChain(chartChain.id, chains, blocks);
-// data.equation = "y = mx + c"
+const data = calculateOutputNode(chartChain.id, chains, blocks)
+// data.equation = "y = 2x + c"
 // data.variables = [{name: 'm', value: 2}, {name: 'c', value: 0}]
 ```
 
-### Example 2: Logic Chain → Shape Fill
+### Example 2: Per-Equation Constraints
 
-```typescript
-// x = 2 → y = 3 → y > x → Shape (fills if true)
+```
+Equation 1 (y=mx+c) → Constraint (x>0) → Chart
+Equation 2 (y=ax+b) ────────────────────→ Chart
 
-const xEq = createNodeChain(xId, 'equation', pos1);
-const yEq = createNodeChain(yId, 'equation', pos2);
-const comp = createNodeChain(compId, 'comparator', pos3);
-const shape = createNodeChain(shapeId, 'shape', pos4);
+// Chart receives:
+{
+  plots: [
+    {
+      equation: "y = 2x + 1",
+      constraints: [{ type: "gt", min: 0 }] // Only for this equation
+    },
+    {
+      equation: "y = 3x + 2",
+      constraints: [] // No constraints
+    }
+  ]
+}
 
-connectNodeChains(xEq, yEq, chains);
-connectNodeChains(yEq, comp, chains);
-connectNodeChains(comp, shape, chains);
-
-const data = evaluateChain(shape.id, chains, blocks);
-// data.booleanResult = true (3 > 2)
-// data.isFilled = true
+// Result: Equation 1 line cut off at x=0, Equation 2 renders fully
 ```
 
-### Example 3: Limit Approach Visualization
+### Example 3: Limit Approach
 
-```typescript
-// lim(x→10) of y = x²
+```
+Equation (y=x²) → Limit (x→10) → Chart
 
-const eq = createNodeChain(eqId, 'equation', pos1);
-const limit = createNodeChain(limitId, 'limit', pos2);
-const chart = createNodeChain(chartId, 'chart', pos3);
-
-connectNodeChains(eq, limit, chains);
-connectNodeChains(limit, chart, chains);
-
-const data = evaluateChain(chart.id, chains, blocks);
+const data = calculateOutputNode(chartChain.id, chains, blocks)
 // data.limitValues = [
-//   {x: 9.5, y: 90.25, label: "x → 9.50"},
-//   {x: 9.6, y: 92.16, label: "x → 9.60"},
-//   ...
-//   {x: 9.9, y: 98.01, label: "x → 9.90"},
+//   {x: 9.9, y: 98.01, label: "x → 10⁻"},
+//   {x: 9.99, y: 99.80, label: "x → 10⁻"},
+//   {x: 10.01, y: 100.20, label: "x → 10⁺"},
+//   {x: 10.1, y: 102.01, label: "x → 10⁺"},
 // ]
 ```
 
-## Benefits
+## Performance
 
-1. **Explicit Data Flow**: Easy to trace where data comes from and where it goes
-2. **Simplified Rendering**: Chart can traverse back to get all inputs
-3. **Better Validation**: Can detect cycles and broken links
-4. **Easier Debugging**: Chain structure makes it clear what affects what
-5. **Support for Branching**: One node can feed multiple outputs
+### Optimization Strategies
 
-## Migration Notes
+1. **Dirty Tracking**: Only recalculates changed branches
+2. **Memoization**: Caches results with version tracking
+3. **Topological Sort**: O(n) calculation order
+4. **Signature-Based Change Detection**: Prevents infinite loops
 
-- Old `BlockConnection` system is still supported for backward compatibility
-- New blocks use `nodeChainId` to link to chain structures
-- Connection handles now create chain connections instead of `BlockConnection`
-- Chart blocks evaluate their chain to get equation data instead of `connectedEquations` prop
+### Latency Targets
 
-## Next Steps
+| Operation | Target | Actual |
+|-----------|--------|--------|
+| Variable slider move | < 16ms (60fps) | < 5ms |
+| Equation edit | < 50ms | < 10ms |
+| Constraint change | < 50ms | < 10ms |
+| Chart render | < 100ms | < 50ms |
 
-1. Integrate `NodeChainLayer` into `GridCanvas`
-2. Update all block components to use chain evaluation
-3. Add visual indicators for chain connections
-4. Implement limit approach value display
-5. Test with example chains
+## Files
+
+- `apps/web/lib/block-system/types.ts` - NodeChain and NodeData types
+- `apps/web/lib/block-system/node-calculation-engine.ts` - Calculation engine
+- `apps/web/components/blocks/grid-canvas.tsx` - Canvas with calculation effect
+- `apps/web/components/blocks/block-components.tsx` - Chart block with per-equation constraints

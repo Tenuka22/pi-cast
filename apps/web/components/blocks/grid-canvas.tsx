@@ -41,6 +41,11 @@ import {
   getConnectionType,
 } from "@/lib/block-system/types"
 import { evaluateFunction } from "@/lib/visualization/graph-renderer"
+import {
+  CalculationState,
+  calculateOutputNode,
+  invalidateBlockCalculations,
+} from "@/lib/block-system/node-calculation-engine"
 import type { BlockPreset } from "./block-library"
 import {
   EquationBlockComponent,
@@ -502,6 +507,10 @@ export function GridCanvas({
     currentY: number
   } | null>(null)
 
+  // Node calculation state (for node-based calculation engine)
+  // Uses ref to avoid re-renders, calculation results are passed via nodeChains
+  const calculationStateRef = useRef<CalculationState>(new CalculationState())
+
   // Transform system (pan + zoom) - shared across all layers
   const {
     transform,
@@ -810,6 +819,100 @@ export function GridCanvas({
     setInternalBlocks(nextBlocks)
     onBlocksChange?.(nextBlocks)
   }, [blocks, isPlaybackMode, onBlocksChange])
+
+  // ============================================================================
+  // NODE-BASED CALCULATION ENGINE
+  // Calculates data flow through node chains for output blocks (chart/table/shape)
+  // 
+  // IMPORTANT: We only run calculations when blocks change, NOT when nodeChains change.
+  // This prevents infinite loops. The calculation results are stored in nodeChains,
+  // but we don't re-run this effect when that happens.
+  // ============================================================================
+  const prevBlocksRef = useRef<string>('')
+  
+  useEffect(() => {
+    if (isPlaybackMode || !nodeChains || !onNodeChainsChange) return
+
+    // Create a signature of block data to detect actual changes
+    const blocksSignature = blocks.map(b => `${b.id}-${b.updatedAt}`).join(',')
+    const prevSignature = prevBlocksRef.current
+    
+    // Skip if blocks haven't actually changed (prevents infinite loop)
+    if (blocksSignature === prevSignature) {
+      return
+    }
+    prevBlocksRef.current = blocksSignature
+
+    const state = calculationStateRef.current
+    const allBlocks = new Map(blocks.map((b) => [b.id, b] as const))
+
+    // Calculate data for each output node (chart, table, shape)
+    // Track which chains have new/changed calculations
+    const changedChainIds = new Set<string>()
+
+    for (const [chainId, chain] of nodeChains) {
+      // Only calculate for output block types
+      if (!['chart', 'table', 'shape'].includes(chain.type)) continue
+
+      const block = allBlocks.get(chain.nodeId)
+      if (!block) continue
+
+      try {
+        // Calculate data flowing through the chain
+        const calculatedData = calculateOutputNode(
+          chainId,
+          nodeChains,
+          allBlocks,
+          state
+        )
+
+        // Only update if calculated data changed (shallow comparison)
+        const existingData = chain.calculatedData
+        const dataChanged = !existingData || 
+          existingData.timestamp !== calculatedData.timestamp ||
+          existingData.equation !== calculatedData.equation
+
+        if (dataChanged) {
+          changedChainIds.add(chainId)
+        }
+      } catch (error) {
+        console.error('Error calculating node chain:', chainId, error)
+      }
+    }
+
+    // Only create new map and trigger update if we have changes
+    if (changedChainIds.size > 0) {
+      const nextChains = new Map(nodeChains)
+      for (const chainId of changedChainIds) {
+        const chain = nodeChains.get(chainId)
+        if (!chain) continue
+
+        const allBlocksMap = new Map(blocks.map((b) => [b.id, b] as const))
+        const calculatedData = calculateOutputNode(
+          chainId,
+          nodeChains,
+          allBlocksMap,
+          state
+        )
+
+        nextChains.set(chainId, {
+          ...chain,
+          calculatedData,
+        })
+      }
+      onNodeChainsChange(nextChains)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks, nodeChains, onNodeChainsChange, isPlaybackMode])
+
+  // Invalidate calculation cache when blocks change significantly
+  useEffect(() => {
+    if (!nodeChains || !onNodeChainsChange) return
+
+    const state = calculationStateRef.current
+    // Clear entire cache on major changes (simpler than tracking individual changes)
+    state.clear()
+  }, [blocks.length, nodeChains?.size])
 
   // Recording system integration
   const {
@@ -1909,18 +2012,36 @@ export function GridCanvas({
           }
         )
 
+        // Build equation -> constraint map for per-equation constraints
+        const equationConstraintMap: Record<string, string[]> = {}
+        for (const constraint of connectedConstraints) {
+          const eqId = constraint.targetEquationId
+          if (eqId != null) {
+            if (!equationConstraintMap[eqId]) {
+              equationConstraintMap[eqId] = []
+            }
+            equationConstraintMap[eqId].push(constraint.id)
+          }
+        }
+
         // Get connected limits for showing approach values
         const connectedLimits = (block.sourceLimitIds ?? [])
           .map((id) => blocks.find((b) => b.id === id && b.type === "limit"))
           .filter((limit): limit is LimitBlock => Boolean(limit))
+
+        // Get calculated data from node chain (node-based calculation)
+        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
+        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
 
         return (
           <ChartBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
+            calculatedData={calculatedData}
             connectedEquations={connectedEquations}
             constraints={connectedConstraints}
+            equationConstraintMap={equationConstraintMap}
             connectedLimits={connectedLimits}
           />
         )

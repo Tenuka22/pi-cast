@@ -9,6 +9,7 @@ pi-cast is a next-generation educational platform that transforms how mathematic
 Unlike traditional video lectures or static problem sets, pi-cast offers:
 
 - **Interactive Block System** - Teachers create lessons using draggable equation blocks (y = mx + c, etc.) that students can manipulate
+- **Node-Based Calculation** - High-performance calculation engine with per-equation constraints and memoization
 - **Dynamic Visualization** - Equations automatically generate interactive charts with sliders for each variable
 - **Event-Driven Playback** - Students can pause any lecture, experiment with parameters, and resume without losing context
 - **Infinite Grid Canvas** - A 32x32 grid-based workspace where blocks auto-arrange and snap into place
@@ -206,8 +207,10 @@ pi-cast uses **Better Auth** with the following features:
 ### Block Types
 1. **Equation Blocks** - Mathematical expressions (y = mx + c)
 2. **Chart Blocks** - Auto-generated graphs from equations
-3. **Description Blocks** - Teacher-created text/content blocks
-4. **Control Blocks** - Sliders and number inputs for variables
+3. **Variable/Control Blocks** - Sliders and number inputs for variables
+4. **Constraint Blocks** - Domain restrictions (e.g., x > 0, x < 10)
+5. **Description Blocks** - Teacher-created text/content blocks
+6. **Limit Blocks** - Limit approach visualization (lim x→a)
 
 ### Grid System
 - Base unit: 32x32 pixels
@@ -215,6 +218,14 @@ pi-cast uses **Better Auth** with the following features:
 - Blocks snap to grid on drop
 - Auto-width based on content
 - Neighboring blocks auto-arrange
+
+### Node-Based Calculation System
+- **Calculation Engine**: Topological sort, memoization, dirty tracking
+- **Per-Equation Constraints**: Each equation has independent constraints
+- **Separation of Concerns**: Calculation engine handles math, rendering layer handles display
+- **Performance**: < 5ms recalculation for variable changes
+
+See [NODE_CALCULATION_SYSTEM.md](./NODE_CALCULATION_SYSTEM.md) for detailed architecture.
 
 ### Event System
 Events captured during recording:

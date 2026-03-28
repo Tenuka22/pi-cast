@@ -75,20 +75,28 @@ export interface LimitApproachValue {
  * Each node can have:
  * - prev: the node that feeds data INTO this node (input)
  * - next: array of nodes that receive data FROM this node (outputs)
+ * 
+ * CALCULATION CACHING:
+ * - calculatedData: cached result from node-calculation-engine
+ * - dataVersion: incremented when node data changes (for cache invalidation)
  */
 export interface NodeChain {
   id: string
   nodeId: string // References the block/node id
   type: BlockType
-  
+
   // Chain pointers
   prev: string | null // ID of the previous NodeChain (input)
   next: string[] // IDs of the next NodeChains (outputs) - can branch
-  
+
   // Position in canvas
   position: GridPosition
   dimensions: BlockDimensions
-  
+
+  // Calculation caching (for node-based calculation engine)
+  calculatedData?: NodeData // Cached calculation result
+  dataVersion?: number // Incremented when block data changes
+
   createdAt: number
   updatedAt: number
 }
@@ -1665,3 +1673,18 @@ function evaluateRPN(tokens: MathToken[]): number {
   }
   return result
 }
+
+// ============================================================================
+// EXPORTS FOR CALCULATION ENGINE
+// ============================================================================
+
+export {
+  CalculationState,
+  calculateOutputNode,
+  calculateNode,
+  traverseChain,
+  getInputChains,
+  topologicalSort,
+  hasCycle,
+  invalidateBlockCalculations,
+} from './node-calculation-engine'

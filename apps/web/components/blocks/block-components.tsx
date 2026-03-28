@@ -412,8 +412,13 @@ interface ChartBlockComponentProps {
   onConnectionEnd?: (handleId: string, handleType: ConnectionHandleType) => void
   isConnecting?: boolean
   connectingFromType?: string
+  // Node chain calculated data (node-based calculation)
+  calculatedData?: import("@/lib/block-system/types").NodeData
   connectedEquations?: EquationBlock[]
+  // Constraints with their target equation IDs (for per-equation constraints)
   constraints?: import("@/lib/block-system/types").ConstraintBlock[]
+  // Map of equationId -> constraintIds that apply to it
+  equationConstraintMap?: Record<string, string[]>
   connectedLimits?: LimitBlock[]
 }
 
@@ -441,8 +446,10 @@ export function ChartBlockComponent({
   onConnectionEnd,
   isConnecting,
   connectingFromType,
+  calculatedData,
   connectedEquations = [],
   constraints = [],
+  equationConstraintMap = {},
   connectedLimits = [],
 }: ChartBlockComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -577,42 +584,69 @@ export function ChartBlockComponent({
     next.yAxis.min = enforcedY.min
     next.yAxis.max = enforcedY.max
     return next
-  }, [config, constraintDomain])
+  }, [config])
 
-  const plots = useMemo(
-    () =>
-      connectedEquations.map((equationBlock, index) => {
-        const variables: Record<string, number> = {}
-        ;(equationBlock.variables ?? []).forEach((variable) => {
-          variables[variable.name] = variable.value
-        })
-        if (variables.x === undefined) variables.x = 0
-        if (variables.y === undefined) variables.y = 0
+  // Build plots from calculated node data (node-based calculation)
+  // Falls back to connectedEquations prop for backwards compatibility
+  const plots = useMemo(() => {
+    // Prefer calculatedData from node-calculation-engine
+    if (calculatedData?.equation && calculatedData.variables) {
+      const variables: Record<string, number> = {}
+      calculatedData.variables.forEach((variable) => {
+        variables[variable.name] = variable.value
+      })
+      if (variables.x === undefined) variables.x = 0
+      if (variables.y === undefined) variables.y = 0
 
-        return {
-          key: `eq${index}`,
-          equation:
-            equationBlock.enabled === false ? "y = 0" : equationBlock.equation,
-          variables,
-          color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
-          label:
-            equationBlock.enabled === false
-              ? "disabled"
-              : equationBlock.equation,
-        }
-      }),
-    [connectedEquations]
-  )
+      // Get constraints for this equation (from node chain or equationConstraintMap)
+      const equationId = calculatedData.equation // Use equation as ID for single equation
+      const applicableConstraintIds = equationConstraintMap[equationId] || []
+      const applicableConstraints = constraints.filter(c => applicableConstraintIds.includes(c.id))
+
+      return [{
+        key: 'calc-0',
+        equation: calculatedData.equation,
+        variables,
+        color: PLOT_COLORS[0] || "#c084fc",
+        label: calculatedData.equation,
+        constraints: applicableConstraints,
+      }]
+    }
+
+    // Fallback to legacy connectedEquations prop
+    return connectedEquations.map((equationBlock, index) => {
+      const variables: Record<string, number> = {}
+      ;(equationBlock.variables ?? []).forEach((variable) => {
+        variables[variable.name] = variable.value
+      })
+      if (variables.x === undefined) variables.x = 0
+      if (variables.y === undefined) variables.y = 0
+
+      // Get constraints that apply to this specific equation
+      const applicableConstraintIds = equationConstraintMap[equationBlock.id] || []
+      const applicableConstraints = constraints.filter(c => applicableConstraintIds.includes(c.id))
+
+      return {
+        key: `eq${index}`,
+        equation:
+          equationBlock.enabled === false ? "y = 0" : equationBlock.equation,
+        variables,
+        color: PLOT_COLORS[index % PLOT_COLORS.length] || "#c084fc",
+        label:
+          equationBlock.enabled === false
+            ? "disabled"
+            : equationBlock.equation,
+        constraints: applicableConstraints,
+      }
+    })
+  }, [calculatedData, connectedEquations, constraints, equationConstraintMap])
 
   const autoYAxis = useMemo(() => {
-    const xMin = Math.max(
-      constrainedConfig.xAxis.min,
-      constraintDomain.xMin ?? Number.NEGATIVE_INFINITY
-    )
-    const xMax = Math.min(
-      constrainedConfig.xAxis.max,
-      constraintDomain.xMax ?? Number.POSITIVE_INFINITY
-    )
+    // Use the chart's configured xAxis domain, NOT constraintDomain
+    // Constraints should only mask function lines, not affect the visible area
+    const xMin = constrainedConfig.xAxis.min
+    const xMax = constrainedConfig.xAxis.max
+    
     if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMin === xMax) {
       return null
     }
@@ -673,11 +707,10 @@ export function ChartBlockComponent({
   }, [
     autoYAxis,
     constrainedConfig,
-    constraintDomain.yMax,
-    constraintDomain.yMin,
   ])
 
   // Build function strings with substituted variables
+  // Apply constraints PER EQUATION, not globally
   const functionData = useMemo(() => {
     return plots
       .map((plot) => {
@@ -714,11 +747,45 @@ export function ChartBlockComponent({
         // Skip if contains unsupported unicode characters that function-plot can't handle
         if (/[∧∨⊕→⁻⁺]/.test(fn)) return null
 
-        // Apply constraint masking (show axes/ticks but don't plot outside constraints)
-        const xMinLimit = constraintDomain.xMin
-        const xMaxLimit = constraintDomain.xMax
-        const yMinLimit = constraintDomain.yMin
-        const yMaxLimit = constraintDomain.yMax
+        // Apply constraint masking PER EQUATION
+        // Only apply constraints that are specific to this equation
+        // DO NOT use global constraintDomain - that would affect all equations
+        const plotConstraints = plot.constraints || []
+        
+        // Start with NO limits - only apply equation-specific constraints
+        let xMinLimit: number | undefined
+        let xMaxLimit: number | undefined
+        let yMinLimit: number | undefined
+        let yMaxLimit: number | undefined
+
+        // Apply only the constraints for this specific equation
+        for (const c of plotConstraints) {
+          const name = (c.variableName ?? "").toLowerCase()
+          const type = c.constraint.type
+          const min = c.constraint.min
+          const max = c.constraint.max
+
+          if (name === "x") {
+            if (type === "gte" && typeof min === "number") xMinLimit = min
+            if (type === "gt" && typeof min === "number") xMinLimit = min + 1e-9
+            if (type === "lte" && typeof min === "number") xMaxLimit = min
+            if (type === "lt" && typeof min === "number") xMaxLimit = min - 1e-9
+            if (type === "range") {
+              if (typeof min === "number") xMinLimit = min
+              if (typeof max === "number") xMaxLimit = max
+            }
+          }
+          if (name === "y") {
+            if (type === "gte" && typeof min === "number") yMinLimit = min
+            if (type === "gt" && typeof min === "number") yMinLimit = min + 1e-9
+            if (type === "lte" && typeof min === "number") yMaxLimit = min
+            if (type === "lt" && typeof min === "number") yMaxLimit = min - 1e-9
+            if (type === "range") {
+              if (typeof min === "number") yMinLimit = min
+              if (typeof max === "number") yMaxLimit = max
+            }
+          }
+        }
 
         const NAN_EXPR = "(0/0)"
         let masked = `(${fn})`
@@ -745,13 +812,7 @@ export function ChartBlockComponent({
         (item): item is { fn: string; color: string; graphType: "polyline" } =>
           item !== null
       )
-  }, [
-    plots,
-    constraintDomain.xMax,
-    constraintDomain.xMin,
-    constraintDomain.yMax,
-    constraintDomain.yMin,
-  ])
+  }, [plots])
 
   // Render the plot when plots or config changes
   useEffect(() => {
