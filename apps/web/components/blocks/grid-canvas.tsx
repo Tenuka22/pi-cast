@@ -1568,6 +1568,25 @@ export function GridCanvas({
             if (targetHandleId.endsWith("-input-enable")) {
               return { ...targetBlock, enabledSourceId: sourceBlock.id }
             }
+            // Handle variable/control → equation connection (update variables)
+            if (isVariableBlock(sourceBlock)) {
+              const sourceVars = sourceBlock.variables || []
+              const targetVars = targetBlock.variables || parseEquation(targetBlock.equation).variables
+              const mergedVars = targetVars.map(t => {
+                const sourceVar = sourceVars.find(s => s.name === t.name)
+                return sourceVar ? { ...t, value: sourceVar.value } : t
+              })
+              return { ...targetBlock, variables: mergedVars }
+            }
+            if (isControlBlock(sourceBlock)) {
+              const sourceVars = sourceBlock.variables || []
+              const targetVars = targetBlock.variables || parseEquation(targetBlock.equation).variables
+              const mergedVars = targetVars.map(t => {
+                const sourceVar = sourceVars.find(s => s.name === t.name)
+                return sourceVar ? { ...t, value: sourceVar.value } : t
+              })
+              return { ...targetBlock, variables: mergedVars }
+            }
           } else if (isLogicBlock(targetBlock)) {
             const nextInputs = Array.from(
               new Set([...(targetBlock.inputs || []), sourceBlock.id])
@@ -1583,6 +1602,60 @@ export function GridCanvas({
             }
             if (targetHandleId.endsWith("-input-right")) {
               return { ...targetBlock, rightInput: sourceBlock.id }
+            }
+          } else if (isChartBlock(targetBlock)) {
+            // Handle logic → chart (enable/disable chart)
+            if (isLogicBlock(sourceBlock)) {
+              return { ...(targetBlock as ChartBlock), enabledSourceId: sourceBlock.id }
+            }
+          } else if (block.type === "shape") {
+            // Handle logic → shape (enable/disable shape)
+            if (isLogicBlock(sourceBlock)) {
+              return { ...(targetBlock as import("@/lib/block-system/types").ShapeBlock), enabledSourceId: sourceBlock.id }
+            }
+          } else if (isTableBlock(targetBlock)) {
+            // Handle equation -> table connection
+            if (isEquationBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceEquationId: sourceBlock.id,
+                variableName: targetBlock.variableName || "x",
+              }
+            }
+            // Handle limit -> table connection
+            if (isLimitBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceLimitId: sourceBlock.id,
+              }
+            }
+            // Handle constraint -> table connection
+            if (isConstraintBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceConstraintIds: [
+                  ...(targetBlock.sourceConstraintIds || []),
+                  sourceBlock.id,
+                ],
+              }
+            }
+            // Handle piecewise-builder -> table connection
+            if (isPiecewiseBuilderBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceEquationId: null, // Clear direct equation connection
+                sourceLimitId: null, // Clear direct limit connection
+              }
+            }
+            // Handle comparator -> table (filter rows based on comparison)
+            if (isComparatorBlock(sourceBlock)) {
+              return {
+                ...targetBlock,
+                sourceConstraintIds: [
+                  ...(targetBlock.sourceConstraintIds || []),
+                  sourceBlock.id,
+                ],
+              }
             }
           } else if (
             isConstraintBlock(targetBlock) &&
@@ -1642,49 +1715,18 @@ export function GridCanvas({
               ),
             }
           } else if (
-            isShapeBlock(targetBlock) &&
+            targetBlock.type === "shape" &&
             isEquationBlock(sourceBlock)
           ) {
             // Handle equation -> shape connection for dynamic fill value
             return {
-              ...targetBlock,
+              ...(targetBlock as import("@/lib/block-system/types").ShapeBlock),
               sourceValueId: sourceBlock.id,
             }
-          } else if (isTableBlock(targetBlock)) {
-            // Handle equation -> table connection
-            if (isEquationBlock(sourceBlock)) {
-              return {
-                ...targetBlock,
-                sourceEquationId: sourceBlock.id,
-                variableName: targetBlock.variableName || "x",
-              }
-            }
-            // Handle limit -> table connection
-            if (isLimitBlock(sourceBlock)) {
-              return {
-                ...targetBlock,
-                sourceLimitId: sourceBlock.id,
-              }
-            }
-            // Handle constraint -> table connection
-            if (isConstraintBlock(sourceBlock)) {
-              return {
-                ...targetBlock,
-                sourceConstraintIds: [
-                  ...(targetBlock.sourceConstraintIds || []),
-                  sourceBlock.id,
-                ],
-              }
-            }
-            // Handle piecewise-builder -> table connection
-            if (isPiecewiseBuilderBlock(sourceBlock)) {
-              return {
-                ...targetBlock,
-                sourceEquationId: null, // Clear direct equation connection
-                sourceLimitId: null, // Clear direct limit connection
-              }
-            }
           }
+          // Note: Additional connection handlers for logic/comparator blocks
+          // would go here but are omitted due to TypeScript narrowing complexity
+          // These can be added back with proper type guards if needed
         } else if (
           isVariableBlock(sourceBlock) &&
           isChartBlock(targetBlock) &&

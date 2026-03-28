@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Button } from '@workspace/ui/components/button';
 import {
   LibraryIcon,
   Flag01Icon,
@@ -16,7 +15,6 @@ import {
   PuzzleIcon,
 } from '@hugeicons/core-free-icons';
 import type { EquationBlock, ChartBlock, DescriptionBlock, LimitBlock, ShapeBlock, VariableBlock, TableBlock, PiecewiseLimiterBlock, PiecewiseBuilderBlock } from '@/lib/block-system/types';
-import { PIECEWISE_TEMPLATES, templateToPresets } from '@/lib/piecewise-templates';
 
 export type LogicType = 'and' | 'or' | 'xor' | 'eq' | 'le' | 'ge' | 'gt' | 'lt';
 
@@ -38,13 +36,11 @@ export type BlockPreset =
 
 interface BlockLibraryProps {
   onBlockSelect?: (preset: BlockPreset) => void;
-  onBulkBlockSelect?: (presets: Array<{ type: string; data: any }>) => void;
   className?: string;
 }
 
-export function BlockLibrary({ onBlockSelect, onBulkBlockSelect, className }: BlockLibraryProps) {
+export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>('equations');
-  const [expandedPiecewiseSubcategory, setExpandedPiecewiseSubcategory] = useState<string | null>(null);
 
   const handleBlockClick = (preset: BlockPreset) => onBlockSelect?.(preset);
 
@@ -52,14 +48,6 @@ export function BlockLibrary({ onBlockSelect, onBulkBlockSelect, className }: Bl
     e.dataTransfer.setData('application/json', JSON.stringify(preset));
     e.dataTransfer.effectAllowed = 'copy';
   };
-
-  const handleTemplateClick = (templateId: string) => {
-    const template = PIECEWISE_TEMPLATES.find(t => t.id === templateId)
-    if (template && onBulkBlockSelect) {
-      const presets = templateToPresets(template)
-      onBulkBlockSelect(presets)
-    }
-  }
 
   return (
     <div className={cn('flex h-full w-64 flex-col border-r border-border bg-card', className)}>
@@ -199,62 +187,23 @@ export function BlockLibrary({ onBlockSelect, onBulkBlockSelect, className }: Bl
           isExpanded={expandedCategory === 'piecewise'}
           onToggle={() => setExpandedCategory(expandedCategory === 'piecewise' ? null : 'piecewise')}
         >
-          <div className="space-y-2">
-            {/* Basic Blocks */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground px-2">Basic Blocks</div>
-              <BlockItem
-                title="Domain Limiter"
-                equation="Connect to equation"
-                onClick={() => handleBlockClick({ type: 'piecewise-limiter', data: { variableName: 'x', constraint: { type: 'lt', min: 0 }, enabled: true } })}
-                onDragStart={(e) => handleDragStart(e, { type: 'piecewise-limiter', data: { variableName: 'x', constraint: { type: 'lt', min: 0 }, enabled: true } })}
-              />
-              <BlockItem
-                title="Piecewise Builder"
-                equation="Combine limiters"
-                onClick={() => handleBlockClick({ type: 'piecewise-builder', data: { connectedLimiterIds: [], fallbackEnabled: true, fallbackEquation: '0' } })}
-                onDragStart={(e) => handleDragStart(e, { type: 'piecewise-builder', data: { connectedLimiterIds: [], fallbackEnabled: true, fallbackEquation: '0' } })}
-              />
-            </div>
-
-            {/* Templates */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground px-2">Quick Templates</div>
-              {PIECEWISE_TEMPLATES.slice(0, 5).map((template) => (
-                <BlockItem
-                  key={template.id}
-                  title={template.name}
-                  equation={template.description}
-                  onClick={() => handleTemplateClick(template.id)}
-                />
-              ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-xs h-auto py-1"
-                onClick={() => setExpandedPiecewiseSubcategory(expandedPiecewiseSubcategory === 'all' ? null : 'all')}
-              >
-                {expandedPiecewiseSubcategory === 'all' ? 'Show Less' : `Show ${PIECEWISE_TEMPLATES.length - 5} More Templates`}
-              </Button>
-              {expandedPiecewiseSubcategory === 'all' && (
-                <div className="space-y-1">
-                  {PIECEWISE_TEMPLATES.slice(5).map((template) => (
-                    <BlockItem
-                      key={template.id}
-                      title={template.name}
-                      equation={template.description}
-                      onClick={() => handleTemplateClick(template.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <BlockItem
+            title="Domain Limiter"
+            equation="Connect to equation"
+            onClick={() => handleBlockClick({ type: 'piecewise-limiter', data: { variableName: 'x', constraint: { type: 'lt', min: 0 }, enabled: true } })}
+            onDragStart={(e) => handleDragStart(e, { type: 'piecewise-limiter', data: { variableName: 'x', constraint: { type: 'lt', min: 0 }, enabled: true } })}
+          />
+          <BlockItem
+            title="Piecewise Builder"
+            equation="Combine limiters"
+            onClick={() => handleBlockClick({ type: 'piecewise-builder', data: { connectedLimiterIds: [], fallbackEnabled: true, fallbackEquation: '0' } })}
+            onDragStart={(e) => handleDragStart(e, { type: 'piecewise-builder', data: { connectedLimiterIds: [], fallbackEnabled: true, fallbackEquation: '0' } })}
+          />
         </CategorySection>
       </div>
       <div className="border-t border-border p-3 text-xs text-muted-foreground">
         <p>Drag blocks to canvas or click to add</p>
-        <p className="mt-1">Double-click equations to edit | Connect limiters to builder for piecewise</p>
+        <p className="mt-1">Double-click equations to edit</p>
       </div>
     </div>
   );

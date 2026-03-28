@@ -483,20 +483,24 @@ export interface BlockConnection {
     | "equation-to-comparator"
     | "equation-to-table"
     | "variable-to-chart"
+    | "variable-to-equation"
     | "logic-to-equation"
-    | "comparator-to-equation"
-    | "limit-to-chart"
-    | "limit-to-table"
-    | "control-to-shape"
-    | "control-to-limit"
-    | "control-to-comparator"
-    | "logic-to-logic"
     | "logic-to-chart"
     | "logic-to-shape"
+    | "logic-to-logic"
+    | "comparator-to-equation"
     | "comparator-to-logic"
     | "comparator-to-chart"
     | "comparator-to-shape"
     | "comparator-to-comparator"
+    | "comparator-to-table"
+    | "limit-to-chart"
+    | "limit-to-table"
+    | "limit-to-logic"
+    | "control-to-shape"
+    | "control-to-limit"
+    | "control-to-comparator"
+    | "control-to-equation"
     | "constraint-to-equation"
     | "constraint-to-chart"
     | "constraint-to-constraint"
@@ -507,6 +511,8 @@ export interface BlockConnection {
     | "piecewise-limiter-to-builder"
     | "piecewise-builder-to-chart"
     | "piecewise-builder-to-table"
+    | "piecewise-builder-to-logic"
+    | "piecewise-builder-to-shape"
   createdAt: number
 }
 
@@ -1163,6 +1169,28 @@ export function getConnectionType(
     return "piecewise-builder-to-chart"
   if (sourceBlockType === "piecewise-builder" && targetBlockType === "table")
     return "piecewise-builder-to-table"
+  
+  // Missing practical connections
+  if (sourceBlockType === "variable" && targetBlockType === "equation")
+    return "variable-to-equation"
+  if (sourceBlockType === "control" && targetBlockType === "equation")
+    return "control-to-equation"
+  if (sourceBlockType === "logic" && targetBlockType === "chart")
+    return "logic-to-chart"
+  if (sourceBlockType === "logic" && targetBlockType === "shape")
+    return "logic-to-shape"
+  if (sourceBlockType === "comparator" && targetBlockType === "table")
+    return "comparator-to-table"
+  if (sourceBlockType === "constraint" && targetBlockType === "logic")
+    return "constraint-to-logic"
+  if (sourceBlockType === "constraint" && targetBlockType === "comparator")
+    return "constraint-to-comparator"
+  if (sourceBlockType === "limit" && targetBlockType === "logic")
+    return "limit-to-logic"
+  if (sourceBlockType === "piecewise-builder" && targetBlockType === "logic")
+    return "piecewise-builder-to-logic"
+  if (sourceBlockType === "piecewise-builder" && targetBlockType === "shape")
+    return "piecewise-builder-to-shape"
   return null
 }
 
