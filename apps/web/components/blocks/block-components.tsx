@@ -1337,7 +1337,6 @@ interface LimitBlockComponentProps {
   className?: string
   style?: React.CSSProperties
   onVariableChange?: (variableName: string, value: number | string) => void
-  onApproachChange?: (approach: "left" | "right" | "both") => void
   variableOptions?: string[]
   onConnectionStart?: (
     handleId: string,
@@ -1359,7 +1358,6 @@ export function LimitBlockComponent({
   className,
   style,
   onVariableChange,
-  onApproachChange,
   variableOptions = [],
   onConnectionStart,
   onConnectionEnd,
@@ -1367,7 +1365,11 @@ export function LimitBlockComponent({
   connectingFromType,
   connectedEquation,
 }: LimitBlockComponentProps) {
-  const { variableName, limitValue, approach } = block
+  const { variableName, limitValue, limitType } = block
+
+  // Display symbol based on limit type (fixed, cannot be changed)
+  const limitSymbol = limitType === 'left' ? '⁻' : limitType === 'right' ? '⁺' : '↔'
+  const limitLabel = limitType === 'left' ? 'Left Limit' : limitType === 'right' ? 'Right Limit' : 'Two-Sided Limit'
 
   // Calculate limit result from connected equation
   const limitResult = useMemo(() => {
@@ -1412,8 +1414,9 @@ export function LimitBlockComponent({
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-semibold">lim</span>
-          <span className="text-xs text-muted-foreground">Limit</span>
+          <span className="text-xs text-muted-foreground">{limitLabel}</span>
         </div>
+        <span className="text-lg font-bold text-primary">{limitSymbol}</span>
       </div>
       <div className="flex-1 space-y-4 p-4">
         <div className="space-y-2">
@@ -1446,21 +1449,10 @@ export function LimitBlockComponent({
             step="any"
           />
         </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Direction</Label>
-          <div className="flex gap-2">
-            {(["left", "right", "both"] as const).map((dir) => (
-              <Button
-                key={dir}
-                variant={approach === dir ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => onApproachChange?.(dir)}
-              >
-                {dir === "left" ? "⁻" : dir === "right" ? "⁺" : "↔"}
-              </Button>
-            ))}
-          </div>
+        <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+          <span className="font-mono">
+            {variableName} → {limitValue}{limitSymbol}
+          </span>
         </div>
 
         {/* Limit Result Display */}
