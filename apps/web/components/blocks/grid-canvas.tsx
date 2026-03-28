@@ -2163,7 +2163,21 @@ export function GridCanvas({
         // Get calculated data from node chain (node-based calculation)
         const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
         let calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+
+        // Check if connected to a piecewise-builder (for piecewise functions)
+        const piecewiseBuilderIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-builder-to-chart'))
+          .map((c) => c.sourceBlockId)
         
+        if (piecewiseBuilderIds.length > 0) {
+          // Get calculatedData from the piecewise builder's node chain
+          const builderChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === piecewiseBuilderIds[0])?.[0] : undefined
+          const builderCalculatedData = builderChainId && nodeChains?.has(builderChainId) ? nodeChains.get(builderChainId)?.calculatedData : undefined
+          if (builderCalculatedData?.piecewisePieces) {
+            calculatedData = builderCalculatedData
+          }
+        }
+
         // Fallback: If we have connected limits but no calculatedData, get equation from limit's target
         if (!calculatedData?.equation && connectedLimits.length > 0) {
           const limit = connectedLimits[0]
@@ -2578,12 +2592,12 @@ export function GridCanvas({
         
         // Fallback 3: If we have a limit but no equation, get equation from limit's target
         if (!connectedEquation && connectedLimit?.targetEquationId) {
-          const eq = blocks.find(b => 
+          const eq = blocks.find(b =>
             b.id === connectedLimit.targetEquationId && isEquationBlock(b)
           )
           if (eq && isEquationBlock(eq)) connectedEquation = eq
         }
-        
+
         // Get connected constraints for filtering table values
         const connectedConstraintIds = connections
           .filter((c) => c.targetBlockId === block.id && c.type.includes('constraint-to-table'))
@@ -2612,15 +2626,28 @@ export function GridCanvas({
         }
 
         // Get calculatedData from node chain (for piecewise functions)
-        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        const tableChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
+        let tableCalculatedData = tableChainId && nodeChains?.has(tableChainId) ? nodeChains.get(tableChainId)?.calculatedData : undefined
+
+        // Check if connected to a piecewise-builder
+        const piecewiseBuilderIds = connections
+          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-builder-to-table'))
+          .map((c) => c.sourceBlockId)
+        
+        if (piecewiseBuilderIds.length > 0) {
+          const builderChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === piecewiseBuilderIds[0])?.[0] : undefined
+          const builderCalculatedData = builderChainId && nodeChains?.has(builderChainId) ? nodeChains.get(builderChainId)?.calculatedData : undefined
+          if (builderCalculatedData?.piecewisePieces) {
+            tableCalculatedData = builderCalculatedData
+          }
+        }
 
         return (
           <TableBlockComponent
             key={block.id}
             block={block}
             {...commonProps}
-            calculatedData={calculatedData}
+            calculatedData={tableCalculatedData}
             connectedEquation={connectedEquation || equationFromConstraint}
             connectedLimit={connectedLimit}
             connectedConstraints={connectedConstraints}
