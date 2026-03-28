@@ -99,6 +99,8 @@ function isValidBlockPreset(value: unknown): value is BlockPreset {
       "comparator",
       "constraint",
       "table",
+      "piecewise-limiter",
+      "piecewise-builder",
     ].includes(value.type)
   )
 }
