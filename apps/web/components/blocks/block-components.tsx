@@ -843,10 +843,40 @@ export function ChartBlockComponent({
           yLine: true,
         },
       })
+      
+      // Add vertical asymptote lines as SVG overlays
+      if (connectedLimits.length > 0 && containerRef.current) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        svg.setAttribute('style', 'position: absolute; inset: 0; pointer-events: none; z-index: 10;')
+        
+        for (const limit of connectedLimits) {
+          const limitX = limit.limitValue
+          
+          // Calculate x position in pixels
+          const xRange = effectiveConfig.xAxis.max - effectiveConfig.xAxis.min
+          const xPercent = (limitX - effectiveConfig.xAxis.min) / xRange
+          const xPx = xPercent * effectiveConfig.width
+          
+          // Create asymptote line
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+          line.setAttribute('x1', String(xPx))
+          line.setAttribute('y1', '0')
+          line.setAttribute('x2', String(xPx))
+          line.setAttribute('y2', String(effectiveConfig.height))
+          line.setAttribute('stroke', '#ef4444')
+          line.setAttribute('stroke-width', '2')
+          line.setAttribute('stroke-dasharray', '5,5')
+          line.setAttribute('opacity', '0.7')
+          
+          svg.appendChild(line)
+        }
+        
+        containerRef.current.appendChild(svg)
+      }
     } catch (error) {
       console.error("Error plotting function:", error, functionData)
     }
-  }, [functionData, effectiveConfig])
+  }, [functionData, effectiveConfig, connectedLimits])
 
   const hasEquations = functionData.length > 0
   const connectedHandleIds = new Set(

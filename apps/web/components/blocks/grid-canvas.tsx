@@ -2432,17 +2432,51 @@ export function GridCanvas({
         const connectedLimitIds = connections
           .filter((c) => c.targetBlockId === block.id && c.type.includes('limit-to-table'))
           .map((c) => c.sourceBlockId)
-        
+
         let connectedLimit: LimitBlock | null = null
         if (connectedLimitIds.length > 0) {
           const limit = blocks.find((b) => b.id === connectedLimitIds[0] && isLimitBlock(b))
           if (limit && isLimitBlock(limit)) connectedLimit = limit
         }
-        
+
         // Also check sourceLimitId for backwards compatibility
         if (!connectedLimit && block.sourceLimitId) {
           const limit = blocks.find((b) => b.id === block.sourceLimitId && isLimitBlock(b))
           if (limit && isLimitBlock(limit)) connectedLimit = limit
+        }
+        
+        // Fallback 1: If we have an equation but no limit, check if the equation has a target limit
+        if (!connectedLimit && connectedEquation) {
+          // Find limits that target this equation
+          const limitsTargetingEquation = blocks.filter((b) =>
+            isLimitBlock(b) && b.targetEquationId === connectedEquation?.id
+          )
+          if (limitsTargetingEquation.length > 0) {
+            connectedLimit = limitsTargetingEquation[0] as LimitBlock
+          }
+        }
+        
+        // Fallback 2: Check calculatedData from node chains for limit values
+        if (!connectedLimit) {
+          const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
+          const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+          if (calculatedData?.limitValues && calculatedData.limitValues.length > 0) {
+            // We have limit data in the chain - find the corresponding limit block
+            const limitsTargetingEquation = blocks.filter((b) =>
+              isLimitBlock(b) && connectedEquation && b.targetEquationId === connectedEquation.id
+            )
+            if (limitsTargetingEquation.length > 0) {
+              connectedLimit = limitsTargetingEquation[0] as LimitBlock
+            }
+          }
+        }
+        
+        // Fallback 3: If we have a limit but no equation, get equation from limit's target
+        if (!connectedEquation && connectedLimit?.targetEquationId) {
+          const eq = blocks.find(b => 
+            b.id === connectedLimit.targetEquationId && isEquationBlock(b)
+          )
+          if (eq && isEquationBlock(eq)) connectedEquation = eq
         }
         
         // Get connected constraints for filtering table values
