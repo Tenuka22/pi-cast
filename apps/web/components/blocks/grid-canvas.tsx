@@ -859,12 +859,13 @@ export function GridCanvas({
     const allBlocks = new Map(blocks.map((b) => [b.id, b] as const))
 
     // Calculate data for each output node (chart, table, shape)
+    // Also calculate intermediate nodes like piecewise-builder
     // Track which chains have new/changed calculations
     const changedChainIds = new Set<string>()
 
     for (const [chainId, chain] of nodeChains) {
-      // Only calculate for output block types
-      if (!['chart', 'table', 'shape'].includes(chain.type)) continue
+      // Only calculate for output block types AND piecewise-builder (intermediate node)
+      if (!['chart', 'table', 'shape', 'piecewise-builder'].includes(chain.type)) continue
 
       const block = allBlocks.get(chain.nodeId)
       if (!block) continue
@@ -880,9 +881,10 @@ export function GridCanvas({
 
         // Only update if calculated data changed (shallow comparison)
         const existingData = chain.calculatedData
-        const dataChanged = !existingData || 
+        const dataChanged = !existingData ||
           existingData.timestamp !== calculatedData.timestamp ||
-          existingData.equation !== calculatedData.equation
+          existingData.equation !== calculatedData.equation ||
+          existingData.piecewisePieces !== calculatedData.piecewisePieces
 
         if (dataChanged) {
           changedChainIds.add(chainId)

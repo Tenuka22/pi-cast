@@ -2839,8 +2839,14 @@ export function TableBlockComponent({
     }
   }, [connectedEquation, connectedLimit, autoGenerateRows, variableName])
 
-  // Filter rows based on connected constraints
+  // Filter rows based on connected constraints (but NOT for piecewise functions)
   const filteredTableData = useMemo(() => {
+    // Don't apply constraint filtering for piecewise functions
+    // The piecewise calculation already handles domain restrictions per piece
+    if (calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0) {
+      return tableData
+    }
+    
     if (!connectedConstraints.length || !tableData.rows.length) {
       return tableData
     }

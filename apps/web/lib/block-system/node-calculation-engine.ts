@@ -504,6 +504,7 @@ function calculatePiecewiseBuilderNode(
   // Collect pieces from all connected limiters
   for (const limiterId of block.connectedLimiterIds) {
     const limiterBlock = allBlocks.get(limiterId)
+    
     if (limiterBlock && limiterBlock.type === "piecewise-limiter") {
       const limiter = limiterBlock as PiecewiseLimiterBlock
 
