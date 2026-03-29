@@ -1823,12 +1823,12 @@ const LOGIC_GATE_SYMBOLS: Record<
   import("@/lib/block-system/types").LogicGateType,
   string
 > = {
-  and: "∧",
-  or: "∨",
-  xor: "⊕",
+  and: "AND",
+  or: "OR",
+  xor: "XOR",
   eq: "=",
-  le: "≤",
-  ge: "≥",
+  le: "<=",
+  ge: ">=",
   gt: ">",
   lt: "<",
 }
@@ -1876,7 +1876,7 @@ export function LogicBlockComponent({
     >
       <div className="p-4">
         <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
-          <span className="font-mono">🔌</span>
+          <span>Logic</span>
         </div>
         <div className="flex flex-col items-center gap-2">
           <div
@@ -1946,12 +1946,12 @@ const COMPARATOR_SYMBOLS: Record<
   import("@/lib/block-system/types").LogicGateType,
   string
 > = {
-  and: "âˆ§",
-  or: "âˆ¨",
-  xor: "âŠ•",
+  and: "AND",
+  or: "OR",
+  xor: "XOR",
   eq: "=",
-  le: "â‰¤",
-  ge: "â‰¥",
+  le: "<=",
+  ge: ">=",
   gt: ">",
   lt: "<",
 }
@@ -1986,7 +1986,6 @@ export function ComparatorBlockComponent({
     >
       <div className="p-4">
         <div className="absolute -top-3 left-3 flex items-center gap-1 rounded bg-card px-2 text-xs text-muted-foreground">
-          <span className="font-mono">â‰Ÿ</span>
           <span>Comparator</span>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -2104,112 +2103,109 @@ export function ConstraintBlockComponent({
       className={className}
       style={style}
     >
-      <div className="p-4">
-        <div className="absolute -top-3 left-3 flex items-center gap-2 rounded bg-card px-2 text-xs text-muted-foreground">
-          <span className="font-mono">âš™</span>
+      <div className="p-1.5">
+        <div className="absolute -top-2 left-3 flex items-center gap-1.5 rounded bg-card px-1.5 text-xs text-muted-foreground">
           <span>Constraint</span>
-          <span className="font-mono text-foreground">{operatorLabel}</span>
+          <span className="font-mono text-xs text-foreground">{operatorLabel}</span>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Var</Label>
-            <select
-              value={
-                variableOptions.includes(variableName)
-                  ? variableName
-                  : (variableOptions[0] ?? "")
-              }
-              onChange={(e) =>
-                onConstraintChange?.({
-                  variableName: e.target.value.trim() || "x",
-                })
-              }
-              disabled={variableOptions.length === 0}
-              className={cn(
-                "h-7 w-24 rounded border border-input bg-background px-2 font-mono text-xs",
-                variableOptions.length === 0 && "opacity-60"
-              )}
-            >
-              {variableOptions.length === 0 ? (
-                <option value="">Connect equation</option>
-              ) : (
-                variableOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))
-              )}
-            </select>
-            <div className="ml-auto flex items-center gap-2">
-              {constraintType !== "range" ? (
-                <>
-                  <Label className="text-xs text-muted-foreground">Value</Label>
-                  <Input
-                    type="number"
-                    value={Number.isFinite(minValue) ? minValue : 0}
-                    onChange={(e) => {
-                      const nextMin = Number(e.target.value)
-                      onConstraintChange?.({
-                        constraint: {
-                          ...constraint,
-                          min: Number.isFinite(nextMin) ? nextMin : 0,
-                        },
-                      })
-                    }}
-                    className="h-7 w-24 text-right font-mono"
-                  />
-                </>
-              ) : (
-                <>
-                  <Label className="text-xs text-muted-foreground">Min</Label>
-                  <Input
-                    type="number"
-                    value={Number.isFinite(minValue) ? minValue : 0}
-                    onChange={(e) => {
-                      const nextMin = Number(e.target.value)
-                      onConstraintChange?.({
-                        constraint: {
-                          ...constraint,
-                          min: Number.isFinite(nextMin) ? nextMin : 0,
-                        },
-                      })
-                    }}
-                    className="h-7 w-20 text-right font-mono"
-                  />
-                  <Label className="text-xs text-muted-foreground">Max</Label>
-                  <Input
-                    type="number"
-                    value={Number.isFinite(maxValue) ? maxValue : 0}
-                    onChange={(e) => {
-                      const nextMax = Number(e.target.value)
-                      onConstraintChange?.({
-                        constraint: {
-                          ...constraint,
-                          max: Number.isFinite(nextMax) ? nextMax : 0,
-                        },
-                      })
-                    }}
-                    className="h-7 w-20 text-right font-mono"
-                  />
-                </>
-              )}
-            </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Var</Label>
+          <select
+            value={
+              variableOptions.includes(variableName)
+                ? variableName
+                : (variableOptions[0] ?? "")
+            }
+            onChange={(e) =>
+              onConstraintChange?.({
+                variableName: e.target.value.trim() || "x",
+              })
+            }
+            disabled={variableOptions.length === 0}
+            className={cn(
+              "h-5 w-14 rounded border border-input bg-background px-1 font-mono text-xs",
+              variableOptions.length === 0 && "opacity-60"
+            )}
+          >
+            {variableOptions.length === 0 ? (
+              <option value="">Connect equation</option>
+            ) : (
+              variableOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))
+            )}
+          </select>
+          <div className="ml-auto flex items-center gap-2">
+            {constraintType !== "range" ? (
+              <>
+                <Label className="text-xs text-muted-foreground">Value</Label>
+                <Input
+                  type="number"
+                  value={Number.isFinite(minValue) ? minValue : 0}
+                  onChange={(e) => {
+                    const nextMin = Number(e.target.value)
+                    onConstraintChange?.({
+                      constraint: {
+                        ...constraint,
+                        min: Number.isFinite(nextMin) ? nextMin : 0,
+                      },
+                    })
+                  }}
+                  className="h-5 w-14 text-right font-mono"
+                />
+              </>
+            ) : (
+              <>
+                <Label className="text-xs text-muted-foreground">Min</Label>
+                <Input
+                  type="number"
+                  value={Number.isFinite(minValue) ? minValue : 0}
+                  onChange={(e) => {
+                    const nextMin = Number(e.target.value)
+                    onConstraintChange?.({
+                      constraint: {
+                        ...constraint,
+                        min: Number.isFinite(nextMin) ? nextMin : 0,
+                      },
+                    })
+                  }}
+                  className="h-5 w-12 text-right font-mono"
+                />
+                <Label className="text-xs text-muted-foreground">Max</Label>
+                <Input
+                  type="number"
+                  value={Number.isFinite(maxValue) ? maxValue : 0}
+                  onChange={(e) => {
+                    const nextMax = Number(e.target.value)
+                    onConstraintChange?.({
+                      constraint: {
+                        ...constraint,
+                        max: Number.isFinite(nextMax) ? nextMax : 0,
+                      },
+                    })
+                  }}
+                  className="h-5 w-12 text-right font-mono"
+                />
+              </>
+            )}
           </div>
-
-          {result !== undefined && (
-            <div
-              className={cn(
-                "rounded px-3 py-1 font-mono text-sm",
-                result
-                  ? "bg-green-500/10 text-green-600"
-                  : "bg-red-500/10 text-red-600"
-              )}
-            >
-              {result ? "true" : "false"}
-            </div>
-          )}
         </div>
+
+        {result !== undefined && (
+          <div
+            className={cn(
+              "absolute -bottom-1.5 left-3 rounded px-1.5 py-0.5 font-mono text-xs",
+              result
+                ? "bg-green-500/10 text-green-600"
+                : "bg-red-500/10 text-red-600"
+            )}
+          >
+            {result ? "true" : "false"}
+          </div>
+        )}
       </div>
       <ConnectionHandles
         blockId={block.id}
@@ -2426,7 +2422,6 @@ export function ShapeBlockComponent({
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-semibold">◻️</span>
           <span className="text-xs text-muted-foreground capitalize">
             {shapeType}
           </span>
@@ -2713,7 +2708,7 @@ export function TableBlockComponent({
       ...equations.map((eq, idx) => ({
         id: `y-${idx}`,
         label: eq.equation ? eq.equation : `y${idx + 1}`,
-        type: "result",
+        type: "result" as const,
         equation: eq.equation,
       })),
     ]
@@ -2940,31 +2935,28 @@ export function TableBlockComponent({
       style={style}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-semibold">📊</span>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">
-              {displayedRows.length} / {filteredTableData.rows.length} rows ×{" "}
-              {columns.length || filteredTableData.columns.length} columns
-            </span>
-            {connectedEquation && (
-              <span className="text-xs text-green-600">✓ Equation connected</span>
-            )}
-            {calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0 && (
-              <span className="text-xs text-purple-600">✓ Piecewise function ({calculatedData.piecewisePieces.length} pieces)</span>
-            )}
-            {connectedConstraints.length > 0 && (
-              <span className="text-xs text-primary">
-                {connectedConstraints.length} constraint
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">
+            {displayedRows.length} / {filteredTableData.rows.length} rows ×{" "}
+            {columns.length || filteredTableData.columns.length} columns
+          </span>
+          {connectedEquation && (
+            <span className="text-xs text-green-600">✓ Equation connected</span>
+          )}
+          {calculatedData?.piecewisePieces && calculatedData.piecewisePieces.length > 0 && (
+            <span className="text-xs text-purple-600">✓ Piecewise function ({calculatedData.piecewisePieces.length} pieces)</span>
+          )}
+          {connectedConstraints.length > 0 && (
+            <span className="text-xs text-primary">
+              {connectedConstraints.length} constraint
                 {connectedConstraints.length !== 1 ? "s" : ""} filtering
               </span>
-            )}
-            {connectedConstraints.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                (from {tableData.rows.length} total)
-              </span>
-            )}
-          </div>
+          )}
+          {connectedConstraints.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              (from {tableData.rows.length} total)
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button

@@ -30,14 +30,15 @@ const PALETTE = [
   'oklch(0.6 0.17 10)',   // red
 ];
 
-function pickColor(connectionId?: string, isSelected?: boolean): string {
+function pickColor(connectionId: string | undefined, isSelected?: boolean): string {
   if (isSelected) return 'oklch(0.78 0.22 320)';
-  if (!connectionId) return PALETTE[0];
+  if (!connectionId) return PALETTE[0]!;
   let hash = 0;
   for (let i = 0; i < connectionId.length; i++) {
     hash = (hash * 31 + connectionId.charCodeAt(i)) >>> 0;
   }
-  return PALETTE[hash % PALETTE.length];
+  const colorIndex = hash % PALETTE.length;
+  return PALETTE[colorIndex]!;
 }
 
 /**

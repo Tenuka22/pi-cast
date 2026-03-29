@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { GridCanvas } from "@/components/blocks/grid-canvas"
 import { BlockLibrary } from "@/components/blocks/block-library"
 import type { BlockPreset } from "@/components/blocks/block-library"
-import type { Block, NodeChain, GridPosition } from "@/lib/block-system/types"
+import type { Block, NodeChain, GridPosition, BlockDimensions } from "@/lib/block-system/types"
 import {
   findNearestValidPosition,
   parseEquation,
   createNodeChain,
+  getDefaultBlockDimensions,
 } from "@/lib/block-system/types"
 import { useUserRole } from "@/hooks/use-user-role"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
@@ -33,6 +34,9 @@ import {
  * - Visual chain indicators showing data flow
  * - Easy tracking of data through the pipeline
  * - Support for branching (one node -> multiple outputs)
+ * - Piecewise function templates
+ * - Undo/Redo support
+ * - Block deletion with cleanup
  *
  * Example chains:
  * 1. Equation -> Variable Slider -> Limiter -> Chart
@@ -53,17 +57,56 @@ function CanvasContent() {
   const [nodeChains, setNodeChains] = useState<Map<string, NodeChain>>(
     new Map()
   )
+  
+  // Undo/Redo history
+  const historyRef = useRef<{ blocks: Block[]; nodeChains: Map<string, NodeChain> }[]>([])
+  const futureRef = useRef<{ blocks: Block[]; nodeChains: Map<string, NodeChain> }[]>([])
+  const MAX_HISTORY = 50
+
+  const addToHistory = useCallback((newBlocks: Block[], newChains: Map<string, NodeChain>) => {
+    historyRef.current.push({
+      blocks: JSON.parse(JSON.stringify(newBlocks)),
+      nodeChains: new Map(newChains),
+    })
+    if (historyRef.current.length > MAX_HISTORY) {
+      historyRef.current.shift()
+    }
+    futureRef.current = [] // Clear future on new action
+  }, [])
+
+  const undo = useCallback(() => {
+    if (historyRef.current.length === 0) return
+    const previous = historyRef.current.pop()!
+    futureRef.current.push({
+      blocks: JSON.parse(JSON.stringify(blocks)),
+      nodeChains: new Map(nodeChains),
+    })
+    setBlocks(previous.blocks)
+    setNodeChains(previous.nodeChains)
+  }, [blocks, nodeChains])
+
+  const redo = useCallback(() => {
+    if (futureRef.current.length === 0) return
+    const next = futureRef.current.pop()!
+    historyRef.current.push({
+      blocks: JSON.parse(JSON.stringify(blocks)),
+      nodeChains: new Map(nodeChains),
+    })
+    setBlocks(next.blocks)
+    setNodeChains(next.nodeChains)
+  }, [blocks, nodeChains])
 
   const createBlockFromPreset = (
     preset: BlockPreset,
     position: GridPosition
   ): Block => {
+    const dimensions = getDefaultBlockDimensions(preset.type)
     const baseBlock = {
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       position,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      dimensions: { width: 0, height: 0 },
+      dimensions,
     }
 
     switch (preset.type) {
@@ -84,7 +127,7 @@ function CanvasContent() {
           ...baseBlock,
           type: "chart",
           equations: [],
-          dimensions: preset.data.dimensions ?? baseBlock.dimensions,
+          dimensions: preset.data.dimensions ?? dimensions,
         }
       case "description": {
         const format = preset.data.format ?? "plain"
@@ -191,6 +234,7 @@ function CanvasContent() {
           variableName,
           showGrid,
           highlightLastRow,
+          dimensions: preset.data.dimensions ?? dimensions,
         }
       }
       case "piecewise-limiter": {
@@ -274,7 +318,7 @@ function CanvasContent() {
     const newBlock = createBlockFromPreset(preset, position)
     const validPosition = findNearestValidPosition(
       position,
-      { width: 4, height: 2 },
+      newBlock.dimensions,
       blocks
     )
     const blockWithPosition = { ...newBlock, position: validPosition }
@@ -286,9 +330,13 @@ function CanvasContent() {
       validPosition,
       blockWithPosition.dimensions
     )
-    setNodeChains((prev) => new Map(prev).set(chain.id, chain))
-
-    setBlocks((prev) => [...prev, blockWithPosition])
+    
+    const newBlocks = [...blocks, blockWithPosition]
+    const newChains = new Map(nodeChains).set(chain.id, chain)
+    
+    addToHistory(newBlocks, newChains)
+    setNodeChains(newChains)
+    setBlocks(newBlocks)
   }
 
   const handleBlockSelect = (preset: BlockPreset) => {
@@ -296,7 +344,7 @@ function CanvasContent() {
     const newBlock = createBlockFromPreset(preset, centerPosition)
     const validPosition = findNearestValidPosition(
       centerPosition,
-      { width: 4, height: 2 },
+      newBlock.dimensions,
       blocks
     )
     const blockWithPosition = { ...newBlock, position: validPosition }
@@ -308,18 +356,87 @@ function CanvasContent() {
       validPosition,
       blockWithPosition.dimensions
     )
-    setNodeChains((prev) => new Map(prev).set(chain.id, chain))
+    
+    const newBlocks = [...blocks, blockWithPosition]
+    const newChains = new Map(nodeChains).set(chain.id, chain)
 
-    setBlocks((prev) => [...prev, blockWithPosition])
-  }
-
-  const handleBlocksChange = (newBlocks: Block[]) => {
+    addToHistory(newBlocks, newChains)
+    setNodeChains(newChains)
     setBlocks(newBlocks)
   }
 
+  /**
+   * Handle block deletion with proper cleanup
+   */
+  const handleBlockDelete = useCallback((blockId: string) => {
+    const newBlocks = blocks.filter(b => b.id !== blockId)
+    const newChains = new Map(nodeChains)
+    
+    // Find and remove the chain for this block
+    for (const [chainId, chain] of newChains.entries()) {
+      if (chain.nodeId === blockId) {
+        // Disconnect from prev and next
+        if (chain.prev) {
+          const prevChain = newChains.get(chain.prev)
+          if (prevChain) {
+            prevChain.next = prevChain.next.filter(id => id !== chainId)
+          }
+        }
+        for (const nextId of chain.next) {
+          const nextChain = newChains.get(nextId)
+          if (nextChain) {
+            nextChain.prev = null
+          }
+        }
+        newChains.delete(chainId)
+        break
+      }
+    }
+    
+    addToHistory(newBlocks, newChains)
+    setBlocks(newBlocks)
+    setNodeChains(newChains)
+  }, [blocks, nodeChains, addToHistory])
+
+  /**
+   * Handle blocks change with history tracking
+   */
+  const handleBlocksChange = (newBlocks: Block[]) => {
+    // Only add to history if blocks actually changed
+    const blocksChanged = blocks.length !== newBlocks.length || 
+      blocks.some((b, i) => b.id !== newBlocks[i]?.id || b.updatedAt !== newBlocks[i]?.updatedAt)
+    
+    if (blocksChanged) {
+      addToHistory(newBlocks, nodeChains)
+    }
+    setBlocks(newBlocks)
+  }
+
+  /**
+   * Handle keyboard shortcuts
+   */
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Undo: Ctrl+Z
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      undo()
+    }
+    // Redo: Ctrl+Shift+Z or Ctrl+Y
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+      e.preventDefault()
+      redo()
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+      e.preventDefault()
+      redo()
+    }
+  }, [undo, redo])
+
   return (
     <div className="flex h-screen w-full">
-      <BlockLibrary onBlockSelect={handleBlockSelect} />
+      <BlockLibrary
+        onBlockSelect={handleBlockSelect}
+      />
       <div className="flex-1 space-y-4">
         <GridCanvas
           blocks={blocks}
@@ -327,8 +444,10 @@ function CanvasContent() {
           onBlocksChange={handleBlocksChange}
           onNodeChainsChange={setNodeChains}
           onBlockDrop={handleBlockDrop}
+          onBlockDelete={handleBlockDelete}
           onConnectBlocks={connectBlocks}
           onDisconnectBlocks={disconnectBlocks}
+          onKeyDown={handleKeyDown}
           canRecord={canRecord}
         />
       </div>

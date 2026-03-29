@@ -484,6 +484,12 @@ interface GridCanvasProps {
 
   // Recording permission prop
   canRecord?: boolean
+
+  // Block deletion
+  onBlockDelete?: (blockId: string) => void
+
+  // Keyboard shortcuts
+  onKeyDown?: (e: KeyboardEvent) => void
 }
 
 /**
@@ -512,6 +518,8 @@ export function GridCanvas({
   onBlockModification,
   onVariableChange,
   onBlockDrop,
+  onBlockDelete,
+  onKeyDown,
   nodeChains,
   onNodeChainsChange,
   readOnly = false,
@@ -2082,20 +2090,36 @@ export function GridCanvas({
     )
   }, [])
 
+  // Keyboard event handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete selected connection
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedConnectionId
       ) {
         handleDeleteConnection(selectedConnectionId)
         setSelectedConnectionId(undefined)
+        return
       }
+
+      // Delete selected block
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedBlockId
+      ) {
+        handleDeleteBlock(selectedBlockId)
+        setSelectedBlockId(undefined)
+        return
+      }
+
+      // Call parent onKeyDown if provided
+      onKeyDown?.(e)
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedConnectionId, handleDeleteConnection])
+  }, [selectedConnectionId, selectedBlockId, handleDeleteConnection, handleDeleteBlock, onKeyDown])
 
   // ============================================================================
   // BLOCK RENDERING

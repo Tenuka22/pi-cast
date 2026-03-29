@@ -706,7 +706,7 @@ export function getDefaultBlockDimensions(type: BlockType): BlockDimensions {
     case "comparator":
       return { width: 6, height: 4 }
     case "constraint":
-      return { width: 6, height: 5 }
+      return { width: 8, height: 1 }
     case "table":
       return { width: 20, height: 12 }
     case "piecewise-limiter":
