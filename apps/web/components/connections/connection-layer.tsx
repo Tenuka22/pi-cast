@@ -23,7 +23,7 @@ function getHandlePosition(block: Block, handleType: 'input' | 'output'): Handle
   const bbox = getBlockBoundingBox(block);
   // Connection handles are rendered as 24px circles positioned 12px outside the block edge (-left-3 / -right-3).
   const handleOffsetPx = 12;
-  
+
   // Input handles on left side, output handles on right side
   if (handleType === 'input') {
     return {
@@ -51,10 +51,10 @@ export function ConnectionLayer({
   return (
     <svg
       className="pointer-events-auto"
-      style={{ 
+      style={{
         position: 'absolute',
         inset: 0,
-        zIndex: 1,
+        zIndex: 0, // keep connections beneath nodes to avoid visual overlap
         transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         transformOrigin: '0 0',
         overflow: 'visible',
@@ -69,6 +69,10 @@ export function ConnectionLayer({
         const startPos = getHandlePosition(sourceBlock, 'output');
         const endPos = getHandlePosition(targetBlock, 'input');
 
+        // Calculate block widths for PCB-style routing
+        const sourceWidth = (sourceBlock.dimensions.width * 32);  // GRID_UNIT = 32
+        const targetWidth = (targetBlock.dimensions.width * 32);
+
         return (
           <ConnectionLine
             key={connection.id}
@@ -80,6 +84,9 @@ export function ConnectionLayer({
             isSelected={selectedConnectionId === connection.id}
             isAnimated={false}
             onClick={() => onConnectionClick?.(connection.id)}
+            connectionType={connection.type}
+            sourceWidth={sourceWidth}
+            targetWidth={targetWidth}
           />
         );
       })}

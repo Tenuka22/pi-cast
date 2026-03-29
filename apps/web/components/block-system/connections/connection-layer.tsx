@@ -50,8 +50,8 @@ export function ConnectionLayer({
 
   return (
     <svg
-      className="pointer-events-auto"
-      style={{ 
+      className="pointer-events-none"
+      style={{
         position: 'absolute',
         inset: 0,
         zIndex: 10,
@@ -69,9 +69,14 @@ export function ConnectionLayer({
         const startPos = getHandlePosition(sourceBlock, 'output');
         const endPos = getHandlePosition(targetBlock, 'input');
 
+        // Calculate block widths for PCB-style routing
+        const sourceWidth = (sourceBlock.dimensions.width * 32);  // GRID_UNIT = 32
+        const targetWidth = (targetBlock.dimensions.width * 32);
+
         return (
           <ConnectionLine
             key={connection.id}
+            connectionId={connection.id}
             startX={startPos.x}
             startY={startPos.y}
             endX={endPos.x}
@@ -79,6 +84,9 @@ export function ConnectionLayer({
             isSelected={selectedConnectionId === connection.id}
             isAnimated={false}
             onClick={() => onConnectionClick?.(connection.id)}
+            connectionType={connection.type}
+            sourceWidth={sourceWidth}
+            targetWidth={targetWidth}
           />
         );
       })}

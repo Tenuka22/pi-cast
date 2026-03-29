@@ -17,7 +17,7 @@
 
 "use client"
 
-import React, { useState, useCallback, useRef, useEffect } from "react"
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   GRID_UNIT,
@@ -36,6 +36,7 @@ import {
   type Variable,
   parseEquation,
   gridToPixels,
+  pixelsToGrid,
   findNearestValidPosition,
   autoArrangeNeighbors,
   getConnectionType,
@@ -47,6 +48,7 @@ import {
   invalidateBlockCalculations,
 } from "@/lib/block-system/node-calculation-engine"
 import type { BlockPreset } from "./block-library"
+import { getAllLibraryPresets } from "./block-library"
 import {
   EquationBlockComponent,
   ChartBlockComponent,
@@ -75,6 +77,20 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@workspace/ui/components/context-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@workspace/ui/components/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@workspace/ui/components/command"
+import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 
 // ============================================================================
@@ -151,11 +167,15 @@ function isConstraintBlock(block: Block): block is ConstraintBlock {
   return block.type === "constraint"
 }
 
-function isPiecewiseLimiterBlock(block: Block): block is import("@/lib/block-system/types").PiecewiseLimiterBlock {
+function isPiecewiseLimiterBlock(
+  block: Block
+): block is import("@/lib/block-system/types").PiecewiseLimiterBlock {
   return block.type === "piecewise-limiter"
 }
 
-function isPiecewiseBuilderBlock(block: Block): block is import("@/lib/block-system/types").PiecewiseBuilderBlock {
+function isPiecewiseBuilderBlock(
+  block: Block
+): block is import("@/lib/block-system/types").PiecewiseBuilderBlock {
   return block.type === "piecewise-builder"
 }
 
@@ -510,8 +530,17 @@ export function GridCanvas({
     string | undefined
   >()
   const [contextTarget, setContextTarget] = useState<
-    { blockId?: string; connectionId?: string } | undefined
+    | { blockId?: string; connectionId?: string; gridPos?: GridPosition }
+    | undefined
   >(undefined)
+  const [contextPreset, setContextPreset] = useState<BlockPreset | null>(null)
+  const handleDeleteConnectionsForBlock = useCallback((blockId: string) => {
+    setConnections((prev) =>
+      prev.filter(
+        (c) => c.sourceBlockId !== blockId && c.targetBlockId !== blockId
+      )
+    )
+  }, [])
   const [connectionDrag, setConnectionDrag] = useState<{
     sourceBlockId: string
     sourceHandleId: string
@@ -534,6 +563,7 @@ export function GridCanvas({
     worldToScreen,
     transformRef,
   } = useTransform(1, 0.25, 3)
+  const libraryPresets = useMemo(() => getAllLibraryPresets(), [])
 
   // Snapping system
   const { snap } = useSnap({
@@ -835,29 +865,35 @@ export function GridCanvas({
   // ============================================================================
   // NODE-BASED CALCULATION ENGINE
   // Calculates data flow through node chains for output blocks (chart/table/shape)
-  // 
+  //
   // IMPORTANT: We only run calculations when blocks change, NOT when nodeChains change.
   // This prevents infinite loops. The calculation results are stored in nodeChains,
   // but we don't re-run this effect when that happens.
   // ============================================================================
-  const prevBlocksRef = useRef<string>('')
-  const prevConnectionsRef = useRef<string>('')
+  const prevBlocksRef = useRef<string>("")
+  const prevConnectionsRef = useRef<string>("")
 
   useEffect(() => {
     if (isPlaybackMode || !nodeChains || !onNodeChainsChange) return
 
     // Create a signature of block data to detect actual changes
-    const blocksSignature = blocks.map(b => `${b.id}-${b.updatedAt}`).join(',')
+    const blocksSignature = blocks
+      .map((b) => `${b.id}-${b.updatedAt}`)
+      .join(",")
     const prevBlocksSignature = prevBlocksRef.current
 
     // Create a signature of connections to detect connection changes
-    const connectionsSignature = connections.map(c => 
-      `${c.sourceBlockId}-${c.targetBlockId}-${c.type}`
-    ).sort().join('|')
+    const connectionsSignature = connections
+      .map((c) => `${c.sourceBlockId}-${c.targetBlockId}-${c.type}`)
+      .sort()
+      .join("|")
     const prevConnectionsSignature = prevConnectionsRef.current
 
     // Skip if blocks AND connections haven't actually changed (prevents infinite loop)
-    if (blocksSignature === prevBlocksSignature && connectionsSignature === prevConnectionsSignature) {
+    if (
+      blocksSignature === prevBlocksSignature &&
+      connectionsSignature === prevConnectionsSignature
+    ) {
       return
     }
     prevBlocksRef.current = blocksSignature
@@ -873,7 +909,10 @@ export function GridCanvas({
 
     for (const [chainId, chain] of nodeChains) {
       // Only calculate for output block types AND piecewise-builder (intermediate node)
-      if (!['chart', 'table', 'shape', 'piecewise-builder'].includes(chain.type)) continue
+      if (
+        !["chart", "table", "shape", "piecewise-builder"].includes(chain.type)
+      )
+        continue
 
       const block = allBlocks.get(chain.nodeId)
       if (!block) continue
@@ -890,7 +929,8 @@ export function GridCanvas({
 
         // Only update if calculated data changed (shallow comparison)
         const existingData = chain.calculatedData
-        const dataChanged = !existingData ||
+        const dataChanged =
+          !existingData ||
           existingData.timestamp !== calculatedData.timestamp ||
           existingData.equation !== calculatedData.equation ||
           existingData.piecewisePieces !== calculatedData.piecewisePieces
@@ -1585,18 +1625,22 @@ export function GridCanvas({
             // Handle variable/control → equation connection (update variables)
             if (isVariableBlock(sourceBlock)) {
               const sourceVars = sourceBlock.variables || []
-              const targetVars = targetBlock.variables || parseEquation(targetBlock.equation).variables
-              const mergedVars = targetVars.map(t => {
-                const sourceVar = sourceVars.find(s => s.name === t.name)
+              const targetVars =
+                targetBlock.variables ||
+                parseEquation(targetBlock.equation).variables
+              const mergedVars = targetVars.map((t) => {
+                const sourceVar = sourceVars.find((s) => s.name === t.name)
                 return sourceVar ? { ...t, value: sourceVar.value } : t
               })
               return { ...targetBlock, variables: mergedVars }
             }
             if (isControlBlock(sourceBlock)) {
               const sourceVars = sourceBlock.variables || []
-              const targetVars = targetBlock.variables || parseEquation(targetBlock.equation).variables
-              const mergedVars = targetVars.map(t => {
-                const sourceVar = sourceVars.find(s => s.name === t.name)
+              const targetVars =
+                targetBlock.variables ||
+                parseEquation(targetBlock.equation).variables
+              const mergedVars = targetVars.map((t) => {
+                const sourceVar = sourceVars.find((s) => s.name === t.name)
                 return sourceVar ? { ...t, value: sourceVar.value } : t
               })
               return { ...targetBlock, variables: mergedVars }
@@ -1620,12 +1664,18 @@ export function GridCanvas({
           } else if (isChartBlock(targetBlock)) {
             // Handle logic → chart (enable/disable chart)
             if (isLogicBlock(sourceBlock)) {
-              return { ...(targetBlock as ChartBlock), enabledSourceId: sourceBlock.id }
+              return {
+                ...(targetBlock as ChartBlock),
+                enabledSourceId: sourceBlock.id,
+              }
             }
           } else if (block.type === "shape") {
             // Handle logic → shape (enable/disable shape)
             if (isLogicBlock(sourceBlock)) {
-              return { ...(targetBlock as import("@/lib/block-system/types").ShapeBlock), enabledSourceId: sourceBlock.id }
+              return {
+                ...(targetBlock as import("@/lib/block-system/types").ShapeBlock),
+                enabledSourceId: sourceBlock.id,
+              }
             }
           } else if (isTableBlock(targetBlock)) {
             // Handle equation -> table connection
@@ -1725,7 +1775,10 @@ export function GridCanvas({
             return {
               ...targetBlock,
               connectedLimiterIds: Array.from(
-                new Set([...(targetBlock.connectedLimiterIds || []), sourceBlock.id])
+                new Set([
+                  ...(targetBlock.connectedLimiterIds || []),
+                  sourceBlock.id,
+                ])
               ),
             }
           } else if (
@@ -2023,7 +2076,10 @@ export function GridCanvas({
   )
 
   const handleConnectionClick = useCallback((connectionId: string) => {
-    setSelectedConnectionId(connectionId)
+    // Toggle selection - if clicking already selected, deselect it
+    setSelectedConnectionId((prev) =>
+      prev === connectionId ? undefined : connectionId
+    )
   }, [])
 
   useEffect(() => {
@@ -2110,13 +2166,17 @@ export function GridCanvas({
       case "chart": {
         // Find connected equations from connections array
         const connectedEquationIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-chart'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("equation-to-chart")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         const connectedEquations = connectedEquationIds
           .map((id) => blocks.find((b) => b.id === id && isEquationBlock(b)))
           .filter((eq): eq is EquationBlock => Boolean(eq))
-        
+
         // Also check sourceEquationIds for backwards compatibility
         if (connectedEquations.length === 0 && block.sourceEquationIds) {
           const legacyEquations = (block.sourceEquationIds ?? [])
@@ -2124,7 +2184,7 @@ export function GridCanvas({
             .filter((eq): eq is EquationBlock => Boolean(eq))
           connectedEquations.push(...legacyEquations)
         }
-        
+
         const directConstraintIds = connections
           .filter(
             (c) =>
@@ -2157,13 +2217,16 @@ export function GridCanvas({
 
         // Find connected limits from connections array
         const connectedLimitIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('limit-to-chart'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id && c.type.includes("limit-to-chart")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         const connectedLimits = connectedLimitIds
           .map((id) => blocks.find((b) => b.id === id && isLimitBlock(b)))
           .filter((limit): limit is LimitBlock => Boolean(limit))
-        
+
         // Also check sourceLimitIds for backwards compatibility
         if (connectedLimits.length === 0 && block.sourceLimitIds) {
           const legacyLimits = (block.sourceLimitIds ?? [])
@@ -2173,18 +2236,36 @@ export function GridCanvas({
         }
 
         // Get calculated data from node chain (node-based calculation)
-        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-        let calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        const chainId = nodeChains
+          ? Array.from(nodeChains.entries()).find(
+              ([_, c]) => c.nodeId === block.id
+            )?.[0]
+          : undefined
+        let calculatedData =
+          chainId && nodeChains?.has(chainId)
+            ? nodeChains.get(chainId)?.calculatedData
+            : undefined
 
         // Check if connected to a piecewise-builder (for piecewise functions)
         const piecewiseBuilderIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-builder-to-chart'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("piecewise-builder-to-chart")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         if (piecewiseBuilderIds.length > 0) {
           // Get calculatedData from the piecewise builder's node chain
-          const builderChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === piecewiseBuilderIds[0])?.[0] : undefined
-          const builderCalculatedData = builderChainId && nodeChains?.has(builderChainId) ? nodeChains.get(builderChainId)?.calculatedData : undefined
+          const builderChainId = nodeChains
+            ? Array.from(nodeChains.entries()).find(
+                ([_, c]) => c.nodeId === piecewiseBuilderIds[0]
+              )?.[0]
+            : undefined
+          const builderCalculatedData =
+            builderChainId && nodeChains?.has(builderChainId)
+              ? nodeChains.get(builderChainId)?.calculatedData
+              : undefined
           if (builderCalculatedData?.piecewisePieces) {
             calculatedData = builderCalculatedData
           }
@@ -2194,7 +2275,9 @@ export function GridCanvas({
         if (!calculatedData?.equation && connectedLimits.length > 0) {
           const limit = connectedLimits[0]
           if (limit?.targetEquationId) {
-            const targetEq = blocks.find(b => b.id === limit.targetEquationId && isEquationBlock(b))
+            const targetEq = blocks.find(
+              (b) => b.id === limit.targetEquationId && isEquationBlock(b)
+            )
             if (targetEq && isEquationBlock(targetEq)) {
               // Create calculatedData from the target equation
               const variables: Record<string, number> = {}
@@ -2352,10 +2435,21 @@ export function GridCanvas({
                     return { ...b, limitValue: value, updatedAt: Date.now() }
                   }
                   if (varName === "isInfinite") {
-                    return { ...b, isInfinite: value === 1, updatedAt: Date.now() }
+                    return {
+                      ...b,
+                      isInfinite: value === 1,
+                      updatedAt: Date.now(),
+                    }
                   }
-                  if (varName === "infiniteDirection" && typeof value === "string") {
-                    return { ...b, infiniteDirection: value as "positive" | "negative", updatedAt: Date.now() }
+                  if (
+                    varName === "infiniteDirection" &&
+                    typeof value === "string"
+                  ) {
+                    return {
+                      ...b,
+                      infiniteDirection: value as "positive" | "negative",
+                      updatedAt: Date.now(),
+                    }
                   }
                   return b
                 }
@@ -2544,85 +2638,121 @@ export function GridCanvas({
       case "table": {
         // Find connected equations from connections array
         const connectedEquationIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-table'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("equation-to-table")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         let connectedEquation: EquationBlock | null = null
         if (connectedEquationIds.length > 0) {
-          const eq = blocks.find((b) => b.id === connectedEquationIds[0] && isEquationBlock(b))
+          const eq = blocks.find(
+            (b) => b.id === connectedEquationIds[0] && isEquationBlock(b)
+          )
           if (eq && isEquationBlock(eq)) connectedEquation = eq
         }
-        
+
         // Also check sourceEquationId for backwards compatibility
         if (!connectedEquation && block.sourceEquationId) {
-          const eq = blocks.find((b) => b.id === block.sourceEquationId && isEquationBlock(b))
+          const eq = blocks.find(
+            (b) => b.id === block.sourceEquationId && isEquationBlock(b)
+          )
           if (eq && isEquationBlock(eq)) connectedEquation = eq
         }
-        
+
         // Find connected limits from connections array
         const connectedLimitIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('limit-to-table'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id && c.type.includes("limit-to-table")
+          )
           .map((c) => c.sourceBlockId)
 
         let connectedLimit: LimitBlock | null = null
         if (connectedLimitIds.length > 0) {
-          const limit = blocks.find((b) => b.id === connectedLimitIds[0] && isLimitBlock(b))
+          const limit = blocks.find(
+            (b) => b.id === connectedLimitIds[0] && isLimitBlock(b)
+          )
           if (limit && isLimitBlock(limit)) connectedLimit = limit
         }
 
         // Also check sourceLimitId for backwards compatibility
         if (!connectedLimit && block.sourceLimitId) {
-          const limit = blocks.find((b) => b.id === block.sourceLimitId && isLimitBlock(b))
+          const limit = blocks.find(
+            (b) => b.id === block.sourceLimitId && isLimitBlock(b)
+          )
           if (limit && isLimitBlock(limit)) connectedLimit = limit
         }
-        
+
         // Fallback 1: If we have an equation but no limit, check if the equation has a target limit
         if (!connectedLimit && connectedEquation) {
           // Find limits that target this equation
-          const limitsTargetingEquation = blocks.filter((b) =>
-            isLimitBlock(b) && b.targetEquationId === connectedEquation?.id
+          const limitsTargetingEquation = blocks.filter(
+            (b) =>
+              isLimitBlock(b) && b.targetEquationId === connectedEquation?.id
           )
           if (limitsTargetingEquation.length > 0) {
             connectedLimit = limitsTargetingEquation[0] as LimitBlock
           }
         }
-        
+
         // Fallback 2: Check calculatedData from node chains for limit values
         if (!connectedLimit) {
-          const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-          const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
-          if (calculatedData?.limitValues && calculatedData.limitValues.length > 0) {
+          const chainId = nodeChains
+            ? Array.from(nodeChains.entries()).find(
+                ([_, c]) => c.nodeId === block.id
+              )?.[0]
+            : undefined
+          const calculatedData =
+            chainId && nodeChains?.has(chainId)
+              ? nodeChains.get(chainId)?.calculatedData
+              : undefined
+          if (
+            calculatedData?.limitValues &&
+            calculatedData.limitValues.length > 0
+          ) {
             // We have limit data in the chain - find the corresponding limit block
-            const limitsTargetingEquation = blocks.filter((b) =>
-              isLimitBlock(b) && connectedEquation && b.targetEquationId === connectedEquation.id
+            const limitsTargetingEquation = blocks.filter(
+              (b) =>
+                isLimitBlock(b) &&
+                connectedEquation &&
+                b.targetEquationId === connectedEquation.id
             )
             if (limitsTargetingEquation.length > 0) {
               connectedLimit = limitsTargetingEquation[0] as LimitBlock
             }
           }
         }
-        
+
         // Fallback 3: If we have a limit but no equation, get equation from limit's target
         if (!connectedEquation && connectedLimit?.targetEquationId) {
-          const eq = blocks.find(b =>
-            b.id === connectedLimit.targetEquationId && isEquationBlock(b)
+          const eq = blocks.find(
+            (b) =>
+              b.id === connectedLimit.targetEquationId && isEquationBlock(b)
           )
           if (eq && isEquationBlock(eq)) connectedEquation = eq
         }
 
         // Get connected constraints for filtering table values
         const connectedConstraintIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('constraint-to-table'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("constraint-to-table")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         const connectedConstraints = connectedConstraintIds
           .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
           .filter((c): c is ConstraintBlock => Boolean(c))
-        
+
         // Also check sourceConstraintIds for backwards compatibility
         if (connectedConstraints.length === 0 && block.sourceConstraintIds) {
           const legacyConstraints = (block.sourceConstraintIds ?? [])
-            .map((id) => blocks.find((b) => b.id === id && isConstraintBlock(b)))
+            .map((id) =>
+              blocks.find((b) => b.id === id && isConstraintBlock(b))
+            )
             .filter((c): c is ConstraintBlock => Boolean(c))
           connectedConstraints.push(...legacyConstraints)
         }
@@ -2630,25 +2760,61 @@ export function GridCanvas({
         // Get equation from constraint's target equation if no direct connection
         let equationFromConstraint: EquationBlock | null = null
         if (!connectedEquation && connectedConstraints.length > 0) {
-          const constraintWithEquation = connectedConstraints.find((c) => c.targetEquationId)
+          const constraintWithEquation = connectedConstraints.find(
+            (c) => c.targetEquationId
+          )
           if (constraintWithEquation?.targetEquationId) {
-            const eq = blocks.find((b) => b.id === constraintWithEquation.targetEquationId && isEquationBlock(b))
+            const eq = blocks.find(
+              (b) =>
+                b.id === constraintWithEquation.targetEquationId &&
+                isEquationBlock(b)
+            )
             if (eq && isEquationBlock(eq)) equationFromConstraint = eq
           }
         }
 
+        // Collect all equations targeting this table
+        const tableEquationIds = connections
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("equation-to-table")
+          )
+          .map((c) => c.sourceBlockId)
+        const connectedEquations = tableEquationIds
+          .map((id) => blocks.find((b) => b.id === id && isEquationBlock(b)))
+          .filter((eq): eq is EquationBlock => Boolean(eq))
+
         // Get calculatedData from node chain (for piecewise functions)
-        const tableChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-        let tableCalculatedData = tableChainId && nodeChains?.has(tableChainId) ? nodeChains.get(tableChainId)?.calculatedData : undefined
+        const tableChainId = nodeChains
+          ? Array.from(nodeChains.entries()).find(
+              ([_, c]) => c.nodeId === block.id
+            )?.[0]
+          : undefined
+        let tableCalculatedData =
+          tableChainId && nodeChains?.has(tableChainId)
+            ? nodeChains.get(tableChainId)?.calculatedData
+            : undefined
 
         // Check if connected to a piecewise-builder
         const piecewiseBuilderIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-builder-to-table'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("piecewise-builder-to-table")
+          )
           .map((c) => c.sourceBlockId)
-        
+
         if (piecewiseBuilderIds.length > 0) {
-          const builderChainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === piecewiseBuilderIds[0])?.[0] : undefined
-          const builderCalculatedData = builderChainId && nodeChains?.has(builderChainId) ? nodeChains.get(builderChainId)?.calculatedData : undefined
+          const builderChainId = nodeChains
+            ? Array.from(nodeChains.entries()).find(
+                ([_, c]) => c.nodeId === piecewiseBuilderIds[0]
+              )?.[0]
+            : undefined
+          const builderCalculatedData =
+            builderChainId && nodeChains?.has(builderChainId)
+              ? nodeChains.get(builderChainId)?.calculatedData
+              : undefined
           if (builderCalculatedData?.piecewisePieces) {
             tableCalculatedData = builderCalculatedData
           }
@@ -2661,6 +2827,7 @@ export function GridCanvas({
             {...commonProps}
             calculatedData={tableCalculatedData}
             connectedEquation={connectedEquation || equationFromConstraint}
+            connectedEquations={connectedEquations}
             connectedLimit={connectedLimit}
             connectedConstraints={connectedConstraints}
             onColumnChange={(columns) => {
@@ -2703,8 +2870,14 @@ export function GridCanvas({
       case "piecewise-limiter": {
         // Get connected equation if any
         const connectedEquation = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('equation-to-piecewise-limiter'))
-          .map((c) => blocks.find((b) => b.id === c.sourceBlockId && isEquationBlock(b)))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("equation-to-piecewise-limiter")
+          )
+          .map((c) =>
+            blocks.find((b) => b.id === c.sourceBlockId && isEquationBlock(b))
+          )
           .filter((eq): eq is EquationBlock => Boolean(eq))[0]
 
         return (
@@ -2729,12 +2902,23 @@ export function GridCanvas({
       case "piecewise-builder": {
         // Get connected limiters from connections (source of truth)
         const connectedLimiterIds = connections
-          .filter((c) => c.targetBlockId === block.id && c.type.includes('piecewise-limiter-to-builder'))
+          .filter(
+            (c) =>
+              c.targetBlockId === block.id &&
+              c.type.includes("piecewise-limiter-to-builder")
+          )
           .map((c) => c.sourceBlockId)
 
         // Get calculated pieces from node chain
-        const chainId = nodeChains ? Array.from(nodeChains.entries()).find(([_, c]) => c.nodeId === block.id)?.[0] : undefined
-        const calculatedData = chainId && nodeChains?.has(chainId) ? nodeChains.get(chainId)?.calculatedData : undefined
+        const chainId = nodeChains
+          ? Array.from(nodeChains.entries()).find(
+              ([_, c]) => c.nodeId === block.id
+            )?.[0]
+          : undefined
+        const calculatedData =
+          chainId && nodeChains?.has(chainId)
+            ? nodeChains.get(chainId)?.calculatedData
+            : undefined
 
         const calculatedPieces = calculatedData?.piecewisePieces || []
 
@@ -2814,19 +2998,15 @@ export function GridCanvas({
           onContextMenuCapture={(e) => {
             const target = e.target instanceof Element ? e.target : null
             const blockEl = target?.closest("[data-block-id]")
-            const connectionEl = target?.closest("[data-connection-id]")
             const blockId =
               blockEl instanceof HTMLElement
                 ? blockEl.dataset?.blockId
                 : undefined
-            const connectionId =
-              connectionEl instanceof HTMLElement
-                ? connectionEl.dataset?.connectionId
-                : undefined
-
-            setContextTarget({ blockId, connectionId })
+            const world = screenToWorld(e.clientX, e.clientY)
+            const gridPos = pixelsToGrid(world.x, world.y)
+            setContextTarget({ blockId, connectionId: undefined, gridPos })
+            setContextPreset((prev) => prev ?? libraryPresets[0] ?? null)
             if (blockId) setSelectedBlockId(blockId)
-            if (connectionId) setSelectedConnectionId(connectionId)
           }}
           onClick={() => setSelectedBlockId(undefined)}
           onMouseDown={handleCanvasMouseDown}
@@ -2884,7 +3064,7 @@ export function GridCanvas({
           Both grid and nodes share the same transform for consistency
         */}
           <div
-            className="absolute inset-0 origin-top-left"
+            className="pointer-events-none absolute inset-0 z-10 origin-top-left"
             style={{
               transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
               width: "100%",
@@ -2906,7 +3086,9 @@ export function GridCanvas({
             )}
 
             {/* HTML Node Layer - Blocks rendered with transform positioning */}
-            {blocks.map(renderBlock)}
+            <div className="pointer-events-auto relative h-full w-full">
+              {blocks.map(renderBlock)}
+            </div>
           </div>
 
           {/*
@@ -3056,34 +3238,93 @@ export function GridCanvas({
               )
             })()}
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
-          {contextTarget?.connectionId && (
-            <>
-              <ContextMenuItem
-                variant="destructive"
-                onClick={() => {
-                  if (contextTarget?.connectionId) {
-                    handleDeleteConnection(contextTarget.connectionId)
-                  }
-                }}
-              >
-                Delete connection
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
-          )}
-          {contextTarget?.blockId && (
-            <ContextMenuItem
-              variant="destructive"
-              onClick={() => {
-                if (contextTarget?.blockId) {
-                  handleDeleteBlock(contextTarget.blockId)
-                }
-              }}
-            >
-              Delete node
-            </ContextMenuItem>
-          )}
+        <ContextMenuContent className="w-64">
+          {(() => {
+            const targetBlock = blocks.find(
+              (b) => b.id === contextTarget?.blockId
+            )
+            if (!targetBlock) {
+              return (
+                <div className="flex flex-col gap-2 p-2">
+                  <div className="text-sm font-medium">Create new element</div>
+                  <LibraryPicker
+                    presets={libraryPresets}
+                    selected={contextPreset}
+                    onSelectPreset={(preset) => setContextPreset(preset)}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (
+                        !onBlockDrop ||
+                        !contextPreset ||
+                        !contextTarget?.gridPos
+                      )
+                        return
+                      onBlockDrop(contextPreset, contextTarget.gridPos)
+                      setContextTarget(undefined)
+                    }}
+                  >
+                    Create here
+                  </Button>
+                </div>
+              )
+            }
+
+            const isChart = targetBlock.type === "chart"
+
+            return (
+              <>
+                {isChart && (
+                  <>
+                    <ContextMenuItem
+                      inset={false}
+                      className="flex-col items-start gap-2"
+                    >
+                      <span className="text-sm font-medium">
+                        Create new element
+                      </span>
+                      <LibraryPicker
+                        presets={libraryPresets}
+                        selected={contextPreset}
+                        onSelectPreset={(preset) => {
+                          setContextPreset(preset)
+                          if (!onBlockDrop) return
+                          const dropPosition: GridPosition = {
+                            x:
+                              targetBlock.position.x +
+                              targetBlock.dimensions.width +
+                              2,
+                            y: targetBlock.position.y,
+                          }
+                          onBlockDrop(preset, dropPosition)
+                          setContextTarget(undefined)
+                        }}
+                      />
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                  </>
+                )}
+
+                <ContextMenuItem
+                  onClick={() => {
+                    handleDeleteConnectionsForBlock(targetBlock.id)
+                    setSelectedConnectionId(undefined)
+                  }}
+                >
+                  Remove connections
+                </ContextMenuItem>
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    handleDeleteBlock(targetBlock.id)
+                  }}
+                >
+                  Delete node
+                </ContextMenuItem>
+              </>
+            )
+          })()}
         </ContextMenuContent>
       </ContextMenu>
 
@@ -3101,6 +3342,59 @@ export function GridCanvas({
           />
         )}
     </div>
+  )
+}
+
+// --------------------------------------------------------------------------
+// Library Picker (for chart context menu)
+// --------------------------------------------------------------------------
+function LibraryPicker({
+  presets,
+  selected,
+  onSelectPreset,
+}: {
+  presets: BlockPreset[]
+  selected: BlockPreset | null
+  onSelectPreset: (preset: BlockPreset) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between"
+          >
+            {selected ? selected.type : "Choose element"}
+          </Button>
+        }
+      ></PopoverTrigger>
+      <PopoverContent className="w-64 p-0">
+        <Command>
+          <CommandInput placeholder="Search blocks..." />
+          <CommandList>
+            <CommandEmpty>No blocks found.</CommandEmpty>
+            <CommandGroup heading="Library">
+              {presets.map((preset, idx) => (
+                <CommandItem
+                  key={idx}
+                  value={preset.type}
+                  onSelect={() => {
+                    onSelectPreset(preset)
+                    setOpen(false)
+                  }}
+                >
+                  {preset.type}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 

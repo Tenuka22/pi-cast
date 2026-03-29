@@ -209,6 +209,46 @@ export function BlockLibrary({ onBlockSelect, className }: BlockLibraryProps) {
   );
 }
 
+// Shared preset list for other consumers (e.g., context menus)
+export const LIBRARY_PRESETS: BlockPreset[] = [
+  { type: 'equation', data: { equation: '' } },
+  { type: 'variable', data: {} },
+  { type: 'logic', data: { logicType: 'and' } },
+  { type: 'logic', data: { logicType: 'or' } },
+  { type: 'logic', data: { logicType: 'xor' } },
+  { type: 'logic', data: { logicType: 'eq' } },
+  { type: 'comparator', data: { operator: 'lt' } },
+  { type: 'comparator', data: { operator: 'gt' } },
+  { type: 'comparator', data: { operator: 'le' } },
+  { type: 'comparator', data: { operator: 'ge' } },
+  { type: 'comparator', data: { operator: 'eq' } },
+  { type: 'constraint', data: { variableName: 'x', constraintType: 'gte', constraintValue: 0 } },
+  { type: 'constraint', data: { variableName: 'x', constraintType: 'lte', constraintValue: 100 } },
+  { type: 'constraint', data: { variableName: 'x', constraintType: 'gt', constraintValue: 0 } },
+  { type: 'constraint', data: { variableName: 'x', constraintType: 'lt', constraintValue: 100 } },
+  { type: 'constraint', data: { variableName: 'x', constraintType: 'range', constraintValue: 0 } },
+  { type: 'chart', data: { dimensions: { width: 16, height: 12 } } },
+  { type: 'chart', data: { dimensions: { width: 24, height: 16 } } },
+  { type: 'description', data: { format: 'plain' } },
+  { type: 'description', data: { format: 'markdown' } },
+  { type: 'description', data: { format: 'latex' } },
+  { type: 'description', data: { format: 'plain', title: 'Title' } },
+  { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'both', limitType: 'both' } },
+  { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'left', limitType: 'left' } },
+  { type: 'limit', data: { variableName: 'x', limitValue: 0, approach: 'right', limitType: 'right' } },
+  { type: 'shape', data: { shapeType: 'square', fillValue: 50, fillMode: 'percentage' } },
+  { type: 'shape', data: { shapeType: 'circle', fillValue: 50, fillMode: 'fraction' } },
+  { type: 'shape', data: { shapeType: 'rectangle', fillValue: 25, fillMode: 'decimal' } },
+  { type: 'shape', data: { shapeType: 'square', fillValue: 0, fillMode: 'percentage' } },
+  { type: 'table', data: { autoGenerateRows: true, variableName: 'x', showGrid: true, highlightLastRow: true } },
+  { type: 'piecewise-limiter', data: { variableName: 'x', constraint: { type: 'lt', min: 0 }, enabled: true } },
+  { type: 'piecewise-builder', data: { connectedLimiterIds: [], fallbackEnabled: true, fallbackEquation: '0' } },
+];
+
+export function getAllLibraryPresets(): BlockPreset[] {
+  return LIBRARY_PRESETS;
+}
+
 function CategorySection({
   title,
   icon,

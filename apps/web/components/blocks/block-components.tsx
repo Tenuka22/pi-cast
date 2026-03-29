@@ -2556,6 +2556,7 @@ interface TableBlockComponentProps {
   isConnecting?: boolean
   connectingFromType?: string
   connectedEquation?: EquationBlock | null
+  connectedEquations?: EquationBlock[]
   connectedLimit?: LimitBlock | null
   connectedConstraints?: import("@/lib/block-system/types").ConstraintBlock[]
   onColumnChange?: (columns: import("@/lib/block-system/types").TableColumn[]) => void
@@ -2584,6 +2585,7 @@ export function TableBlockComponent({
   isConnecting,
   connectingFromType,
   connectedEquation,
+  connectedEquations = [],
   connectedLimit,
   connectedConstraints = [],
   onSettingsChange,
@@ -2694,22 +2696,41 @@ export function TableBlockComponent({
       }
     }
 
-    // Non-piecewise table generation (existing logic)
-    if (!connectedEquation?.equation) {
+    // Non-piecewise table generation (now supports multiple equations)
+    const equations = connectedEquations.length
+      ? connectedEquations
+      : connectedEquation
+        ? [connectedEquation]
+        : []
+
+    if (equations.length === 0) {
       return { columns: [], rows: [] }
     }
 
-    const equation = connectedEquation.equation
-    const variables: Record<string, number> = {}
-    ;(connectedEquation.variables ?? []).forEach((v) => {
-      variables[v.name] = v.value
-    })
-
-    // Default columns based on equation
+    // Default columns: x plus one per equation
     const defaultColumns: import("@/lib/block-system/types").TableColumn[] = [
       { id: "x", label: "x", type: "variable", variableName: "x" },
-      { id: "y", label: "y = f(x)", type: "result", equation },
+      ...equations.map((eq, idx) => ({
+        id: `y-${idx}`,
+        label: eq.equation ? eq.equation : `y${idx + 1}`,
+        type: "result",
+        equation: eq.equation,
+      })),
     ]
+
+    const evaluateAll = (x: number) => {
+      const values: Record<string, number | string> = { x: parseFloat(x.toFixed(6)) }
+      equations.forEach((eq, idx) => {
+        const vars: Record<string, number> = {}
+        ;(eq.variables ?? []).forEach((v) => {
+          vars[v.name] = v.value
+        })
+        vars[variableName] = x
+        const y = evaluateEquationAtX(eq.equation, vars)
+        values[`y-${idx}`] = isFinite(y) ? parseFloat(y.toFixed(6)) : "undefined"
+      })
+      return values
+    }
 
     // Generate rows based on limit or default range
     const generatedRows: import("@/lib/block-system/types").TableRow[] = []
@@ -2734,14 +2755,9 @@ export function TableBlockComponent({
           for (const stepSize of stepSizes) {
             for (let i = 1; i <= stepsPerSize; i++) {
               const x = baseValue * multiplier * i * (1 / stepSize)
-              variables[variableName] = x
-              const y = evaluateEquationAtX(equation, variables)
               sideRows.push({
                 id: `row-${direction}-inf-${stepSize}-${i}`,
-                values: {
-                  x: parseFloat(x.toFixed(6)),
-                  y: parseFloat(y.toFixed(6)),
-                },
+                values: evaluateAll(x),
               })
             }
           }
@@ -2775,14 +2791,9 @@ export function TableBlockComponent({
                   ? limitValue - stepSize * i
                   : limitValue + stepSize * i
               }
-              variables[variableName] = x
-              const y = evaluateEquationAtX(equation, variables)
               sideRows.push({
                 id: `row-${direction}-${stepSize}-${i}`,
-                values: {
-                  x: parseFloat(x.toFixed(6)),
-                  y: parseFloat(y.toFixed(6)),
-                },
+                values: evaluateAll(x),
               })
             }
           }
@@ -2811,24 +2822,17 @@ export function TableBlockComponent({
 
       // Add the limit point itself at the end (only for finite limits)
       if (!isInfinite && Math.abs(limitValue) > 0.0001) {
-        variables[variableName] = limitValue
-        const yAtLimit = evaluateEquationAtX(equation, variables)
         generatedRows.push({
           id: "row-limit",
-          values: {
-            x: parseFloat(limitValue.toFixed(6)),
-            y: isFinite(yAtLimit) ? parseFloat(yAtLimit.toFixed(6)) : NaN,
-          },
+          values: evaluateAll(limitValue),
         })
       }
     } else {
       // Default: generate a simple table from -5 to 5
       for (let x = -5; x <= 5; x++) {
-        variables[variableName] = x
-        const y = evaluateEquationAtX(equation, variables)
         generatedRows.push({
           id: `row-${x}`,
-          values: { x, y: parseFloat(y.toFixed(4)) },
+          values: evaluateAll(x),
         })
       }
     }
@@ -2837,7 +2841,7 @@ export function TableBlockComponent({
       columns: defaultColumns,
       rows: generatedRows,
     }
-  }, [connectedEquation, connectedLimit, autoGenerateRows, variableName])
+  }, [calculatedData, connectedEquations, connectedEquation, connectedLimit, autoGenerateRows, variableName])
 
   // Filter rows based on connected constraints (but NOT for piecewise functions)
   const filteredTableData = useMemo(() => {
@@ -2892,7 +2896,7 @@ export function TableBlockComponent({
   // Reset displayed row count when limit or equation changes
   useEffect(() => {
     setDisplayedRowCount(11)
-  }, [connectedLimit, connectedEquation])
+  }, [connectedLimit, connectedEquation, connectedEquations])
 
   // Note: We don't sync tableData back to block state to avoid infinite loops.
   // The table data is derived from connected equation/limit and displayed directly.
