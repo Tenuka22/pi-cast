@@ -85,16 +85,16 @@ export function evaluateFunction(
     }
 
     // Handle common mathematical functions
-    expr = expr.replace(/sin/g, "Math.sin")
-    expr = expr.replace(/cos/g, "Math.cos")
-    expr = expr.replace(/tan/g, "Math.tan")
-    expr = expr.replace(/log/g, "Math.log10")
-    expr = expr.replace(/ln/g, "Math.log")
-    expr = expr.replace(/sqrt/g, "Math.sqrt")
-    expr = expr.replace(/abs/g, "Math.abs")
-    expr = expr.replace(/exp/g, "Math.exp")
-    expr = expr.replace(/floor/g, "Math.floor")
-    expr = expr.replace(/ceil/g, "Math.ceil")
+    // Note: Keep original names as they are mapped in FUNCTION_MAP during evaluation
+    // Do NOT prefix with Math. as the custom tokenizer handles these identifiers
+
+    // Fix common shorthand: sinx -> sin(x), cosx -> cos(x), lnx -> ln(x), etc.
+    const knownFunctions = ["sin", "cos", "tan", "log", "ln", "sqrt", "abs", "exp", "arcsin", "arccos", "arctan", "asin", "acos", "atan"]
+    for (const fn of knownFunctions) {
+      // Match function followed by a single letter variable (not a parenthesis)
+      const regex = new RegExp(`\\b${fn}([a-zA-Z])\\b`, "g")
+      expr = expr.replace(regex, `${fn}($1)`)
+    }
 
     // Handle power notation
     // Fix: Add parentheses for negative bases and exponents (e.g., -2^2 -> (-2)**2, 2^-3 -> 2**(-3))
@@ -115,9 +115,10 @@ export function evaluateFunction(
       }
     }
 
-    // Handle implicit multiplication (e.g., 2x -> 2*x)
-    expr = expr.replace(/(\d)([a-z])/g, "$1*$2")
-    expr = expr.replace(/([a-z])(\d)/g, "$1*$2")
+    // Handle implicit multiplication
+    expr = expr.replace(/(\d)([a-z])/g, "$1*$2")       // 2x -> 2*x
+    expr = expr.replace(/([a-z])(\d)/g, "$1*$2")       // x2 -> x*2
+    // Do NOT add implicit multiplication after ) as it would break function calls like sin(x)
 
     // Replace mathematical constants
     expr = expr.replace(/\be\b/g, Math.E.toString())
@@ -157,6 +158,12 @@ const FUNCTION_MAP: Record<string, (x: number) => number> = {
   exp: Math.exp,
   floor: Math.floor,
   ceil: Math.ceil,
+  arcsin: Math.asin,
+  arccos: Math.acos,
+  arctan: Math.atan,
+  asin: Math.asin,
+  acos: Math.acos,
+  atan: Math.atan,
 };
 
 function isOperatorChar(ch: string): boolean {
@@ -189,12 +196,28 @@ function tokenizeExpression(expression: string): Token[] {
 
     if ((ch >= "0" && ch <= "9") || ch === ".") {
       let j = i + 1;
+      let hasDigit = ch >= "0" && ch <= "9";
+      let dotCount = ch === "." ? 1 : 0;
       while (j < s.length) {
         const cj = s.charAt(j);
-        if ((cj >= "0" && cj <= "9") || cj === ".") j++;
-        else break;
+        if (cj >= "0" && cj <= "9") {
+          hasDigit = true;
+          j++;
+        } else if (cj === ".") {
+          dotCount++;
+          if (dotCount > 1) break;
+          j++;
+        } else {
+          break;
+        }
       }
       const raw = s.slice(i, j);
+      // Ensure we have at least one digit (reject standalone ".")
+      if (!hasDigit) {
+        // Not a valid number, skip this character and continue
+        i++;
+        continue;
+      }
       const value = Number(raw);
       if (!Number.isFinite(value)) throw new Error(`Invalid number: ${raw}`);
       tokens.push({ type: "number", value });
@@ -213,11 +236,19 @@ function tokenizeExpression(expression: string): Token[] {
           cj === "_"
         ) {
           j++;
+        } else if (cj === "." && j + 1 < s.length && /[a-zA-Z_]/.test(s.charAt(j + 1))) {
+          // Handle dot notation (e.g., Math.sin) - include it in the identifier
+          j++; // include the dot
         } else {
           break;
         }
       }
-      tokens.push({ type: "ident", value: s.slice(i, j) });
+      const identValue = s.slice(i, j);
+      // Strip Math. prefix if present (e.g., Math.sin -> sin)
+      const normalizedValue = identValue.startsWith("Math.")
+        ? identValue.slice(5)
+        : identValue;
+      tokens.push({ type: "ident", value: normalizedValue });
       i = j;
       continue;
     }

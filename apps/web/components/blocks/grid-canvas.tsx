@@ -2095,7 +2095,7 @@ export function GridCanvas({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Delete selected connection
       if (
-        (e.key === "Delete" || e.key === "Backspace") &&
+        e.key === "Delete" &&
         selectedConnectionId
       ) {
         handleDeleteConnection(selectedConnectionId)
@@ -2105,7 +2105,7 @@ export function GridCanvas({
 
       // Delete selected block
       if (
-        (e.key === "Delete" || e.key === "Backspace") &&
+        e.key === "Delete" &&
         selectedBlockId
       ) {
         handleDeleteBlock(selectedBlockId)

@@ -748,6 +748,28 @@ export function ChartBlockComponent({
         // Skip if nothing left after removing prefix
         if (!fn) return null
 
+        // Fix common shorthand: sinx -> sin(x), cosx -> cos(x), lnx -> ln(x), etc.
+        // Also handle inverse functions: arcsinx -> arcsin(x), asinx -> asin(x), etc.
+        const knownFunctions = ["sin", "cos", "tan", "log", "ln", "sqrt", "abs", "exp", "arcsin", "arccos", "arctan", "asin", "acos", "atan"]
+        for (const func of knownFunctions) {
+          const regex = new RegExp(`\\b${func}([a-zA-Z])\\b`, "g")
+          fn = fn.replace(regex, `${func}($1)`)
+        }
+
+        // Auto-complete standalone functions: sin -> sin(x), arcsin -> arcsin(x)
+        for (const func of knownFunctions) {
+          const regex = new RegExp(`\\b(${func})\\s*$`, "gi")
+          fn = fn.replace(regex, `${func}(x)`)
+        }
+
+        // Clean up stray asterisks: "arcsin *(x)" -> "arcsin(x)"
+        fn = fn.replace(/([a-zA-Z])\s*\*\s*\(/g, '$1(')
+
+        // Convert arc-style function names to what function-plot understands
+        fn = fn.replace(/\barcsin\b/gi, 'asin')
+        fn = fn.replace(/\barccos\b/gi, 'acos')
+        fn = fn.replace(/\barctan\b/gi, 'atan')
+
         // Substitute known constants
         fn = fn.replace(/\bpi\b/g, String(Math.PI))
         fn = fn.replace(/\be\b(?!q)/g, String(Math.E))
@@ -841,6 +863,19 @@ export function ChartBlockComponent({
   useEffect(() => {
     if (!containerRef.current || functionData.length === 0) return
 
+    // Filter out invalid function data before passing to functionPlot
+    const validFunctionData = functionData.filter(item => {
+      if (!item || !item.fn) return false
+      const trimmed = item.fn.trim()
+      if (!trimmed || trimmed === '()') return false
+      // Check for known functions without parentheses (e.g., "sin" at end of string)
+      const knownFunctions = ["sin", "cos", "tan", "log", "ln", "sqrt", "abs", "exp"]
+      if (new RegExp(`\\b(${knownFunctions.join("|")})\\s*$`, "i").test(trimmed)) return false
+      return true
+    })
+
+    if (validFunctionData.length === 0) return
+
     // Clear previous content
     containerRef.current.innerHTML = ""
 
@@ -859,26 +894,54 @@ export function ChartBlockComponent({
           invert: false,
         },
         grid: effectiveConfig.showGrid,
-        data: functionData,
+        data: validFunctionData,
         tip: {
           xLine: true,
           yLine: true,
         },
       })
-      
+
+      // Make SVG responsive: remove fixed dimensions and use viewBox
+      const svg = containerRef.current.querySelector('svg')
+      if (svg) {
+        svg.setAttribute('width', '100%')
+        svg.setAttribute('height', '100%')
+        svg.setAttribute('viewBox', `0 0 ${effectiveConfig.width} ${effectiveConfig.height}`)
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+        svg.style.width = '100%'
+        svg.style.height = '100%'
+        svg.style.margin = '0'
+        svg.style.padding = '0'
+        svg.style.display = 'block'
+        svg.style.verticalAlign = 'top'
+        svg.style.overflow = 'hidden'
+      }
+      // Also fix any wrapper divs that function-plot creates
+      const plotDiv = containerRef.current.querySelector('.function-plot')
+      if (plotDiv) {
+        (plotDiv as HTMLElement).style.width = '100%'
+        ;(plotDiv as HTMLElement).style.height = '100%'
+        ;(plotDiv as HTMLElement).style.overflow = 'hidden'
+      }
+
       // Add vertical asymptote lines as SVG overlays
       if (connectedLimits.length > 0 && containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth || effectiveConfig.width
+        const containerHeight = containerRef.current.clientHeight || effectiveConfig.height
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
         svg.setAttribute('style', 'position: absolute; inset: 0; pointer-events: none; z-index: 10;')
-        
+        svg.setAttribute('viewBox', `0 0 ${effectiveConfig.width} ${effectiveConfig.height}`)
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+        svg.style.width = '100%'
+        svg.style.height = '100%'
+
         for (const limit of connectedLimits) {
           const limitX = limit.limitValue
-          
-          // Calculate x position in pixels
+
+          // Calculate x position in viewBox coordinates
           const xRange = effectiveConfig.xAxis.max - effectiveConfig.xAxis.min
-          const xPercent = (limitX - effectiveConfig.xAxis.min) / xRange
-          const xPx = xPercent * effectiveConfig.width
-          
+          const xPx = ((limitX - effectiveConfig.xAxis.min) / xRange) * effectiveConfig.width
+
           // Create asymptote line
           const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
           line.setAttribute('x1', String(xPx))
@@ -889,14 +952,22 @@ export function ChartBlockComponent({
           line.setAttribute('stroke-width', '2')
           line.setAttribute('stroke-dasharray', '5,5')
           line.setAttribute('opacity', '0.7')
-          
+
           svg.appendChild(line)
         }
-        
+
         containerRef.current.appendChild(svg)
       }
     } catch (error) {
-      console.error("Error plotting function:", error, functionData)
+      console.error("Error plotting function:", error, validFunctionData)
+      // Show error message on the canvas
+      if (containerRef.current) {
+        containerRef.current.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ef4444; font-size: 14px;">
+            Error rendering graph: ${error instanceof Error ? error.message : 'Unknown error'}
+          </div>
+        `
+      }
     }
   }, [functionData, effectiveConfig, connectedLimits])
 
@@ -964,6 +1035,36 @@ export function ChartBlockComponent({
         }}
       >
         <style>{`
+          .function-plot-root > div,
+          .function-plot-root > svg {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .function-plot-root svg {
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            vertical-align: top !important;
+          }
+          .function-plot-root .function-plot {
+            width: 100% !important;
+            height: 100% !important;
+          }
+          .function-plot-root .origin,
+          .function-plot-root .fg-graph {
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .function-plot-root .title,
+          .function-plot-root .legend,
+          .function-plot-root text[data-label] {
+            display: none !important;
+          }
           .function-plot-root svg g.axis path,
           .function-plot-root svg g.axis line,
           .function-plot-root svg g.x.axis path,
